@@ -4,8 +4,8 @@
 human-readable YAML inside your Obsidian vault.**
 
 Setlist is one app for several corners of personal health — exercise,
-nutrition, habits, sleep, body, vitals, supplements, caffeine, cannabis,
-chores — tracked through a clean web UI, stored as plain text files you
+nutrition, habits, sleep, body, vitals, supplements, caffeine, chores —
+tracked through a clean web UI, stored as plain text files you
 can read, edit, and back up like any other notes.
 
 ![Overview](docs/screenshots/overview.png)
@@ -33,8 +33,10 @@ with data before logging your own._
 
 ## What you can track
 
-Setlist ships with these sections. You can use any subset — each one is
-optional and shows up as a tab only if you have data or config for it.
+Setlist ships with these sections. Each one is **auto-detected by
+whether its folder exists in your vault** — sections you haven't set
+up simply don't appear in the nav, and optional integrations stay
+hidden until their credentials land.
 
 | Section | What it does | Storage |
 |---|---|---|
@@ -43,12 +45,16 @@ optional and shows up as a tab only if you have data or config for it.
 | **Habits** | Fixed daily checklist bucketed morning / afternoon / evening with 30-day history. | YAML per day |
 | **Chores** | Recurring, deferrable tasks with overdue tracking. | YAML per chore + per completion |
 | **Supplements** | Daily stack checklist with streak history. | YAML per day |
-| **Cannabis** | Session log, strains, capsule inventory. | YAML per session |
 | **Caffeine** | V60s, matcha, time-of-day patterns. | YAML per drink |
 | **Sleep** | Score, stages, trends. | Read-only from Oura / Apple Health |
 | **Body** | Weight, body-fat trends. | Read-only from Withings |
 | **Health** | HRV, resting HR, steps, VO₂ max, active calories. | Read-only from Apple Health |
 | **Insights** | Cross-section correlations and patterns. | Derived |
+
+The core three — Exercise, Nutrition, Habits — ship as starter
+scaffolding under [`examples/vault/Bases/`](examples/vault/Bases/). The
+rest live under [`examples/vault/optional/`](examples/vault/optional/),
+ready to copy into your vault when you want them.
 
 ## Optional integrations
 
@@ -95,6 +101,7 @@ Before committing to your own vault, run Setlist against a disposable
 vault of deterministic fake data:
 
 ```bash
+pip install -r requirements.txt                 # one-time
 npm install                                     # one-time
 npm run seed-demo                               # generates /tmp/setlist-demo-vault
 SETLIST_VAULT=/tmp/setlist-demo-vault \
@@ -122,7 +129,7 @@ cp .env.example .env.local
 # ~/Documents/obsidian/Bases/
 
 # 3. Install
-pip install fastapi uvicorn pyyaml
+pip install -r requirements.txt
 npm install
 
 # 4. Run (two terminals)
@@ -130,9 +137,11 @@ uvicorn main:app --port 4445 --reload        # backend
 npm run dev                                   # frontend → :4444
 ```
 
-Open `http://localhost:4444`. First run shows the launcher; empty
-sections prompt you to add their config YAML (see
-[Customization](#customization)).
+Open `http://localhost:4444`. **First run:** if your vault doesn't exist
+yet, Setlist shows an onboarding screen with two paths — copy the
+starter scaffolding from `examples/vault/Bases/` into a new directory,
+or point `SETLIST_VAULT` at an existing Obsidian vault. Once any
+section folder is present, that section appears in the nav.
 
 ## Configuration
 
@@ -196,7 +205,7 @@ schema, and agent-friendly examples:
 - [`examples/vault/Bases/Nutrition/SKILL.md`](examples/vault/Bases/Nutrition/SKILL.md) — meals, macros
 - [`examples/vault/Bases/Exercise/SKILL.md`](examples/vault/Bases/Exercise/SKILL.md) — training sessions
 - [`examples/vault/Bases/Habits/SKILL.md`](examples/vault/Bases/Habits/SKILL.md) — habit checklist
-- [`examples/vault/optional/Supplements/SKILL.md`](examples/vault/optional/Supplements/SKILL.md), [`Chores`](examples/vault/optional/Chores/SKILL.md), [`Caffeine`](examples/vault/optional/Caffeine/SKILL.md), [`Cannabis`](examples/vault/optional/Cannabis/SKILL.md)
+- [`examples/vault/optional/Supplements/SKILL.md`](examples/vault/optional/Supplements/SKILL.md), [`Chores`](examples/vault/optional/Chores/SKILL.md), [`Caffeine`](examples/vault/optional/Caffeine/SKILL.md)
 
 Point your agent at the one(s) you need. One skill = one section's
 contract; context stays small.
@@ -222,10 +231,10 @@ Most section behavior is driven by YAML you edit directly:
 - **Habit list:** `$SETLIST_VAULT/Habits/habits-config.yaml` — what
   habits appear and in which time-of-day bucket.
 - **Supplement stack:** `$SETLIST_VAULT/Supplements/supplements-config.yaml`
-- **Cannabis inventory:** `$SETLIST_VAULT/Cannabis/cannabis-config.yaml`
 - **Caffeine sources:** `$SETLIST_VAULT/Caffeine/caffeine-config.yaml`
 - **App settings:** `$SETLIST_VAULT/Settings/settings.yaml` — section
-  order, animation preferences, etc. Also editable via the Settings tab.
+  order, animation preferences, fasting/eating window targets, per-section
+  enable/disable. Also editable via the Settings tab.
 - **Session templates** (gym routine): `lib/session-templates.ts` — the
   one holdout still in TypeScript. Edit this file to match your own
   split / equipment. Slated to move to vault YAML in a later release.
@@ -236,6 +245,7 @@ Most section behavior is driven by YAML you edit directly:
 setlist/
   app/                      Next.js App Router pages — one folder per section
   components/               React components — one *-dashboard.tsx per section
+  hooks/                    Shared React hooks (useSections, useSelectedDate, …)
   lib/
     api.ts                  Typed API client
     sections.ts             Section registry (nav, colors, paths)
@@ -243,17 +253,27 @@ setlist/
     macro-targets.ts        Macro helpers (reads from API)
     session-templates.ts    Gym routine templates (TypeScript, user-editable)
     date-utils.ts           Shared date/time helpers
-  main.py                   FastAPI backend — one APIRouter per section
-  scripts/                  One-off data migration and import scripts
+    day-phases.ts           Time-of-day bucketing helpers
+  main.py                   Two-line shim: `from api.app import app`
+  api/
+    app.py                  FastAPI app, CORS, lifespan, router inclusion
+    paths.py                Env-derived filesystem roots
+    parsing.py              YAML-frontmatter helpers
+    routers/                One file per section (exercise, nutrition, habits,
+                            health, settings, sections, meta, …)
+  scripts/                  Migration scripts, demo seeder, screenshot pipeline
+  examples/vault/           Starter scaffolding: Bases/ (core) + optional/
+  skills/                   Top-level agent skills (http-api, adding-a-section)
   docs/                     Schema specs and design notes
 ```
 
 **Frontend:** Next.js App Router + TypeScript + Tailwind + shadcn/ui +
 Recharts. Dev server on port 4444.
 
-**Backend:** FastAPI, single `main.py`, one `APIRouter` per section. Dev
-server on port 4445, hot-reloaded with `--reload`. No database — every
-request re-reads YAML from disk (cheap at personal-scale data volumes).
+**Backend:** FastAPI, entrypoint at `main.py` delegating to `api/app.py`.
+One `APIRouter` per section under `api/routers/`. Dev server on port
+4445, hot-reloaded with `--reload`. No database — every request re-reads
+YAML from disk (cheap at personal-scale data volumes).
 
 **No build step for data.** Edit a YAML file in Obsidian, reload the
 page, changes appear. The Exercise section caches for performance and
@@ -261,19 +281,12 @@ auto-invalidates on file mtime change.
 
 ## Adding your own section
 
-1. Add an entry to `lib/sections.ts` — label, color, path, API base.
-2. Create a YAML config (if the section has fixed-set config) or a
-   `Log/` folder (if it's event-based) under `$SETLIST_VAULT/YourSection/`.
-3. Append an `APIRouter(prefix="/api/your-section")` block at the bottom
-   of `main.py`. Copy the pattern from `habits_router` (fixed-set) or
-   `nutrition_router` (event-based).
-4. Add a client function to `lib/api.ts` under a `// ── YourSection ──`
-   marker.
-5. Create `app/your-section/page.tsx` and `components/your-section-dashboard.tsx`.
-6. `app.include_router(...)` in `main.py`.
-
-`components/habits-dashboard.tsx` and `components/nutrition-dashboard.tsx`
-are the two canonical examples — copy whichever matches your data shape.
+See [`skills/adding-a-section.md`](skills/adding-a-section.md) — a
+step-by-step guide covering the vault layout, the backend router, the
+frontend dashboard, the section registry, and the per-section SKILL.md.
+Four archetypes (per-event log, fixed-set checklist, cadence-based,
+integration-backed); pick the one that matches your data shape and copy
+from the nearest existing section.
 
 ## Scope and limitations
 
@@ -291,17 +304,17 @@ are the two canonical examples — copy whichever matches your data shape.
 **Known holdouts:**
 - Session templates (gym routine) still live in TypeScript — see
   `lib/session-templates.ts`. Moving to vault YAML is tracked.
-- No first-run setup wizard — expect to copy `.env.example` and read
-  this README.
-- No LICENSE file yet — current state is "source-available personal
-  project." A permissive license lands alongside the first public release.
+- Exercise taxonomies (cardio / mobility / core lists) are hardcoded in
+  `api/routers/exercise.py` and mirrored in
+  `components/training-dashboard.tsx`. Planned to move to a
+  per-section config YAML.
 
 ## Contributing
 
-Setlist is a personal project shared publicly. Issues and PRs are
-welcome but I only merge changes that match how I actually use the app.
-For significantly different flavors, **fork freely** — the philosophy
-encourages it.
+Setlist is a personal project shared publicly under the MIT license.
+Issues and PRs are welcome but I only merge changes that match how I
+actually use the app. For significantly different flavors,
+**fork freely** — the philosophy encourages it.
 
 ## Running under `start.sh`
 
