@@ -1,0 +1,281 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import useSWR from "swr";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+
+import {
+  completeChore,
+  getChores,
+  getChoreHistory,
+  type Chore,
+} from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
+import { SectionStatusBar } from "@/components/section-status-bar";
+import { SECTIONS } from "@/lib/sections";
+import { StatCard } from "@/components/stat-card";
+import { TaskGroup, TaskRow } from "@/components/tasks";
+import { shortDate } from "@/lib/date-utils";
+import { useBarAnimation } from "@/hooks/use-bar-animation";
+
+const CHORES_COLOR = SECTIONS.chores.color;
+
+const chartConfig = {
+  metric: { label: "Completions", color: CHORES_COLOR },
+} satisfies ChartConfig;
+
+const HAPTIC = () => {
+  try {
+    navigator.vibrate?.(8);
+  } catch {}
+};
+
+function relativeDate(iso: string | null | undefined, today: string): string {
+  if (!iso) return "—";
+  const [ty, tm, td] = today.split("-").map(Number);
+  const [dy, dm, dd] = iso.split("-").map(Number);
+  const t = new Date(ty!, tm! - 1, td!);
+  const d = new Date(dy!, dm! - 1, dd!);
+  const diff = Math.round((d.getTime() - t.getTime()) / 86400000);
+  if (diff === 0) return "today";
+  if (diff === 1) return "tomorrow";
+  if (diff === -1) return "yesterday";
+  if (diff > 0) return `in ${diff}d`;
+  return `${-diff}d ago`;
+}
+
+function pendingDaysLabel(days: number): string {
+  if (days <= 0) return "";
+  return days === 1 ? "1 day" : `${days} days`;
+}
+
+function choreSublabel(chore: Chore, today: string): { text?: string; tone?: "warn" } {
+  const done = chore.last_completed === today;
+  if (done) return chore.last_completed_time ? { text: chore.last_completed_time } : {};
+  const overdueLabel = pendingDaysLabel(chore.days_overdue);
+  if (overdueLabel) return { text: overdueLabel, tone: "warn" };
+  if (chore.days_overdue < 0) return { text: `due ${relativeDate(chore.due_date, today)}` };
+  return {};
+}
+
+export function ChoresDashboard() {
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const barAnim = useBarAnimation();
+
+  const { data, error, isLoading, mutate } = useSWR(
+    ["chores"],
+    async () => {
+      const [list, history] = await Promise.all([getChores(), getChoreHistory(30)]);
+      return { list, history };
+    },
+    { refreshInterval: 60_000 },
+  );
+
+  const chores = data?.list.chores ?? [];
+  const today = data?.list.today ?? "";
+  const loading = isLoading && !data;
+
+  const { todoList, next7, later, overdueCount, doneTodayCount } = useMemo(() => {
+    const todo: Chore[] = [];
+    const next7: Chore[] = [];
+    const later: Chore[] = [];
+    let overdueCount = 0;
+    let doneTodayCount = 0;
+    for (const c of chores) {
+      const doneToday = c.last_completed === today;
+      if (doneToday) doneTodayCount += 1;
+      // Anything actionable today (overdue / due / just-completed today) stays
+      // in the to-do list until midnight. Matches supplements/habits behaviour.
+      if (c.days_overdue >= 0 || doneToday) {
+        todo.push(c);
+        if (c.days_overdue > 0 && !doneToday) overdueCount += 1;
+      } else if (c.days_overdue >= -7) {
+        next7.push(c);
+      } else {
+        later.push(c);
+      }
+    }
+    // Undone first (most overdue at top), done items sink to the bottom.
+    todo.sort((a, b) => {
+      const aDone = a.last_completed === today ? 1 : 0;
+      const bDone = b.last_completed === today ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+      return b.days_overdue - a.days_overdue;
+    });
+    next7.sort((a, b) => a.due_date.localeCompare(b.due_date));
+    later.sort((a, b) => a.due_date.localeCompare(b.due_date));
+    return { todoList: todo, next7, later, overdueCount, doneTodayCount };
+  }, [chores, today]);
+
+  const total = chores.length;
+  const todoTotal = todoList.length;
+
+  async function onComplete(choreId: string) {
+    if (pending.has(choreId)) return;
+    setPending((p) => new Set(p).add(choreId));
+    HAPTIC();
+    try {
+      await completeChore(choreId);
+      HAPTIC();
+      mutate();
+    } finally {
+      setPending((p) => {
+        const next = new Set(p);
+        next.delete(choreId);
+        return next;
+      });
+    }
+  }
+
+  const chartData = useMemo(
+    () =>
+      (data?.history.daily ?? []).map((d) => ({ date: shortDate(d.date), metric: d.completed })),
+    [data],
+  );
+  const completions30d = useMemo(
+    () => (data?.history.daily ?? []).reduce((s, d) => s + d.completed, 0),
+    [data],
+  );
+
+  return (
+    <main
+      data-section="chores"
+      className="mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 lg:px-8"
+      style={{ overflowX: "hidden" }}
+    >
+      {error && (
+        <Card className="mb-4 border-red-500/30 bg-red-500/10">
+          <CardContent className="py-3 text-sm text-red-700 dark:text-red-300">
+            {error instanceof Error ? error.message : String(error)}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="mb-6 grid min-w-0 gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Today"
+          value={todoTotal ? `${doneTodayCount}/${todoTotal}` : "—"}
+          sublabel={
+            todoTotal ? `${Math.round((doneTodayCount / todoTotal) * 100)}% complete` : "nothing due"
+          }
+          progress={todoTotal ? doneTodayCount / todoTotal : 0}
+          color={CHORES_COLOR}
+        />
+        <StatCard
+          label="Overdue"
+          value={overdueCount}
+          sublabel={overdueCount === 0 ? "all caught up" : "past their due date"}
+          color={overdueCount > 0 ? "hsl(0,70%,55%)" : CHORES_COLOR}
+        />
+        <StatCard label="Last 30 days" value={completions30d} sublabel="completions logged" />
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading chores…</p>
+      ) : total === 0 ? (
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground">
+            No chores configured. Add some in{" "}
+            <a href="/settings/chores" className="underline">
+              Settings → Chores
+            </a>
+            .
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="mb-6 grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {(
+            [
+              {
+                key: "today",
+                title: "Today",
+                emoji: "📋",
+                items: todoList,
+                doneCount: doneTodayCount,
+                collapsible: false,
+                nowBadge: true,
+                emptyHint: "All caught up ✨",
+              },
+              {
+                key: "week",
+                title: "This Week",
+                emoji: "🗓️",
+                items: next7,
+                doneCount: 0,
+                collapsible: true,
+                nowBadge: false,
+                emptyHint: "Nothing due in the next 7 days.",
+              },
+              {
+                key: "later",
+                title: "Later",
+                emoji: "🕰️",
+                items: later,
+                doneCount: 0,
+                collapsible: true,
+                nowBadge: false,
+                emptyHint: "Nothing scheduled further out.",
+              },
+            ] as const
+          ).map((group) => (
+            <TaskGroup
+              key={group.key}
+              title={group.title}
+              emoji={group.emoji}
+              accent={CHORES_COLOR}
+              doneCount={group.doneCount}
+              totalCount={group.items.length}
+              collapsible={group.collapsible}
+              defaultCollapsed={false}
+              nowBadge={group.nowBadge}
+              emptyHint={group.emptyHint}
+            >
+              {group.items.map((c) => {
+                const done = c.last_completed === today;
+                const { text, tone } = choreSublabel(c, today);
+                return (
+                  <TaskRow
+                    key={c.id}
+                    label={c.name}
+                    emoji={c.emoji}
+                    sublabel={text}
+                    sublabelTone={tone}
+                    done={done}
+                    pending={pending.has(c.id)}
+                    accent={CHORES_COLOR}
+                    onClick={() => onComplete(c.id)}
+                  />
+                );
+              })}
+            </TaskGroup>
+          ))}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Last 30 days</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4">
+          <ChartContainer config={chartConfig} className="h-[220px] w-full">
+            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis dataKey="date" tickLine={false} axisLine={false} interval={3} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                domain={[0, "auto"]}
+                width={30}
+                allowDecimals={false}
+              />
+              <Bar dataKey="metric" fill="var(--color-metric)" radius={[4, 4, 0, 0]} {...barAnim} />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      <SectionStatusBar section="chores" />
+    </main>
+  );
+}
