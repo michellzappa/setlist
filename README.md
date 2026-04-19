@@ -9,7 +9,6 @@ tracked through a clean web UI, stored as plain text files you
 can read, edit, and back up like any other notes.
 
 ![Overview](docs/screenshots/overview.png)
-![Nutrition](docs/screenshots/nutrition.png)
 
 _Screenshots show demo data — run `npm run seed-demo` to see the app
 with data before logging your own._

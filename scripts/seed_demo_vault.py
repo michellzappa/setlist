@@ -376,8 +376,17 @@ def seed_settings_and_macros(cfg: SeedConfig) -> None:
     _write_config(cfg.vault / "Settings/settings.yaml", {
         "section_order": [
             "exercise", "nutrition", "habits", "supplements",
-            "sleep", "body", "health",
+            "chores", "caffeine",
         ],
+        # Demo vault has no data for these — hide from nav + home grid so
+        # screenshots don't include empty tiles.
+        "sections": {
+            "groceries": {"enabled": False},
+            "cannabis":  {"enabled": False},
+            "sleep":     {"enabled": False},
+            "body":      {"enabled": False},
+            "health":    {"enabled": False},
+        },
         "animations": {"first_meal": True, "histograms_raise": True},
     })
 

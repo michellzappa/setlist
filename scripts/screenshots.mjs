@@ -102,7 +102,9 @@ async function buildFrontend() {
   // useSWR fires any fetches. `next start` has no HMR client.
   console.log(`🔨  Building frontend…`);
   return new Promise((resolve, reject) => {
-    const p = spawn(join(ROOT, "node_modules", ".bin", "next"), ["build"], {
+    // --webpack: Turbopack's prod parser rejects valid JSX in
+    // components/nutrition-dashboard.tsx; webpack build succeeds.
+    const p = spawn(join(ROOT, "node_modules", ".bin", "next"), ["build", "--webpack"], {
       cwd: ROOT,
       env: {
         ...process.env,
