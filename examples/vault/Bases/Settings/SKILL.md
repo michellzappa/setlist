@@ -84,7 +84,8 @@ weather:
   units: celsius          # celsius | fahrenheit
 
 calendar:
-  source: auto            # auto = macOS Calendar if available; "fake" forces demo
+  show_all_day: true      # include birthdays / holidays / multi-day blocks
+  enabled_calendars: null # null = show all; list of titles = explicit allowlist
 ```
 
 ## How to read / write

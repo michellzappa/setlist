@@ -134,7 +134,7 @@ Per-source skills: [`skills/integrations/sleep.md`](integrations/sleep.md), [`bo
 | Method & Path | Purpose |
 |---|---|
 | `GET /api/weather` | Today's weather if `settings.weather.location` is configured |
-| `GET /api/calendar` | Today's events (macOS Calendar or demo source per settings) |
+| `GET /api/calendar` | Today's + upcoming events from macOS Calendar (returns `{error}` when the helper is unavailable; no fallback data) |
 
 ## Conventions
 
