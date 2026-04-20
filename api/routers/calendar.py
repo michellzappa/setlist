@@ -1,21 +1,24 @@
 """Calendar — today's + upcoming events.
 
-Tries macOS Calendar via `osascript` first (no extra deps, but requires
-the user to grant Calendar access on first run; the prompt comes from
-macOS itself the first time the script runs). Falls back to a small set
-of fake events so the tile still has something to render and the user
-can decide whether to wire up a real source later.
+Reads macOS Calendar via the bundled CalendarHelper.app (see
+`tools/calendar_helper/`). That helper is a tiny Obj-C binary with an
+embedded Info.plist declaring NSCalendarsFullAccessUsageDescription, so
+macOS 14+ can show a proper Calendar-access prompt the first time it
+runs and persist the grant in TCC. The helper writes its JSON output to
+a temp file we pass via `SETLIST_CAL_OUT`.
 
-`source` in settings forces the path:
-- "auto" — try macOS, fall back to fake on any error
-- "fake" — always return demo data (useful when osascript prompts get in the way)
+If the helper is missing or access is denied we return an empty event
+list with an `error` string — never fake data.
 """
 from __future__ import annotations
 
 import json
+import os
 import subprocess
-from datetime import datetime, timedelta
-from typing import Any, Dict, List
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter
 
@@ -24,96 +27,54 @@ from api.routers.settings import _load_settings
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
 
-OSASCRIPT_TIMEOUT = 5.0
-
-# JavaScript for Automation — list events from every Calendar between
-# now and +7 days. Output is a JSON array of {title, start, end, calendar,
-# all_day, location} so the Python side just json.loads().
-_JXA_SCRIPT = r"""
-ObjC.import('Foundation');
-var Calendar = Application('Calendar');
-Calendar.includeStandardAdditions = false;
-var now = new Date();
-var horizon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-var out = [];
-var cals = Calendar.calendars();
-for (var i = 0; i < cals.length; i++) {
-  var cal = cals[i];
-  var events;
-  try {
-    events = cal.events.whose({
-      _and: [
-        { startDate: { _greaterThan: now } },
-        { startDate: { _lessThan: horizon } }
-      ]
-    })();
-  } catch (e) { continue; }
-  for (var j = 0; j < events.length; j++) {
-    var ev = events[j];
-    try {
-      out.push({
-        title: ev.summary(),
-        start: ev.startDate().toISOString(),
-        end: ev.endDate().toISOString(),
-        calendar: cal.name(),
-        all_day: ev.alldayEvent(),
-        location: ev.location() || ""
-      });
-    } catch (e) { /* skip */ }
-  }
-}
-JSON.stringify(out);
-"""
+HELPER_TIMEOUT = 10.0
+REPO_ROOT = Path(__file__).resolve().parents[2]
+HELPER_APP = REPO_ROOT / "tools/calendar_helper/CalendarHelper.app"
 
 
-def _macos_events() -> List[Dict[str, Any]]:
-    """Run the JXA script. Returns [] (and logs a warning) on any error."""
+def _macos_events(days: int = 7) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]], Optional[str]]:
+    """Invoke CalendarHelper.app via `open -W` and read its JSON output.
+    Returns (events, calendars, error). error is None on success."""
+    if not HELPER_APP.exists():
+        return [], [], f"CalendarHelper.app not built — run tools/calendar_helper/build.sh"
+
+    with tempfile.NamedTemporaryFile(prefix="setlist-cal-", suffix=".json", delete=False) as tmp:
+        out_path = tmp.name
     try:
+        env_args = [
+            "--env", f"SETLIST_CAL_OUT={out_path}",
+            "--env", f"SETLIST_CAL_DAYS={days}",
+        ]
         result = subprocess.run(
-            ["osascript", "-l", "JavaScript", "-e", _JXA_SCRIPT],
+            ["/usr/bin/open", "-W", "-g", str(HELPER_APP), *env_args],
             capture_output=True,
             text=True,
-            timeout=OSASCRIPT_TIMEOUT,
+            timeout=HELPER_TIMEOUT,
             check=False,
         )
+        if result.returncode != 0:
+            msg = f"helper exited {result.returncode}: {result.stderr.strip() or 'no stderr'}"
+            logger.info("calendar: %s", msg)
+            return [], [], msg
+        if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+            return [], [], "Calendar access denied — grant access to CalendarHelper in System Settings › Privacy › Calendars"
+        with open(out_path, "r", encoding="utf-8") as fh:
+            payload = json.loads(fh.read() or "{}")
+        # Back-compat: old helper returned a bare list of events.
+        if isinstance(payload, list):
+            return payload, [], None
+        return payload.get("events") or [], payload.get("calendars") or [], None
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-        logger.warning("calendar: osascript unavailable or timed out: %s", exc)
-        return []
-    if result.returncode != 0:
-        logger.info("calendar: osascript exit=%s stderr=%s", result.returncode, result.stderr.strip())
-        return []
-    try:
-        return json.loads(result.stdout or "[]")
+        logger.warning("calendar: helper unavailable or timed out: %s", exc)
+        return [], [], f"helper unavailable: {exc}"
     except json.JSONDecodeError as exc:
-        logger.warning("calendar: osascript output unparseable: %s", exc)
-        return []
-
-
-def _fake_events() -> List[Dict[str, Any]]:
-    """Demo set — three illustrative events spread across today + tomorrow.
-    Always anchored to "now" so the tile shows something useful even on a
-    fresh install. Times use the local timezone (naive isoformat)."""
-    now = datetime.now().replace(microsecond=0, second=0)
-    samples = [
-        ("Standup",          now.replace(hour=10, minute=0),  60, "Work"),
-        ("Lunch w/ Sam",     now.replace(hour=13, minute=0),  60, "Personal"),
-        ("Deep work block",  now.replace(hour=15, minute=0),  90, "Work"),
-        ("Yoga",             (now + timedelta(days=1)).replace(hour=8, minute=0), 60, "Personal"),
-    ]
-    out = []
-    for title, start, mins, cal in samples:
-        if start < now - timedelta(hours=1):
-            start = start + timedelta(days=1)
-        end = start + timedelta(minutes=mins)
-        out.append({
-            "title": title,
-            "start": start.isoformat(),
-            "end": end.isoformat(),
-            "calendar": cal,
-            "all_day": False,
-            "location": "",
-        })
-    return out
+        logger.warning("calendar: helper output unparseable: %s", exc)
+        return [], [], f"helper output unparseable: {exc}"
+    finally:
+        try:
+            os.unlink(out_path)
+        except OSError:
+            pass
 
 
 def _normalize(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -152,24 +113,32 @@ def _normalize(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def calendar_today() -> Dict[str, Any]:
     settings = _load_settings()
     cfg = settings.get("calendar") or {}
-    source = cfg.get("source") or "auto"
+    show_all_day = cfg.get("show_all_day", True)
+    # None / missing = show all; list (even empty) = explicit allowlist.
+    enabled = cfg.get("enabled_calendars")
 
-    used = "fake"
-    events: List[Dict[str, Any]] = []
-    if source != "fake":
-        raw = _macos_events()
-        if raw:
-            events = _normalize(raw)
-            used = "macos"
-    if not events:
-        events = _normalize(_fake_events())
-        used = "fake"
+    raw, calendars, error = _macos_events()
+    events = _normalize(raw) if raw else []
 
-    today = datetime.now().date().isoformat()
-    today_events = [e for e in events if e["start"].startswith(today)]
+    if isinstance(enabled, list):
+        allow = set(enabled)
+        events = [e for e in events if e.get("calendar") in allow]
+    if not show_all_day:
+        events = [e for e in events if not e.get("all_day")]
+
+    today_local = datetime.now().astimezone().date()
+
+    def _is_today(iso: str) -> bool:
+        try:
+            return datetime.fromisoformat(iso).astimezone().date() == today_local
+        except ValueError:
+            return False
+
+    today_events = [e for e in events if _is_today(e["start"])]
     return {
-        "source": used,
-        "today": today,
+        "today": today_local.isoformat(),
         "today_count": len(today_events),
         "events": events,
+        "calendars": calendars,
+        "error": error,
     }

@@ -10,6 +10,8 @@ import { PageHeader } from "@/components/page-header";
 import { SaveRow } from "@/components/save-row";
 import {
   ManageChoresCard,
+  ManageExercisesCard,
+  ManageGroceriesCard,
   ManageHabitsCard,
   ManageSupplementsCard,
 } from "@/components/manage-items";
@@ -147,6 +149,8 @@ export default function SectionSettingsPage() {
           </CardContent>
         </Card>
 
+        {key === "exercise" && <ManageExercisesCard />}
+        {key === "groceries" && <ManageGroceriesCard />}
         {key === "habits" && <ManageHabitsCard />}
         {key === "supplements" && <ManageSupplementsCard />}
         {key === "chores" && <ManageChoresCard />}

@@ -22,6 +22,7 @@ CACHE_DIR = Path(os.environ.get("SETLIST_CACHE_DIR") or Path.home() / ".config/s
 
 # ── Section directories ───────────────────────────────────────────────────
 DATA_DIR = VAULT_ROOT / "Exercise/Log"
+EXERCISE_CONFIG_PATH = VAULT_ROOT / "Exercise/exercise-config.yaml"
 
 NUTRITION_DIR = VAULT_ROOT / "Nutrition/Log"
 MACROS_CONFIG_PATH = VAULT_ROOT / "Nutrition/macros-config.yaml"
@@ -41,6 +42,8 @@ CAFFEINE_DIR = VAULT_ROOT / "Caffeine/Log"
 
 CHORES_DEFS_DIR = VAULT_ROOT / "Chores/Definitions"
 CHORES_LOG_DIR = VAULT_ROOT / "Chores/Log"
+GROCERIES_DIR = VAULT_ROOT / "Groceries"
+GROCERIES_PATH = VAULT_ROOT / "Groceries/groceries.yaml"
 
 SETTINGS_DIR = VAULT_ROOT / "Settings"
 SETTINGS_PATH = SETTINGS_DIR / "settings.yaml"
@@ -65,6 +68,7 @@ _VAULT_FOLDER_SECTIONS: Dict[str, str] = {
     "chores":      "Chores",
     "caffeine":    "Caffeine",
     "cannabis":    "Cannabis",
+    "groceries":   "Groceries",
 }
 
 

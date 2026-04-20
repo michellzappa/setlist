@@ -13,15 +13,34 @@
 // The thresholds mirror main.py:_fasting_windows so live state and the
 // chart agree on what a "last meal of the day" looks like.
 
+import useSWR from "swr";
 import { todayLocalISO } from "@/lib/date-utils";
+import { getSettings, type AppSettings } from "@/lib/api";
 
-export const EVENING_HOUR = 19;
-export const POST_MEAL_GRACE_MIN = 30;
+// Defaults mirror api/routers/settings.py:DEFAULT_SETTINGS["targets"] — the
+// backend is the source of truth; these are only used until settings load.
+export const DEFAULT_EVENING_HOUR_24H = 19;
+export const DEFAULT_POST_MEAL_GRACE_MIN = 30;
+export const DEFAULT_FASTING_TARGET_MIN = 14;
+export const DEFAULT_FASTING_TARGET_MAX = 16;
 
-// Fasting window targets. Backend config in macros-config.yaml overrides
-// these when present (min = floor for "good", max = ceiling for "ideal").
-export const FASTING_TARGET_MIN = 14;
-export const FASTING_TARGET_MAX = 16;
+export type FastingConfig = {
+  /** Hour of day (24h, local) after which a new fasting window starts post-dinner. */
+  eveningHour: number;
+  /** Minutes after last meal before the fasting timer kicks in. */
+  graceMin: number;
+};
+
+/** SWR-backed live-fasting thresholds, read from settings.yaml targets. */
+export function useFastingConfig(): FastingConfig {
+  const { data } = useSWR<AppSettings>("settings", getSettings, {
+    revalidateOnFocus: false,
+  });
+  return {
+    eveningHour: data?.targets?.evening_hour_24h ?? DEFAULT_EVENING_HOUR_24H,
+    graceMin: data?.targets?.post_meal_grace_min ?? DEFAULT_POST_MEAL_GRACE_MIN,
+  };
+}
 
 export type FastingStateInputs = {
   today_latest_meal: string | null;
@@ -52,9 +71,12 @@ function parseHM(hm: string, dayOffset: 0 | 1, now: Date): Date {
 
 export function computeFastingState(
   inputs: FastingStateInputs | null | undefined,
+  config?: FastingConfig,
   now: Date = new Date(),
 ): FastingState {
   if (!inputs) return { state: "fed" };
+  const eveningHour = config?.eveningHour ?? DEFAULT_EVENING_HOUR_24H;
+  const graceMin = config?.graceMin ?? DEFAULT_POST_MEAL_GRACE_MIN;
   const { today_latest_meal, today_meal_count, yesterday_last_meal } = inputs;
 
   // Case A: overnight fast still running — nothing eaten today yet.
@@ -75,11 +97,11 @@ export function computeFastingState(
   }
 
   // Case B: post-dinner, new fast window beginning.
-  if (now.getHours() >= EVENING_HOUR && today_latest_meal) {
+  if (now.getHours() >= eveningHour && today_latest_meal) {
     const then = parseHM(today_latest_meal, 0, now);
     const diffMs = now.getTime() - then.getTime();
     const totalMin = Math.floor(diffMs / 60000);
-    if (totalMin >= POST_MEAL_GRACE_MIN) {
+    if (totalMin >= graceMin) {
       return {
         state: "fasting",
         sinceDay: "today",

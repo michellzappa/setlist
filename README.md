@@ -283,12 +283,24 @@ auto-invalidates on file mtime change.
 
 ## Adding your own section
 
-See [`skills/adding-a-section.md`](skills/adding-a-section.md) — a
-step-by-step guide covering the vault layout, the backend router, the
-frontend dashboard, the section registry, and the per-section SKILL.md.
-Four archetypes (per-event log, fixed-set checklist, cadence-based,
-integration-backed); pick the one that matches your data shape and copy
-from the nearest existing section.
+See [`skills/adding-a-section.md`](skills/adding-a-section.md) — the
+canonical step-by-step guide covering:
+
+- The five archetypes (per-event log, fixed-set checklist,
+  cadence-based, stateful checklist, integration-backed) — pick the
+  one that matches your data shape.
+- Vault layout + universal YAML frontmatter.
+- Backend router + shared parsing helpers from `api/parsing.py`.
+- Registry wiring (`api/paths.py`, `api/routers/sections.py`,
+  `api/routers/settings.py`, `lib/sections.ts`).
+- Dashboard + settings-UI card (DRY pattern — one `ManageXCard` in
+  `components/manage-items.tsx`, no new settings page needed).
+- Per-section `SKILL.md` so agents can log into the section from day
+  one.
+- End-of-work checklist.
+
+Copy from the nearest existing section's router + dashboard rather
+than writing from scratch.
 
 ## Scope and limitations
 
@@ -306,10 +318,11 @@ from the nearest existing section.
 **Known holdouts:**
 - Session templates (gym routine) still live in TypeScript — see
   `lib/session-templates.ts`. Moving to vault YAML is tracked.
-- Exercise taxonomies (cardio / mobility / core lists) are hardcoded in
-  `api/routers/exercise.py` and mirrored in
-  `components/training-dashboard.tsx`. Planned to move to a
-  per-section config YAML.
+- `components/training-dashboard.tsx` still mirrors the exercise-type
+  sets (`CARDIO_EXERCISES`, `MOBILITY_EXERCISES`, `CORE_EXERCISES`)
+  used by `metricKind` to pick the right chart rendering. The backend
+  is fully config-driven via `Bases/Exercise/exercise-config.yaml`;
+  the dashboard will consume it in a follow-up.
 
 ## Contributing
 

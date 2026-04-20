@@ -67,7 +67,7 @@ export function TaskRow({
           <span
             className={cn(
               "block truncate font-medium",
-              muted && !done && "line-through opacity-40",
+              muted && !done && "opacity-70",
             )}
           >
             {label}

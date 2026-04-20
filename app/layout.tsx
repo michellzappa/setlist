@@ -12,6 +12,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { OnboardingGate } from "@/components/onboarding-gate";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Setlist",
   description: "Personal health command center — exercise, nutrition, habits, vitals.",

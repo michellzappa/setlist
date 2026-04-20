@@ -49,7 +49,7 @@ setlist/                              # Next.js frontend :4444
     paths.py                          → VAULT_ROOT / HEALTH_ROOT / section dirs / token paths
     parsing.py                        → _extract_frontmatter, _normalize_date/number, _slugify
     routers/
-      exercise.py                     → in-memory cache + taxonomy + /api/sessions, /api/summary…
+      exercise/                       → package: cache.py (in-memory cache), taxonomy.py (config + grouping), sessions.py (/api/sessions, /api/next-workout…), progression.py (/api/summary, /api/last-entries…)
       nutrition.py                    → /api/nutrition/*
       habits.py                       → /api/habits/*
       supplements.py                  → /api/supplements/*
@@ -83,7 +83,7 @@ Registered keys: `exercise, nutrition, habits, chores, supplements, cannabis, ca
 Exercise routes are unprefixed (they predate the prefixed pattern). Every other section uses `APIRouter(prefix="/api/{section}")`.
 
 ```
-# Exercise  (api/routers/exercise.py)
+# Exercise  (api/routers/exercise/)
 GET  /api/exercises
 GET  /api/progression/{exercise}
 GET  /api/summary[?since=YYYY-MM-DD]
@@ -163,7 +163,7 @@ Only Exercise caches (`_cache`, `fresh_cache` dep); every other router re-reads 
 ### Hardcoded taxonomies
 
 - `api/routers/caffeine.py:CAFFEINE_METHODS`
-- `api/routers/exercise.py:CARDIO_EXERCISES / MOBILITY_EXERCISES / CORE_EXERCISES / LOWER_EXERCISES / LEGACY_ALIASES`
+- `api/routers/exercise/taxonomy.py:_DEFAULT_CARDIO / _DEFAULT_MOBILITY / _DEFAULT_CORE / _DEFAULT_LOWER / _DEFAULT_ALIASES`
 - `components/training-dashboard.tsx:CARDIO_EXERCISES / MOBILITY_EXERCISES / CORE_EXERCISES` (frontend mirror)
 - `lib/sections.ts:EXERCISE_SHADES`
 

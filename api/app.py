@@ -13,6 +13,7 @@ from api.routers import (
     calendar,
     cannabis,
     chores,
+    groceries,
     exercise,
     habits,
     health,
@@ -52,6 +53,7 @@ app.include_router(cannabis.router)
 app.include_router(caffeine.router)
 app.include_router(health.router)
 app.include_router(chores.router)
+app.include_router(groceries.router)
 app.include_router(weather.router)
 app.include_router(calendar.router)
 app.include_router(settings.router)

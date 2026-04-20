@@ -26,6 +26,7 @@ SECTION_IMMUTABLE: Dict[str, Dict[str, str]] = {
     "nutrition":    {"path": "/nutrition",    "apiBase": "/api/nutrition",   "obsidianDir": "Bases/Nutrition/Log"},
     "habits":       {"path": "/habits",       "apiBase": "/api/habits",      "obsidianDir": "Bases/Habits/Log"},
     "chores":       {"path": "/chores",       "apiBase": "/api/chores",      "obsidianDir": "Bases/Chores/Log"},
+    "groceries":    {"path": "/groceries",    "apiBase": "/api/groceries",   "obsidianDir": "Bases/Groceries"},
     "supplements":  {"path": "/supplements",  "apiBase": "/api/supplements", "obsidianDir": "Bases/Supplements/Log"},
     "cannabis":     {"path": "/cannabis",     "apiBase": "/api/cannabis",    "obsidianDir": "Bases/Cannabis/Log"},
     "caffeine":     {"path": "/caffeine",     "apiBase": "/api/caffeine",    "obsidianDir": "Bases/Caffeine/Log"},

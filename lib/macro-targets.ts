@@ -5,8 +5,8 @@
 // Labels and colors stay here — they're design, not user preferences.
 
 import useSWR from "swr";
-import { getMacrosConfig, getSettings, type MacrosConfig, type MacroRange, type AppSettings } from "@/lib/api";
-import { FASTING_TARGET_MIN, FASTING_TARGET_MAX } from "@/lib/fasting";
+import { getSettings, type MacroRange, type AppSettings } from "@/lib/api";
+import { DEFAULT_FASTING_TARGET_MIN, DEFAULT_FASTING_TARGET_MAX } from "@/lib/fasting";
 
 export type MacroKey = "protein" | "fat" | "carbs" | "kcal";
 
@@ -48,11 +48,17 @@ export const FALLBACK_MACRO_TARGETS: MacroTargets = buildTargets(FALLBACK_RANGES
 /** SWR-backed macro targets. Returns the fallback while loading or on
  *  error — rendering never has to branch on `undefined`. */
 export function useMacroTargets(): MacroTargets {
-  const { data } = useSWR<MacrosConfig>("macros-config", getMacrosConfig, {
+  const { data } = useSWR<AppSettings>("settings", getSettings, {
     revalidateOnFocus: false,
   });
-  if (!data) return FALLBACK_MACRO_TARGETS;
-  return buildTargets(data);
+  if (!data?.targets) return FALLBACK_MACRO_TARGETS;
+  const t = data.targets;
+  return buildTargets({
+    protein: { min: t.protein_min_g ?? 130, max: t.protein_max_g ?? 150, unit: "g" },
+    fat:     { min: t.fat_min_g ?? 55,     max: t.fat_max_g ?? 75,     unit: "g" },
+    carbs:   { min: t.carbs_min_g ?? 160,   max: t.carbs_max_g ?? 240,   unit: "g" },
+    kcal:    { min: t.kcal_min ?? 2000,     max: t.kcal_max ?? 2400,     unit: "" },
+  });
 }
 
 /** Format a target range for display: "130-150g". */
@@ -98,5 +104,5 @@ export function useFastingTarget(): FastingRange {
   const min = data?.targets?.fasting_min_h;
   const max = data?.targets?.fasting_max_h;
   if (min != null && max != null) return { min, max };
-  return { min: FASTING_TARGET_MIN, max: FASTING_TARGET_MAX };
+  return { min: DEFAULT_FASTING_TARGET_MIN, max: DEFAULT_FASTING_TARGET_MAX };
 }

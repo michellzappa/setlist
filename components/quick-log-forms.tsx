@@ -119,6 +119,24 @@ const HAPTIC = () => {
   } catch {}
 };
 
+// Revalidate every SWR cache entry whose key (or array-key head) is in the
+// given set. Homepage tiles use `["overview-<section>", date]`, day-view
+// pages use `["<section>", date]`, and the timeline uses
+// `["today-timeline", date]` — a plain-string mutate never matches those,
+// so after any quick-log write we fan out with a filter function.
+function revalidateAfterLog(section: string) {
+  const heads = new Set([
+    `overview-${section}`,
+    section,
+    `quicklog-${section}`,
+    "today-timeline",
+  ]);
+  globalMutate((key) => {
+    const head = Array.isArray(key) ? key[0] : key;
+    return typeof head === "string" && heads.has(head);
+  });
+}
+
 // ── Exercise ─────────────────────────────────────────────────────────────────
 
 const SESSION_ORDER: SessionType[] = ["upper", "lower", "cardio", "yoga"];
@@ -251,8 +269,7 @@ export function NutritionQuickLog({ onDone }: { onDone: () => void }) {
           kcal: entry.kcal ?? 0,
           foods: entry.foods,
         });
-        globalMutate("overview-nutrition");
-        globalMutate("nutrition");
+        revalidateAfterLog("nutrition");
         showToast("Logged again", { description: entry.foods[0] });
         onDone();
       } finally {
@@ -363,8 +380,7 @@ export function CaffeineQuickLog({ onDone }: { onDone: () => void }) {
         beans: beansSel.trim() || null,
         grams: Number.isFinite(gramsNum as number) ? (gramsNum as number) : null,
       });
-      globalMutate("overview-caffeine");
-      globalMutate(["caffeine", today]);
+      revalidateAfterLog("caffeine");
       onDone();
     } finally {
       setSaving(false);
@@ -473,7 +489,7 @@ export function CannabisQuickLog({ onDone }: { onDone: () => void }) {
       // A fresh capsule always starts with the first hit — log a vape
       // session alongside it so use_count reflects reality.
       await addCannabisEntry({ date: today, time: nowHHMM(), method: "vape" });
-      globalMutate("overview-cannabis");
+      revalidateAfterLog("cannabis");
       await mutate();
     } finally {
       setSaving(false);
@@ -485,7 +501,7 @@ export function CannabisQuickLog({ onDone }: { onDone: () => void }) {
     setSaving(true);
     try {
       await addCannabisEntry({ date: today, time, method });
-      globalMutate("overview-cannabis");
+      revalidateAfterLog("cannabis");
       onDone();
     } finally {
       setSaving(false);
@@ -552,7 +568,7 @@ export function HabitsQuickLog() {
       HAPTIC();
       try {
         await toggleHabit(today, habit.id, !habit.done);
-        globalMutate("overview-habits");
+        revalidateAfterLog("habits");
         await mutate();
       } finally {
         setPending((p) => {
@@ -654,7 +670,7 @@ export function SupplementsQuickLog() {
       HAPTIC();
       try {
         await toggleSupplement(today, item.id, !item.done);
-        globalMutate("overview-supplements");
+        revalidateAfterLog("supplements");
         await mutate();
       } finally {
         setPending((p) => {
@@ -717,7 +733,7 @@ export function ChoresQuickLog() {
       HAPTIC();
       try {
         await completeChore(id);
-        globalMutate("overview-chores");
+        revalidateAfterLog("chores");
         await mutate();
       } finally {
         setPending((p) => {

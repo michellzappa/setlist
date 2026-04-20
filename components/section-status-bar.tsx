@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getCaffeineHistory, getCannabisHistory, getChores, getEntries, getHabitHistory, getHealthApple, getHealthOura, getHealthWithings, getNutritionEntries, getNutritionStats, getStats, getSupplementHistory, type Stats } from "@/lib/api";
+import { getCaffeineHistory, getCalendar, getCannabisHistory, getChores, getEntries, getGroceries, getHabitHistory, getHealthApple, getHealthOura, getHealthWithings, getNutritionEntries, getNutritionStats, getStats, getSupplementHistory, getWeather, type Stats } from "@/lib/api";
 import { computeStreak } from "@/lib/date-utils";
 import { SECTIONS } from "@/lib/sections";
 import { useAppConfig } from "@/lib/app-config";
@@ -121,6 +121,39 @@ export function SectionStatusBar({ section }: { section: SectionKey }) {
           const lastDate = withings?.withings?.filter((r: any) => r.weight_kg != null).at(-1)?.date;
           const line1 = `${days} weigh-ins (30d)`;
           const line2 = `Last: ${relativeTime(lastDate)} · Source: Withings Scale`;
+          setData({ line1, line2, color });
+        } else if (section === "calendar") {
+          const cal = await getCalendar();
+          const total = cal.events?.length ?? 0;
+          const line1 = cal.error
+            ? "Calendar unavailable"
+            : `${cal.today_count ?? 0} today · ${total} upcoming (7d)`;
+          const line2 = cal.error ?? "Source: macOS Calendar (EventKit)";
+          setData({ line1, line2, color });
+        } else if (section === "weather") {
+          const w = await getWeather().catch(() => null);
+          if (w) {
+            const loc = w.location?.split(",")[0]?.trim() || "—";
+            const now = w.current?.temperature != null
+              ? `${Math.round(w.current.temperature)}${w.temp_unit ?? ""}`
+              : "—";
+            const line1 = `${loc} · ${now}`;
+            const line2 = "Source: Open-Meteo (no auth, public API)";
+            setData({ line1, line2, color });
+          } else {
+            setData({
+              line1: "No location configured",
+              line2: "Set a city in Settings to see weather",
+              color,
+            });
+          }
+        } else if (section === "groceries") {
+          const g = await getGroceries();
+          const total = g.items?.length ?? 0;
+          const low = g.items?.filter((i) => i.low && !i.bought).length ?? 0;
+          const cart = g.items?.filter((i) => i.bought).length ?? 0;
+          const line1 = `${total} items · ${low} low · ${cart} in cart`;
+          const line2 = `Obsidian: ${vault}/Groceries/`;
           setData({ line1, line2, color });
         } else if (section === "sleep") {
           const [oura] = await Promise.all([

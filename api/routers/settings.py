@@ -50,7 +50,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         },
     ],
     "section_order": [
-        "exercise", "nutrition", "habits", "chores", "supplements",
+        "exercise", "nutrition", "habits", "chores", "groceries", "supplements",
         "cannabis", "caffeine", "health", "sleep", "body",
         "weather", "calendar",
     ],
@@ -67,12 +67,26 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "kcal_max": 2400,
         "z2_weekly_min": 150,
         "sleep_target_h": 8,
+        "fasting_min_h": 14,
+        "fasting_max_h": 16,
+        # Hour of the day (24h) after which a new fasting window is
+        # considered to have begun post-dinner. Users who eat late
+        # should push this later.
+        "evening_hour_24h": 19,
+        # Grace period in minutes after the last eating event before
+        # the live fasting timer starts ticking.
+        "post_meal_grace_min": 30,
     },
     "units": {
         "weight": "kg",    # kg | lb
         "distance": "km",  # km | mi
     },
     "theme": "system",     # system | light | dark
+    # Brand accent used for the favicon / PWA icon dots and manifest theme_color.
+    # Served dynamically by app/icon.svg/route.ts + app/manifest.json/route.ts,
+    # so changing this updates both the browser tab icon and the iOS home-screen
+    # icon without a rebuild. Any CSS-legal color string works.
+    "icon_color": "#ff6600",
     "mini_stats": {},      # per-section two-stat picker; empty = card defaults
     "animations": {
         "exercise_complete": True,   # confetti on session-done page
@@ -97,6 +111,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "chores":       {"label": "Chores",       "emoji": "🧹", "color": "hsl(200,45%,50%)",  "tagline": "Recurring tasks, deferrable"},
         "supplements":  {"label": "Supplements",  "emoji": "💊", "color": "hsl(340,70%,50%)",  "tagline": "Daily stack & streaks"},
         "cannabis":     {"label": "Cannabis",     "emoji": "🌿", "color": "hsl(145,55%,38%)",  "tagline": "Log sessions, strains & usage"},
+        "groceries":    {"label": "Groceries",   "emoji": "🛒", "color": "hsl(142,55%,38%)",  "tagline": "Smart grocery checklist"},
         "caffeine":     {"label": "Caffeine",     "emoji": "☕", "color": "hsl(22,55%,32%)",   "tagline": "V60s, matcha & time of day"},
         "health":       {"label": "Health",       "emoji": "💓", "color": "hsl(270,60%,55%)",  "tagline": "HRV, weight & vitals"},
         "sleep":        {"label": "Sleep",        "emoji": "🌙", "color": "hsl(230,55%,55%)",  "tagline": "Score, stages & trends"},
@@ -114,7 +129,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "units": "celsius",    # celsius | fahrenheit
     },
     "calendar": {
-        "source": "auto",      # auto = try macOS Calendar then fake; "fake" forces demo
+        "show_all_day": True,       # include all-day events (birthdays, holidays, multi-day)
+        "enabled_calendars": None,  # None = show all; list of names = explicit allowlist
     },
 }
 
@@ -149,6 +165,15 @@ def _save_settings(merged: Dict[str, Any]) -> None:
     SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
     body = yaml.safe_dump(merged, sort_keys=False, allow_unicode=True)
     SETTINGS_PATH.write_text(body, encoding="utf-8")
+
+
+def load_targets() -> Dict[str, Any]:
+    """Return the merged `targets` block (defaults + user overrides)."""
+    merged = _load_settings()
+    t = merged.get("targets")
+    if not isinstance(t, dict):
+        return dict(DEFAULT_SETTINGS["targets"])
+    return {**DEFAULT_SETTINGS["targets"], **t}
 
 
 def load_day_phases() -> list[Dict[str, Any]]:

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { useTheme } from "next-themes";
 import useSWR, { mutate as globalMutate } from "swr";
 import { useSections } from "@/hooks/use-sections";
@@ -9,24 +10,25 @@ import {
   type AppSettings,
   type AppTheme,
   type DayPhase,
+  getCalendar,
   getChores,
   getHabitConfig,
   getSettings,
   getSupplementConfig,
   saveSettings,
 } from "@/lib/api";
-import { SECTIONS, type SectionKey } from "@/lib/sections";
+import { SECTIONS, SECTION_LIST, type SectionKey } from "@/lib/sections";
 import { DEFAULT_DAY_PHASES } from "@/lib/day-phases";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { SaveRow } from "@/components/save-row";
 import { cn } from "@/lib/utils";
 
-const SECTION_KEYS: SectionKey[] = [
-  "exercise", "nutrition", "habits", "chores", "supplements",
-  "cannabis", "caffeine", "health", "sleep", "body",
-  "weather", "calendar",
-];
+// Derived from the section registry so new sections show up automatically.
+// "correlations" lives on the homepage action row, not the nav settings list.
+const SECTION_KEYS: SectionKey[] = SECTION_LIST
+  .map((s) => s.key)
+  .filter((k) => k !== "correlations");
 
 // Shared input styling — consistent width so value columns align across rows.
 const NUM_INPUT_CLASS =
@@ -199,6 +201,91 @@ function Pill<T extends string>({
   );
 }
 
+function CalendarConfigCard({
+  showAllDay,
+  enabledCalendars,
+  onChange,
+}: {
+  showAllDay: boolean;
+  enabledCalendars: string[] | null;
+  onChange: (p: Partial<AppSettings["calendar"]>) => void;
+}) {
+  const { data } = useSWR("settings-calendar-list", getCalendar, {
+    shouldRetryOnError: false,
+  });
+  const color = SECTIONS.calendar.color;
+  const cals = data?.calendars ?? [];
+
+  const isEnabled = (title: string) =>
+    enabledCalendars === null ? true : enabledCalendars.includes(title);
+
+  const toggleCal = (title: string, next: boolean) => {
+    // First toggle off materializes the allowlist from the full set.
+    const base = enabledCalendars ?? cals.map((c) => c.title);
+    const updated = next ? [...base, title] : base.filter((t) => t !== title);
+    const all = cals.map((c) => c.title);
+    // If every calendar is selected, collapse back to `null` (= show all).
+    const collapsed = all.length > 0 && all.every((t) => updated.includes(t)) ? null : updated;
+    onChange({ enabled_calendars: collapsed });
+  };
+
+  // Group by source (iCloud, Gmail, etc.) for readability.
+  const grouped = cals.reduce<Record<string, typeof cals>>((acc, c) => {
+    (acc[c.source || "Other"] ??= []).push(c);
+    return acc;
+  }, {});
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Calendar</CardTitle>
+        <p className="text-xs text-muted-foreground">What shows up in the calendar tile.</p>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y divide-border/60">
+          <ToggleRow
+            label="All-day events"
+            description="Include birthdays, holidays, and multi-day blocks."
+            checked={showAllDay}
+            onChange={(v) => onChange({ show_all_day: v })}
+            color={color}
+          />
+        </div>
+
+        {data?.error ? (
+          <p className="mt-4 text-sm text-muted-foreground">{data.error}</p>
+        ) : cals.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">Loading calendars…</p>
+        ) : (
+          <div className="mt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Show calendars
+            </p>
+            <div className="mt-2 space-y-4">
+              {Object.entries(grouped).map(([source, items]) => (
+                <div key={source}>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{source}</p>
+                  <div className="mt-1 divide-y divide-border/60">
+                    {items.map((c) => (
+                      <ToggleRow
+                        key={`${source}-${c.title}`}
+                        label={c.title}
+                        checked={isEnabled(c.title)}
+                        onChange={(v) => toggleCal(c.title, v)}
+                        color={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsDashboard() {
   const { setTheme } = useTheme();
   const sectionsMeta = useSections();
@@ -221,8 +308,19 @@ export function SettingsDashboard() {
       // hasn't been restarted with the new DEFAULT_SETTINGS — keeps the
       // editor from rendering an empty card on stale servers, and the
       // first save writes the phases out to settings.yaml.
+      // Append any known section keys missing from the persisted order.
+      // Older settings.yaml files predate newer sections (weather, calendar,
+      // groceries) — without this merge they'd never appear in the settings
+      // list until the user manually edited YAML. SECTION_KEYS is the code-
+      // side source of truth, so new sections auto-show here on next load.
+      const persisted = data.section_order ?? [];
+      const mergedOrder: SectionKey[] = [
+        ...persisted.filter((k): k is SectionKey => SECTION_KEYS.includes(k as SectionKey)),
+        ...SECTION_KEYS.filter((k) => !persisted.includes(k)),
+      ];
       const hydrated: AppSettings = {
         ...data,
+        section_order: mergedOrder,
         day_phases: data.day_phases?.length ? data.day_phases : DEFAULT_DAY_PHASES,
       };
       setDraft(hydrated);
@@ -241,6 +339,11 @@ export function SettingsDashboard() {
 
   const patchAnimations = useCallback((p: Partial<AppSettings["animations"]>) => {
     setDraft((d) => (d ? { ...d, animations: { ...d.animations, ...p } } : d));
+    setSaved(false);
+  }, []);
+
+  const patchCalendar = useCallback((p: Partial<AppSettings["calendar"]>) => {
+    setDraft((d) => (d ? { ...d, calendar: { ...d.calendar, ...p } } : d));
     setSaved(false);
   }, []);
 
@@ -407,7 +510,7 @@ export function SettingsDashboard() {
                           !enabled && "text-muted-foreground",
                         )}
                       >
-                        {enabled ? "👁" : "🚫"}
+                        {enabled ? <Eye size={16} /> : <EyeOff size={16} />}
                       </button>
                       <button
                         type="button"
@@ -624,6 +727,28 @@ export function SettingsDashboard() {
               }}
               color={accent}
             />
+            <label className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+              <span className="text-sm">
+                Icon Color
+                <span className="ml-1 text-xs text-muted-foreground">
+                  favicon + iOS home-screen icon
+                </span>
+              </span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={draft.icon_color}
+                  onChange={(e) => patch({ icon_color: e.target.value })}
+                  className="h-8 w-10 cursor-pointer rounded border border-input bg-background"
+                />
+                <input
+                  type="text"
+                  value={draft.icon_color}
+                  onChange={(e) => patch({ icon_color: e.target.value })}
+                  className="w-28 rounded-lg border border-input bg-background px-2 py-1.5 text-sm tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            </label>
           </CardContent>
         </Card>
 
@@ -662,6 +787,15 @@ export function SettingsDashboard() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Calendar config — only relevant when the calendar tile is enabled. */}
+        {(draft.sections?.calendar?.enabled ?? false) && (
+          <CalendarConfigCard
+            showAllDay={draft.calendar?.show_all_day ?? true}
+            enabledCalendars={draft.calendar?.enabled_calendars ?? null}
+            onChange={patchCalendar}
+          />
         )}
 
         {/* Animations */}

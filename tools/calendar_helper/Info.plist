@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.setlist.calendar-helper</string>
+    <key>CFBundleName</key>
+    <string>Setlist Calendar Helper</string>
+    <key>CFBundleExecutable</key>
+    <string>calendar_helper</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSBackgroundOnly</key>
+    <true/>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Setlist reads your upcoming calendar events to show them on the dashboard.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Setlist reads your upcoming calendar events to show them on the dashboard.</string>
+</dict>
+</plist>

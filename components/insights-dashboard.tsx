@@ -10,6 +10,8 @@ import {
   getEntries,
   getCannabisHistory,
   getNutritionStats,
+  getCaffeineSessions,
+  getHabitHistory,
 } from "@/lib/api";
 import { SECTIONS } from "@/lib/sections";
 
@@ -185,13 +187,15 @@ function InsightChart({ title, xLabel, yLabel, data, color, xUnit, yUnit, yDomai
 
 export function InsightsDashboard() {
   const { data, isLoading } = useSWR("insights", async () => {
-    const [health, entries, cannabis, nutrition] = await Promise.all([
+    const [health, entries, cannabis, nutrition, caffeine, habits] = await Promise.all([
       getHealthCombined(30),
       getEntries(),
       getCannabisHistory(30),
       getNutritionStats(30),
+      getCaffeineSessions(30),
+      getHabitHistory(30),
     ]);
-    return { health, entries, cannabis, nutrition };
+    return { health, entries, cannabis, nutrition, caffeine, habits };
   }, { refreshInterval: 60_000 });
 
   const loading = isLoading && !data;
@@ -203,11 +207,53 @@ export function InsightsDashboard() {
     return map;
   }, [data?.health?.oura]);
 
-  const withingsByDate = useMemo(() => {
+  const appleByDate = useMemo(() => {
     const map = new Map<string, any>();
-    for (const r of data?.health?.withings ?? []) if (r.weight_kg != null) map.set(r.date, r);
+    for (const r of data?.health?.apple ?? []) map.set(r.date, r);
     return map;
-  }, [data?.health?.withings]);
+  }, [data?.health?.apple]);
+
+  // Last caffeine hour per day (decimal hours). Days without a logged
+  // session are absent — don't coerce to 0.
+  const lastCaffeineHourByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of data?.caffeine?.sessions ?? []) {
+      const [hh, mm] = s.time.split(":").map(Number);
+      const hr = hh + (mm || 0) / 60;
+      const cur = map.get(s.date);
+      if (cur == null || hr > cur) map.set(s.date, hr);
+    }
+    return map;
+  }, [data?.caffeine?.sessions]);
+
+  // Last-meal hour per day from nutrition fasting windows.
+  const lastMealHourByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const f of data?.nutrition?.fasting ?? []) {
+      if (!f.last_meal) continue;
+      const [hh, mm] = f.last_meal.split(":").map(Number);
+      map.set(f.date, hh + (mm || 0) / 60);
+    }
+    return map;
+  }, [data?.nutrition?.fasting]);
+
+  // Fasting window hours per day.
+  const fastingHoursByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const f of data?.nutrition?.fasting ?? []) {
+      if (f.hours != null && f.note !== "gap") map.set(f.date, f.hours);
+    }
+    return map;
+  }, [data?.nutrition?.fasting]);
+
+  // Habit completion percent per day.
+  const habitPctByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of data?.habits?.daily ?? []) {
+      if (d.total > 0) map.set(d.date, d.percent);
+    }
+    return map;
+  }, [data?.habits?.daily]);
 
   // Training volume per day (total sets × reps × weight for strength)
   const trainingByDate = useMemo(() => {
@@ -258,16 +304,19 @@ export function InsightsDashboard() {
     return points;
   }, [ouraByDate, trainingByDate]);
 
-  // 2. Cannabis sessions vs sleep score (same night)
+  // 2. Cannabis sessions vs sleep score (same night). Only include days
+  // where cannabis was actually logged — tracking is sparse, so a missing
+  // entry means "unknown", not zero. Collapsing the unknowns to x=0 used to
+  // pile up a false zero-cluster and bias the regression.
   const sleepVsCannabis = useMemo(() => {
     const points: { x: number; y: number; date: string }[] = [];
     for (const [date, oura] of ouraByDate) {
       if (oura.sleep_score == null) continue;
-      // Cannabis use from the day before (evening use → that night's sleep)
       const prev = new Date(date + "T00:00:00");
       prev.setDate(prev.getDate() - 1);
       const prevISO = prev.toISOString().slice(0, 10);
-      const sessions = cannabisByDate.get(prevISO) ?? 0;
+      const sessions = cannabisByDate.get(prevISO);
+      if (sessions == null) continue;
       points.push({ x: sessions, y: oura.sleep_score, date });
     }
     return points;
@@ -289,18 +338,22 @@ export function InsightsDashboard() {
     return points;
   }, [ouraByDate, proteinByDate]);
 
-  // 4. Training volume vs weight change
-  const weightVsTraining = useMemo(() => {
+  // 4. Sleep score → next-day training volume. Flip of chart 1 — tests the
+  // recovery→output direction which is the more actionable framing.
+  const trainingVsSleep = useMemo(() => {
     const points: { x: number; y: number; date: string }[] = [];
-    for (const [date, w] of withingsByDate) {
-      if (w.weight_kg == null) continue;
-      const vol = trainingByDate.get(date);
+    for (const [date, oura] of ouraByDate) {
+      if (oura.sleep_score == null) continue;
+      const next = new Date(date + "T00:00:00");
+      next.setDate(next.getDate() + 1);
+      const nextISO = next.toISOString().slice(0, 10);
+      const vol = trainingByDate.get(nextISO);
       if (vol != null && vol > 0) {
-        points.push({ x: vol / 1000, y: w.weight_kg, date });
+        points.push({ x: oura.sleep_score, y: vol / 1000, date: nextISO });
       }
     }
     return points;
-  }, [withingsByDate, trainingByDate]);
+  }, [ouraByDate, trainingByDate]);
 
   // 5. Sleep total hours vs HRV
   const hrvVsSleep = useMemo(() => {
@@ -312,7 +365,7 @@ export function InsightsDashboard() {
     return points;
   }, [ouraByDate]);
 
-  // 6. Cannabis vs HRV
+  // 6. Cannabis vs HRV — same zero-inflation fix as sleepVsCannabis.
   const hrvVsCannabis = useMemo(() => {
     const points: { x: number; y: number; date: string }[] = [];
     for (const [date, oura] of ouraByDate) {
@@ -320,11 +373,84 @@ export function InsightsDashboard() {
       const prev = new Date(date + "T00:00:00");
       prev.setDate(prev.getDate() - 1);
       const prevISO = prev.toISOString().slice(0, 10);
-      const sessions = cannabisByDate.get(prevISO) ?? 0;
+      const sessions = cannabisByDate.get(prevISO);
+      if (sessions == null) continue;
       points.push({ x: sessions, y: oura.hrv, date });
     }
     return points;
   }, [ouraByDate, cannabisByDate]);
+
+  // 7. Last-caffeine hour → sleep score (same night). Later last-dose
+  // should tank sleep if the signal is there.
+  const sleepVsCaffeineHour = useMemo(() => {
+    const points: { x: number; y: number; date: string }[] = [];
+    for (const [date, oura] of ouraByDate) {
+      if (oura.sleep_score == null) continue;
+      const prev = new Date(date + "T00:00:00");
+      prev.setDate(prev.getDate() - 1);
+      const prevISO = prev.toISOString().slice(0, 10);
+      const hr = lastCaffeineHourByDate.get(prevISO);
+      if (hr == null) continue;
+      points.push({ x: hr, y: oura.sleep_score, date });
+    }
+    return points;
+  }, [ouraByDate, lastCaffeineHourByDate]);
+
+  // 8. Fasting window hours → readiness.
+  const readinessVsFasting = useMemo(() => {
+    const points: { x: number; y: number; date: string }[] = [];
+    for (const [date, oura] of ouraByDate) {
+      if (oura.readiness_score == null) continue;
+      const hrs = fastingHoursByDate.get(date);
+      if (hrs == null) continue;
+      points.push({ x: hrs, y: oura.readiness_score, date });
+    }
+    return points;
+  }, [ouraByDate, fastingHoursByDate]);
+
+  // 9. Apple exercise minutes → resting HR (next day). Zone-2/cardio
+  // adaptation shows up as lower morning RHR.
+  const rhrVsExercise = useMemo(() => {
+    const points: { x: number; y: number; date: string }[] = [];
+    for (const [date, oura] of ouraByDate) {
+      if (oura.resting_hr == null) continue;
+      const prev = new Date(date + "T00:00:00");
+      prev.setDate(prev.getDate() - 1);
+      const prevISO = prev.toISOString().slice(0, 10);
+      const apple = appleByDate.get(prevISO);
+      const mins = apple?.exercise_min;
+      if (mins == null || mins <= 0) continue;
+      points.push({ x: mins, y: oura.resting_hr, date });
+    }
+    return points;
+  }, [ouraByDate, appleByDate]);
+
+  // 10. Last-meal hour → sleep score.
+  const sleepVsLastMeal = useMemo(() => {
+    const points: { x: number; y: number; date: string }[] = [];
+    for (const [date, oura] of ouraByDate) {
+      if (oura.sleep_score == null) continue;
+      const prev = new Date(date + "T00:00:00");
+      prev.setDate(prev.getDate() - 1);
+      const prevISO = prev.toISOString().slice(0, 10);
+      const hr = lastMealHourByDate.get(prevISO);
+      if (hr == null) continue;
+      points.push({ x: hr, y: oura.sleep_score, date });
+    }
+    return points;
+  }, [ouraByDate, lastMealHourByDate]);
+
+  // 11. Habit completion % → readiness.
+  const readinessVsHabits = useMemo(() => {
+    const points: { x: number; y: number; date: string }[] = [];
+    for (const [date, oura] of ouraByDate) {
+      if (oura.readiness_score == null) continue;
+      const pct = habitPctByDate.get(date);
+      if (pct == null) continue;
+      points.push({ x: pct, y: oura.readiness_score, date });
+    }
+    return points;
+  }, [ouraByDate, habitPctByDate]);
 
   if (loading) {
     return (
@@ -396,13 +522,62 @@ export function InsightsDashboard() {
         />
 
         <InsightChart
-          title="Training volume → Weight"
-          xLabel="Volume"
-          yLabel="Weight"
-          xUnit="k"
-          yUnit="kg"
-          data={weightVsTraining}
-          color={SECTIONS.body.color}
+          title="Sleep score → Next-day training"
+          xLabel="Sleep"
+          yLabel="Volume"
+          yUnit="k"
+          data={trainingVsSleep}
+          color={SECTIONS.exercise.color}
+        />
+
+        <InsightChart
+          title="Last caffeine (hr) → Sleep score"
+          xLabel="Last caffeine"
+          yLabel="Sleep"
+          xUnit="h"
+          data={sleepVsCaffeineHour}
+          color={SECTIONS.caffeine.color}
+          yDomain={[50, 100]}
+        />
+
+        <InsightChart
+          title="Fasting window → Readiness"
+          xLabel="Fasting"
+          yLabel="Readiness"
+          xUnit="h"
+          data={readinessVsFasting}
+          color={SECTIONS.nutrition.color}
+          yDomain={[50, 100]}
+        />
+
+        <InsightChart
+          title="Exercise minutes → Resting HR"
+          xLabel="Exercise"
+          yLabel="RHR"
+          xUnit="min"
+          yUnit="bpm"
+          data={rhrVsExercise}
+          color={SECTIONS.exercise.color}
+        />
+
+        <InsightChart
+          title="Last meal (hr) → Sleep score"
+          xLabel="Last meal"
+          yLabel="Sleep"
+          xUnit="h"
+          data={sleepVsLastMeal}
+          color={SECTIONS.nutrition.color}
+          yDomain={[50, 100]}
+        />
+
+        <InsightChart
+          title="Habit completion → Readiness"
+          xLabel="Habits"
+          yLabel="Readiness"
+          xUnit="%"
+          data={readinessVsHabits}
+          color={SECTIONS.habits.color}
+          yDomain={[50, 100]}
         />
       </div>
     </main>

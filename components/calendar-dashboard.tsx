@@ -3,8 +3,8 @@
 import useSWR from "swr";
 import { getCalendar, type CalendarEvent } from "@/lib/api";
 import { SECTIONS } from "@/lib/sections";
-import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionStatusBar } from "@/components/section-status-bar";
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", {
@@ -22,10 +22,17 @@ function fmtDate(iso: string): string {
   });
 }
 
+function localDay(iso: string): string {
+  const d = new Date(iso);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function groupByDay(events: CalendarEvent[]): Record<string, CalendarEvent[]> {
   const out: Record<string, CalendarEvent[]> = {};
   for (const ev of events) {
-    const day = ev.start.slice(0, 10);
+    const day = localDay(ev.start);
     (out[day] ??= []).push(ev);
   }
   return out;
@@ -42,20 +49,17 @@ export function CalendarDashboard() {
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-4 py-6 pb-24 sm:px-6 sm:pb-6">
-      <PageHeader
-        title="Calendar"
-        emoji={SECTIONS.calendar.emoji}
-        color={color}
-        subtitle={
-          data?.source === "fake"
-            ? "Showing demo data — grant Calendar.app access to see real events."
-            : "Today and the next 7 days."
-        }
-      />
-
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
-      {!isLoading && days.length === 0 && (
+      {!isLoading && data?.error && (
+        <Card>
+          <CardContent className="py-6">
+            <p className="text-sm text-muted-foreground">{data.error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && !data?.error && days.length === 0 && (
         <Card>
           <CardContent className="py-6">
             <p className="text-sm text-muted-foreground">No upcoming events.</p>
@@ -87,6 +91,8 @@ export function CalendarDashboard() {
           </Card>
         ))}
       </div>
+
+      <SectionStatusBar section="calendar" />
     </main>
   );
 }

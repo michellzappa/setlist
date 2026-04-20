@@ -4,8 +4,9 @@ import Link from "next/link";
 import useSWR from "swr";
 import { getWeather } from "@/lib/api";
 import { SECTIONS } from "@/lib/sections";
-import { PageHeader } from "@/components/page-header";
+import { usePageHeaderSubtitle } from "@/components/page-header-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionStatusBar } from "@/components/section-status-bar";
 
 export function WeatherDashboard() {
   const { data, isLoading, error } = useSWR("weather-page", getWeather, {
@@ -13,16 +14,10 @@ export function WeatherDashboard() {
     shouldRetryOnError: false,
   });
   const color = SECTIONS.weather.color;
+  usePageHeaderSubtitle("weather", data?.location?.split(",")[0]?.trim() ?? null);
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-4 py-6 pb-24 sm:px-6 sm:pb-6">
-      <PageHeader
-        title="Weather"
-        emoji={SECTIONS.weather.emoji}
-        color={color}
-        subtitle={data?.location?.split(",")[0]?.trim() ?? "Configure your city in Settings"}
-      />
-
       {error || (!isLoading && !data) ? (
         <Card>
           <CardContent className="py-6">
@@ -78,6 +73,8 @@ export function WeatherDashboard() {
           </Card>
         </div>
       )}
+
+      <SectionStatusBar section="weather" />
     </main>
   );
 }

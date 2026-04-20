@@ -101,7 +101,7 @@ function NutritionDashboardInner() {
       )}
 
       {!loading && (
-        <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-3">
+        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-6">
         <StatCard
           label="Protein"
           value={todayProtein > 0 ? Math.round(todayProtein) : null}
@@ -155,6 +155,7 @@ function NutritionDashboardInner() {
       <RecentEntriesList
         entries={recentEntries}
         fasting={stats?.fasting ?? []}
+        daily={stats?.daily ?? []}
         loading={loading}
         todayMealCount={todayEntries.length}
         onDuplicated={() => mutate()}
@@ -245,10 +246,103 @@ function BreakFastCelebration({ onDone }: { onDone: () => void }) {
 
 // ── Recent entries list ───────────────────────────────────────────────────────
 
-function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplicated, onBreakFast }: {
+
+
+function MiniMacroBar({ protein, fat, carbs, fiber, kcal, maxKcal = 1 }: { protein: number; fat: number; carbs: number; fiber: number; kcal: number; maxKcal?: number }) {
+  const targets = useMacroTargets();
+  const fiberTarget = useFiberTarget();
+  const P = targets.protein.color;
+  const F = targets.fat.color;
+  const C = targets.carbs.color;
+  const FB = fiberTarget.color;
+  const proteinCal = protein * 4;
+  const fatCal = fat * 9;
+  const carbsCal = carbs * 4;
+  const fiberCal = fiber * 2; // fiber ~2kcal/g
+  const total = kcal || (proteinCal + fatCal + carbsCal + fiberCal);
+  const w = total > 0 ? Math.max(4, Math.round((total / maxKcal) * 100)) : 4;
+  if (total === 0) return <div className="h-2.5 w-1 shrink-0 rounded-full bg-muted" />;
+  const pw = (proteinCal / total) * 100;
+  const fw = (fatCal / total) * 100;
+  const cw = (carbsCal / total) * 100;
+  const fbw = (fiberCal / total) * 100;
+  // Ensure fiber always gets at least 2px so it's visible
+  const fbPx = fiber > 0 ? Math.max(2, Math.round((fiberCal / total) * w)) : 0;
+  const macroW = w - fbPx;
+  return (
+    <div
+      className="shrink-0 overflow-hidden rounded-full"
+      style={{ width: w, height: 10, minWidth: 4 }}
+      title={`${Math.round(pw)}%P ${Math.round(fw)}%F ${Math.round(cw)}%C ${Math.round(fbw)}%Fb · ${Math.round(total)}kcal`}
+    >
+      <div className="flex h-full w-full">
+        <div style={{ width: macroW > 0 ? macroW : 0, backgroundColor: P }} className="overflow-hidden">
+          <div className="flex h-full">
+            <div style={{ width: `${pw}%`, backgroundColor: P }} />
+            <div style={{ width: `${fw}%`, backgroundColor: F }} />
+            <div style={{ width: `${cw}%`, backgroundColor: C }} />
+          </div>
+        </div>
+        {fiber > 0 && <div style={{ width: fbPx, backgroundColor: FB, minWidth: 2 }} />}
+      </div>
+    </div>
+  );
+}
+
+function MacroWeekStrip({ totalsByDate }: {
+  totalsByDate: Map<string, { protein: number; fat: number; carbs: number; fiber: number; kcal: number }>;
+}) {
+  const targets = useMacroTargets();
+  const PROTEIN_C = targets.protein.color;
+  const FAT_C = targets.fat.color;
+  const CARBS_C = targets.carbs.color;
+
+  // Last 7 unique dates from entries
+  const last7 = [...totalsByDate.keys()].sort().slice(-7);
+  if (last7.length === 0) return null;
+
+  const dayTotals = totalsByDate;
+
+  const maxKcal = Math.max(...last7.map(d => dayTotals.get(d)?.kcal ?? 0), 1);
+  const MIN_BAR = 8; // px minimum bar width so tiny amounts stay visible
+  const MAX_BAR = 200; // px max bar width
+
+  return (
+    <div className="mb-4 space-y-1.5">
+      {last7.map(date => {
+        const t = dayTotals.get(date) ?? { protein: 0, fat: 0, carbs: 0, kcal: 0 };
+        const total = t.kcal;
+        const barWidth = Math.max(MIN_BAR, Math.min(MAX_BAR, (total / maxKcal) * MAX_BAR));
+        const totalW = barWidth;
+        const proteinW = total > 0 ? (t.protein / total) * totalW : 0;
+        const fatW = total > 0 ? (t.fat / total) * totalW : 0;
+        const carbsW = total > 0 ? (t.carbs / total) * totalW : 0;
+        const [y, m, d] = date.split("-").map(Number);
+        const weekday = new Date(y!, m! - 1, d!).toLocaleDateString(undefined, { weekday: "short" });
+        return (
+          <div key={date} className="flex items-center gap-2">
+            <span className="w-8 text-xs text-muted-foreground tabular-nums">{weekday}</span>
+            <div className="flex h-4 flex-1 overflow-hidden rounded-full">
+              {proteinW > 0 && <div style={{ width: proteinW, backgroundColor: PROTEIN_C }} />}
+              {fatW > 0 && <div style={{ width: fatW, backgroundColor: FAT_C }} />}
+              {carbsW > 0 && <div style={{ width: carbsW, backgroundColor: CARBS_C }} />}
+              {total === 0 && <div className="h-full w-px bg-muted-foreground/20" />}
+            </div>
+            <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+              {total > 0 ? Math.round(total) : "—"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplicated, onBreakFast, daily }: {
   entries: NutritionEntry[];
   fasting: FastingWindow[];
   loading: boolean;
+  daily: { date: string; protein_g: number; fat_g: number; carbs_g: number; kcal: number }[];
   todayMealCount: number;
   onDuplicated: () => void;
   onBreakFast: () => void;
@@ -271,6 +365,7 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
     }
     return m;
   }, [entries]);
+  const maxMealKcal = entries.length > 0 ? Math.max(...entries.map(e => e.kcal || 0)) : 1;
   const targets = useMacroTargets();
   const fiberTarget = useFiberTarget();
   const [saving, setSaving] = useState<Set<string>>(new Set());
@@ -368,6 +463,7 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
         {entries.length === 0 ? (
           <p className="text-sm text-muted-foreground">No entries yet — log a meal via chat to get started.</p>
         ) : (
+          <>
           <ul className="divide-y divide-border">
             {entries.reduce<React.ReactNode[]>((rows, e, i) => {
               const prev = entries[i - 1];
@@ -383,7 +479,10 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
                   <li key={`sep-${e.date}`} className="flex flex-col items-center gap-0.5 py-2">
                     <span className="text-xs font-medium text-muted-foreground">{dayLabel}</span>
                     {t && (
-                      <span className="text-xs font-semibold tabular-nums">
+                      <>
+                      <div className="flex items-center gap-1.5">
+
+                        <span className="text-xs font-semibold tabular-nums">
                         <span style={{ color: targets.protein.color }}>{Math.round(t.protein)}P</span>
                         <span className="text-muted-foreground/50"> · </span>
                         <span style={{ color: targets.fat.color }}>{Math.round(t.fat)}F</span>
@@ -393,7 +492,9 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
                         <span style={{ color: fiberTarget.color }}>{Math.round(t.fiber)}Fb</span>
                         <span className="text-muted-foreground/50"> · </span>
                         <span style={{ color: targets.kcal.color }}>{Math.round(t.kcal)}kcal</span>
-                      </span>
+                        </span>
+                        </div>
+                      </>
                     )}
                   </li>,
                 );
@@ -494,7 +595,8 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
                         <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{e.foods.slice(1).join(" · ")}</p>
                       )}
                       {/* Row 3: macro stats */}
-                      <div className="mt-1 text-sm font-semibold tabular-nums">
+                      <div className="mt-1 flex items-center gap-2 text-sm font-semibold tabular-nums">
+                        <MiniMacroBar protein={e.protein_g} fat={e.fat_g} carbs={e.carbs_g || 0} fiber={e.fiber_g || 0} kcal={e.kcal} maxKcal={maxMealKcal} />
                         <span style={{ color: targets.protein.color }}>{Math.round(e.protein_g)}P</span>
                         <span className="text-muted-foreground/50"> · </span>
                         <span style={{ color: targets.fat.color }}>{Math.round(e.fat_g)}F</span>
@@ -512,6 +614,7 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
               return rows;
             }, [])}
           </ul>
+          </>
         )}
       </CardContent>
     </Card>
@@ -567,12 +670,20 @@ function MacroChartCard({
   const yMax = Math.ceil(target.max * 1.2);
   const data = chartData.slice(-7);
   const barAnim = useBarAnimation();
+  const avg = data.length > 0 ? Math.round(data.reduce((s, d) => s + (d[dataKey] as number), 0) / data.length) : 0;
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">{target.label}</CardTitle>
-        <CardDescription>target {formatRange(target)}</CardDescription>
+        <CardDescription>
+          {avg > 0 && (() => {
+            const mid = (target.min + target.max) / 2;
+            const delta = avg - mid;
+            const sign = delta > 0 ? "+" : "";
+            return <span style={{ color: target.color }}>{sign}{delta}{unit} vs target</span>;
+          })()}
+        </CardDescription>
       </CardHeader>
       <CardContent className="px-4">
         <ChartContainer
@@ -594,6 +705,7 @@ function MacroChartCard({
             <ReferenceArea y1={target.min} y2={target.max} fill={target.color} fillOpacity={0.12} stroke="none" />
             <ReferenceLine y={target.min} stroke={target.color} strokeDasharray="4 4" strokeOpacity={0.6} />
             <ReferenceLine y={target.max} stroke={target.color} strokeDasharray="4 4" strokeOpacity={0.6} />
+            <ReferenceLine y={avg} stroke={target.color} strokeOpacity={0.8} strokeWidth={2} />
 
             <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} maxBarSize={22} {...barAnim}>
               {data.map((d, i) => {
@@ -644,14 +756,26 @@ function FastingStatCard({ stats }: { stats: NutritionStats | null }) {
   const liveHours = fastingState.state === "fasting" ? fastingState.totalMin / 60 : null;
   const displayHours = liveHours ?? fastHours;
   const progress = displayHours != null ? Math.min(1, displayHours / fastingTarget.max) : undefined;
+  const isFasting = fastingState.state === "fasting";
+
+  // Build 7-day histogram from historical fasting data (exclude today)
+  const histData = useMemo(() => {
+    return (stats?.fasting ?? [])
+      .filter((f) => f.hours != null && f.date !== today)
+      .slice(-7)
+      .map((f) => ({ date: f.date, value: f.hours ?? 0 }));
+  }, [stats, today]);
 
   return (
     <StatCard
       label="Fasting"
       value={displayHours != null ? displayHours.toFixed(1) : null}
       unit="h"
-      progress={progress}
+      progress={isFasting ? progress : undefined}
       color={NUTRITION_COLOR}
+      histogramData={isFasting ? undefined : histData}
+      histogramColor={NUTRITION_COLOR}
+      histogramTarget={fastingTarget.min}
     />
   );
 }
@@ -669,12 +793,20 @@ function FiberChartCard({
   const yMax = Math.ceil(target.max * 1.2);
   const data = chartData.slice(-7);
   const barAnim = useBarAnimation();
+  const avg = data.length > 0 ? Math.round(data.reduce((s, d) => s + (d[dataKey] as number), 0) / data.length) : 0;
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">{target.label}</CardTitle>
-        <CardDescription>target {formatRange(target)}</CardDescription>
+        <CardDescription>
+          {avg > 0 && (() => {
+            const mid = (target.min + target.max) / 2;
+            const delta = avg - mid;
+            const sign = delta > 0 ? "+" : "";
+            return <span style={{ color: target.color }}>{sign}{delta}{unit} vs target</span>;
+          })()}
+        </CardDescription>
       </CardHeader>
       <CardContent className="px-4">
         <ChartContainer
@@ -696,6 +828,7 @@ function FiberChartCard({
             <ReferenceArea y1={target.min} y2={target.max} fill={target.color} fillOpacity={0.12} stroke="none" />
             <ReferenceLine y={target.min} stroke={target.color} strokeDasharray="4 4" strokeOpacity={0.6} />
             <ReferenceLine y={target.max} stroke={target.color} strokeDasharray="4 4" strokeOpacity={0.6} />
+            <ReferenceLine y={avg} stroke={target.color} strokeOpacity={0.8} strokeWidth={2} />
 
             <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} maxBarSize={22} {...barAnim}>
               {data.map((d, i) => {
@@ -763,12 +896,23 @@ function FastingCard({ stats }: { stats: NutritionStats | null }) {
   }, [rawData, fastingState, today]);
 
   const fastingChartConfig = { metric: { label: "Fasting hours", color: NUTRITION_COLOR } } satisfies ChartConfig;
+  const avg7d = useMemo(() => {
+    const d = chartData.slice(-7).filter((x: any) => x.hasData && !x.isGap && !x.isToday && !x.isLive);
+    return d.length ? +(d.reduce((s: number, x: any) => s + x.metric, 0) / d.length).toFixed(1) : 0;
+  }, [chartData]);
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Fasting</CardTitle>
-        <CardDescription>{fastingTarget.min}-{fastingTarget.max}h target</CardDescription>
+        <CardDescription>
+          {avg7d > 0 && (() => {
+            const mid = (fastingTarget.min + fastingTarget.max) / 2;
+            const delta = +(avg7d - mid).toFixed(1);
+            const sign = delta > 0 ? "+" : "";
+            return <span style={{ color: NUTRITION_COLOR }}>{sign}{delta}h vs target</span>;
+          })()}
+        </CardDescription>
       </CardHeader>
       <CardContent className="px-4">
         <ChartContainer config={fastingChartConfig} className="h-[200px] w-full overflow-hidden">
@@ -780,6 +924,7 @@ function FastingCard({ stats }: { stats: NutritionStats | null }) {
             <ReferenceArea y1={fastingTarget.min} y2={fastingTarget.max} fill={NUTRITION_COLOR} fillOpacity={0.12} stroke="none" />
             <ReferenceLine y={fastingTarget.min} stroke={NUTRITION_COLOR} strokeDasharray="4 4" strokeOpacity={0.6} />
             <ReferenceLine y={fastingTarget.max} stroke={NUTRITION_COLOR} strokeDasharray="4 4" strokeOpacity={0.6} />
+            {avg7d > 0 && <ReferenceLine y={avg7d} stroke={NUTRITION_COLOR} strokeOpacity={0.8} strokeWidth={2} />}
             <Tooltip
               cursor={false}
               contentStyle={{ fontSize: 12 }}

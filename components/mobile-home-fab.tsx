@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { NAV_SECTION_LIST } from "@/lib/sections";
 import { useNavSections } from "@/hooks/use-sections";
 
 /** Floating home button for mobile PWA navigation.
@@ -19,9 +18,9 @@ const LONG_PRESS_MS = 450;
 
 export function MobileHomeFab() {
   const pathname = usePathname();
-  // Enabled sections filter — same source of truth as the topnav tabs.
-  const enabledKeys = new Set(useNavSections().map((s) => s.key));
-  const visibleSections = NAV_SECTION_LIST.filter((s) => enabledKeys.has(s.key));
+  // Same source of truth as the topnav tabs — enabled + ordered by
+  // user's section_order from settings.
+  const visibleSections = useNavSections();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const longPressFired = useRef(false);

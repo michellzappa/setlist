@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { SECTIONS, SECTION_LIST, EXERCISE_SHADES } from "@/lib/sections";
+import { SECTIONS, EXERCISE_SHADES } from "@/lib/sections";
 import { useSections } from "@/hooks/use-sections";
 import {
   getCardioHistory,
@@ -31,6 +31,7 @@ import {
   getCaffeineHistory,
   getChores,
   getChoreHistory,
+  getGroceries,
   getWeather,
   getCalendar,
   getSettings,
@@ -38,7 +39,7 @@ import {
 import { DEFAULT_DAY_PHASES, activePhaseId } from "@/lib/day-phases";
 import { weekdayShort, computeStreak } from "@/lib/date-utils";
 import { useSelectedDate } from "@/hooks/use-selected-date";
-import { computeFastingState } from "@/lib/fasting";
+import { computeFastingState, useFastingConfig } from "@/lib/fasting";
 import { useMacroTargets, useFastingTarget } from "@/lib/macro-targets";
 import { cn } from "@/lib/utils";
 import { QuickLogModal } from "@/components/quick-log-modal";
@@ -327,15 +328,28 @@ function NutritionMini() {
   const todayProtein = todayRow?.protein_g ?? 0;
   const target = useMacroTargets().protein.max;
   const fastingTarget = useFastingTarget();
+  const fastingConfig = useFastingConfig();
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const fastingState = useMemo(() => computeFastingState(stats ?? null), [stats, tick]);
+  const fastingState = useMemo(() => computeFastingState(stats ?? null, fastingConfig), [stats, tick, fastingConfig]);
 
-  const chartData = useMemo(
+  const isFasting = fastingState.state === "fasting";
+  const proteinChartData = useMemo(
     () => daily.slice(-7).map((d) => ({ date: weekdayShort(d.date), v: d.protein_g })),
     [daily],
   );
-  const chartConfig = { v: { label: "Protein", color } } satisfies ChartConfig;
+  const fastingChartData = useMemo(
+    () =>
+      (stats?.fasting ?? [])
+        .filter((f) => f.hours != null)
+        .slice(-7)
+        .map((f) => ({ date: weekdayShort(f.date), v: f.hours ?? 0 })),
+    [stats],
+  );
+  const chartData = isFasting ? fastingChartData : proteinChartData;
+  const chartConfig = {
+    v: { label: isFasting ? "Fasting" : "Protein", color },
+  } satisfies ChartConfig;
 
   return (
     <SectionCard section="nutrition" loading={isLoading}>
@@ -367,7 +381,7 @@ function NutritionMini() {
       )}
 
       {chartData.length > 0 && (
-        <MiniBarChart label="7-day protein" data={chartData} chartConfig={chartConfig}>
+        <MiniBarChart label={isFasting ? "7-day fasting" : "7-day protein"} data={chartData} chartConfig={chartConfig}>
           <Bar dataKey="v" fill={color} radius={[3, 3, 0, 0]} />
         </MiniBarChart>
       )}
@@ -468,6 +482,28 @@ function ChoresMini() {
         <MiniBarChart label="7-day completions" data={chartData} chartConfig={chartConfig}>
           <Bar dataKey="v" fill={color} radius={[3, 3, 0, 0]} />
         </MiniBarChart>
+      )}
+    </SectionCard>
+  );
+}
+
+// ── Groceries Mini ───────────────────────────────────────────────────────────
+
+function GroceriesMini() {
+  const { data, isLoading } = useSWR("groceries", getGroceries);
+  const color = SECTIONS.groceries.color;
+  const items = data?.items ?? [];
+  const lowCount = items.filter((i: any) => i.low).length;
+  const boughtCount = items.filter((i: any) => i.bought).length;
+
+  return (
+    <SectionCard section="groceries" loading={isLoading}>
+      <div className="grid grid-cols-2 gap-3">
+        <MiniStat label="Need" value={lowCount > 0 ? lowCount : "—"} color={color} />
+        <MiniStat label="In cart" value={boughtCount > 0 ? boughtCount : "—"} />
+      </div>
+      {items.length > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">{items.length} items tracked</p>
       )}
     </SectionCard>
   );
@@ -958,6 +994,13 @@ function fmtEventTime(iso: string): string {
   return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+function localDay(iso: string): string {
+  const d = new Date(iso);
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function CalendarMini() {
   const { data, isLoading } = useSWR(
     "overview-calendar",
@@ -967,7 +1010,7 @@ function CalendarMini() {
 
   const color = SECTIONS.calendar.color;
   const today = data?.today ?? "";
-  const todayEvents = (data?.events ?? []).filter((e) => e.start.startsWith(today));
+  const todayEvents = (data?.events ?? []).filter((e) => localDay(e.start) === today);
   const next = (data?.events ?? []).find((e) => new Date(e.start) >= new Date());
 
   return (
@@ -977,25 +1020,21 @@ function CalendarMini() {
         <MiniStat label="Next" value={next ? fmtEventTime(next.start) : "—"} />
       </div>
 
-      {data?.source === "fake" && (
-        <p className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-          Demo data
-        </p>
-      )}
-
-      {todayEvents.length > 0 ? (
+      {data?.error ? (
+        <p className="mt-3 text-xs text-muted-foreground">{data.error}</p>
+      ) : todayEvents.length > 0 ? (
         <div className="mt-3 space-y-1.5">
           {todayEvents.slice(0, 4).map((e, i) => (
-            <div key={`${e.start}-${i}`} className="flex items-baseline gap-2 text-xs">
-              <span className="tabular-nums text-muted-foreground">{fmtEventTime(e.start)}</span>
-              <span className="truncate" style={{ color }}>{e.title}</span>
+            <div key={`${e.start}-${i}`} className="flex min-w-0 items-baseline gap-2 text-xs">
+              <span className="shrink-0 tabular-nums text-muted-foreground">{fmtEventTime(e.start)}</span>
+              <span className="min-w-0 flex-1 truncate" style={{ color }}>{e.title}</span>
             </div>
           ))}
         </div>
       ) : next ? (
-        <div className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-3 truncate text-xs text-muted-foreground">
           Next: <span className="font-medium" style={{ color }}>{next.title}</span> · {fmtEventTime(next.start)}
-        </div>
+        </p>
       ) : (
         <p className="mt-3 text-xs text-muted-foreground">No upcoming events</p>
       )}
@@ -1010,6 +1049,7 @@ const SECTION_MINI: Record<string, React.FC> = {
   nutrition: NutritionMini,
   habits: HabitsMini,
   chores: ChoresMini,
+  groceries: GroceriesMini,
   supplements: SupplementsMini,
   health: HealthMini,
   cannabis: CannabisMini,
@@ -1209,12 +1249,12 @@ export function OverviewDashboard() {
   const active = openKey ? QUICK_LOG[openKey] : null;
   const activeSection = openKey ? SECTIONS[openKey] : null;
 
-  // Filter the home grid by what's actually available — correlations
-  // stays off the launcher (it's a meta view, not a section to log into).
-  const enabledSections = useSections()
-    .filter((s) => s.enabled && s.key !== "correlations")
-    .map((s) => s.key);
-  const visibleSections = SECTION_LIST.filter((s) => enabledSections.includes(s.key));
+  // Home tiles respect user's section_order from settings. Correlations
+  // is excluded — it's a meta view on the bottom action row, not a
+  // section to log into.
+  const visibleSections = useSections().filter(
+    (s) => s.enabled && s.key !== "correlations",
+  );
 
   return (
     <QuickLogContext.Provider value={setOpenKey}>

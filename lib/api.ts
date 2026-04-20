@@ -136,6 +136,56 @@ export async function getSession(date: string) {
   return request<{ date: string; data: ExerciseEntry[] }>(`/api/sessions/${date}`);
 }
 
+// ── Exercise config (types + exercises) ─────────────────────────────────────
+
+export type ExerciseType = {
+  id: string;
+  label: string;
+  fields: string[];
+  shade?: string;
+  is_finisher?: boolean;
+};
+
+export type ExerciseConfigItem = {
+  id: string;
+  name: string;
+  type: string;
+  subgroup?: string;
+};
+
+export type ExerciseConfig = {
+  types: ExerciseType[];
+  exercises: ExerciseConfigItem[];
+  aliases: Record<string, string>;
+};
+
+export async function getExerciseConfig() {
+  return request<ExerciseConfig>("/api/exercise/config");
+}
+
+export async function addExercise(name: string, type: string, subgroup?: string) {
+  return request<ExerciseConfigItem>("/api/exercise/exercises", {
+    method: "POST",
+    body: JSON.stringify({ name, type, subgroup }),
+  });
+}
+
+export async function updateExercise(
+  id: string,
+  patch: { name?: string; type?: string; subgroup?: string },
+) {
+  return request<ExerciseConfigItem>(`/api/exercise/exercises/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteExercise(id: string) {
+  return request<{ ok: boolean }>(`/api/exercise/exercises/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 // ── Cardio history ──────────────────────────────────────────────────────────
 
 export type CardioDay = { date: string; minutes: number; rolling_7d: number };
@@ -602,6 +652,45 @@ export async function getCannabisSessions(days = 30) {
   return request<CannabisSessions>(`/api/cannabis/sessions?days=${days}`);
 }
 
+// ── Groceries ──────────────────────────────────────────────────────────
+
+export type GroceryItem = {
+  id: string;
+  name: string;
+  category: string;
+  emoji: string;
+  low: boolean;
+  last_bought: string | null;
+};
+
+export type GroceriesData = {
+  items: GroceryItem[];
+};
+
+export async function getGroceries() {
+  return request<GroceriesData>("/api/groceries");
+}
+
+export async function addGroceryItem(name: string, category?: string, emoji?: string) {
+  return request<GroceryItem>("/api/groceries/item", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, category, emoji }),
+  });
+}
+
+export async function patchGroceryItem(itemId: string, patch: Partial<GroceryItem>) {
+  return request<GroceryItem>(`/api/groceries/item/${itemId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteGroceryItem(itemId: string) {
+  return request<{ ok: boolean }>(`/api/groceries/item/${itemId}`, { method: "DELETE" });
+}
+
 // ── Caffeine ────────────────────────────────────────────────────────────
 export type CaffeineMethod = "v60" | "matcha" | "other";
 
@@ -939,6 +1028,8 @@ export type Targets = {
   sleep_target_h: number;
   fasting_min_h: number;
   fasting_max_h: number;
+  evening_hour_24h: number;
+  post_meal_grace_min: number;
 };
 
 export type AppAnimations = {
@@ -963,7 +1054,8 @@ export type WeatherSettings = {
 };
 
 export type CalendarSettings = {
-  source: "auto" | "fake";
+  show_all_day: boolean;
+  enabled_calendars: string[] | null;
 };
 
 export type PhaseMessage = {
@@ -989,6 +1081,7 @@ export type AppSettings = {
   targets: Targets;
   units: { weight: WeightUnit; distance: DistanceUnit };
   theme: AppTheme;
+  icon_color: string;
   mini_stats: Record<string, string[]>;
   animations: AppAnimations;
   weather: WeatherSettings;
@@ -1076,11 +1169,17 @@ export type CalendarEvent = {
   location: string;
 };
 
+export type CalendarInfo = {
+  title: string;
+  source: string;
+};
+
 export type CalendarResponse = {
-  source: "macos" | "fake";
   today: string;
   today_count: number;
   events: CalendarEvent[];
+  calendars: CalendarInfo[];
+  error: string | null;
 };
 
 export async function getCalendar() {

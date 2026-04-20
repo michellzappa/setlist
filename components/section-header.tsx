@@ -14,7 +14,7 @@ import { usePageHeaderContext } from "@/components/page-header-context";
 export function SectionHeader() {
   const pathname = usePathname();
   const sections = useSections();
-  const { isRefreshing } = usePageHeaderContext();
+  const { isRefreshing, getSubtitle } = usePageHeaderContext();
 
   if (pathname === "/") return null;
 
@@ -34,7 +34,7 @@ export function SectionHeader() {
         <div className="min-w-0">
           <PageHeaderTitle
             title={match.label}
-            subtitle={match.tagline || undefined}
+            subtitle={getSubtitle(match.key) ?? match.tagline ?? undefined}
             emoji={match.emoji || undefined}
             color={match.color || undefined}
             refreshing={isRefreshing(match.key)}
