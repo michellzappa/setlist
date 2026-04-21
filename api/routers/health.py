@@ -122,7 +122,7 @@ def _withings_measure(start: str, end: str) -> List[Dict[str, Any]]:
     if not access_token:
         return []
     start_ts = int(datetime.fromisoformat(start).timestamp())
-    end_ts = int(datetime.fromisoformat(end).timestamp())
+    end_ts = int((datetime.fromisoformat(end) + timedelta(days=1)).timestamp()) - 1
     url = (
         f"https://wbsapi.withings.net/v2/measure"
         f"?action=getmeas"
