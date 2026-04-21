@@ -718,7 +718,12 @@ function HealthMini() {
 
   const hrvData = useMemo(() => {
     const byDate = new Map(oura.filter((r) => r.hrv != null).map((r) => [r.date, r.hrv as number]));
-    return lastSevenDays().map(({ iso, weekday }) => ({ date: weekday, v: byDate.get(iso) ?? 0 }));
+    const present = [...byDate.values()];
+    const placeholder = present.length ? Math.max(...present) : 0;
+    return lastSevenDays().map(({ iso, weekday }) => {
+      const v = byDate.get(iso);
+      return { date: weekday, v: v ?? placeholder, missing: v == null };
+    });
   }, [oura]);
   const chartConfig = { v: { label: "HRV", color } } satisfies ChartConfig;
 
@@ -742,7 +747,11 @@ function HealthMini() {
 
       {hrvData.length > 0 && (
         <MiniBarChart label="7-day HRV" data={hrvData} chartConfig={chartConfig}>
-          <Bar dataKey="v" fill={color} radius={[3, 3, 0, 0]} />
+          <Bar dataKey="v" radius={[3, 3, 0, 0]}>
+            {hrvData.map((d, i) => (
+              <Cell key={i} fill={color} fillOpacity={d.missing ? 0.15 : 1} />
+            ))}
+          </Bar>
         </MiniBarChart>
       )}
     </SectionCard>
@@ -769,7 +778,10 @@ function SleepMini() {
 
   const chartData = useMemo(() => {
     const byDate = new Map(oura.filter((r) => r.total_h != null).map((r) => [r.date, r.total_h as number]));
-    return lastSevenDays().map(({ iso, weekday }) => ({ date: weekday, v: byDate.get(iso) ?? 0 }));
+    return lastSevenDays().map(({ iso, weekday }) => {
+      const v = byDate.get(iso);
+      return { date: weekday, v: v ?? 8, missing: v == null };
+    });
   }, [oura]);
   const chartConfig = { v: { label: "Hours", color } } satisfies ChartConfig;
 
@@ -794,7 +806,11 @@ function SleepMini() {
 
       {chartData.length > 0 && (
         <MiniBarChart label="7-day sleep" data={chartData} chartConfig={chartConfig} yDomain={[0, 10]}>
-          <Bar dataKey="v" fill={color} radius={[3, 3, 0, 0]} />
+          <Bar dataKey="v" radius={[3, 3, 0, 0]}>
+            {chartData.map((d, i) => (
+              <Cell key={i} fill={color} fillOpacity={d.missing ? 0.15 : 1} />
+            ))}
+          </Bar>
         </MiniBarChart>
       )}
     </SectionCard>
@@ -826,9 +842,11 @@ function BodyMini() {
     const present = days.map(({ iso }) => byDate.get(iso)).filter((v): v is number => v != null);
     if (present.length === 0) return [];
     const avg = present.reduce((s, v) => s + v, 0) / present.length;
+    const maxAbs = Math.max(0.1, ...present.map((v) => Math.abs(v - avg)));
     return days.map(({ iso, weekday }) => {
       const w = byDate.get(iso);
-      return { date: weekday, v: w != null ? Number((w - avg).toFixed(2)) : 0 };
+      if (w == null) return { date: weekday, v: Number((maxAbs * 0.4).toFixed(2)), missing: true };
+      return { date: weekday, v: Number((w - avg).toFixed(2)), missing: false };
     });
   }, [withings]);
   const chartConfig = { v: { label: "kg", color } } satisfies ChartConfig;
@@ -876,7 +894,11 @@ function BodyMini() {
           <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.3} />
           <Bar dataKey="v" radius={[3, 3, 3, 3]}>
             {weightData.map((d, i) => (
-              <Cell key={i} fill={d.v <= 0 ? LOSS_COLOR : GAIN_COLOR} />
+              <Cell
+                key={i}
+                fill={d.missing ? "hsl(var(--muted-foreground))" : d.v <= 0 ? LOSS_COLOR : GAIN_COLOR}
+                fillOpacity={d.missing ? 0.15 : 1}
+              />
             ))}
           </Bar>
         </MiniBarChart>
