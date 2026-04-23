@@ -42,8 +42,8 @@ function Hero() {
           A weekly view of everything your body is telling you.
         </h1>
         <p className="mt-5 text-lg text-muted-foreground sm:text-xl">
-          Training, nutrition, habits, sleep, vitals — one place, one week at a time. Local-first,
-          stored as plain YAML, ready for any AI agent you trust.
+          Training, nutrition, habits, sleep, vitals. One place, one week at a time. Runs on your
+          machine. Writes YAML files your agents can already read.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <Link
@@ -84,20 +84,19 @@ function Why() {
   return (
     <section className="mb-20 max-w-2xl space-y-4 text-base leading-relaxed sm:text-lg">
       <p>
-        I wanted one place for the things I track about myself — workouts, meals, habits, sleep,
-        supplements, caffeine, chores — that was not five apps, did not phone home, and did not
-        lock my data inside someone else&apos;s database.
+        I wanted one place for the things I track about myself: workouts, meals, habits, sleep,
+        supplements, caffeine, chores. I did not want five apps. I did not want my data sitting
+        in anyone else&apos;s database.
       </p>
       <p>
-        Septena is that place. Everything I log lives as plain YAML files in a folder on my
-        machine. The app is a Next.js frontend and a FastAPI backend that read and write those
-        files. That&apos;s the whole architecture.
+        Septena is that place. Every entry is a YAML file in a folder on my machine. The app
+        is a Next.js frontend and a FastAPI backend that read and write those files. That is
+        the whole architecture.
       </p>
       <p>
-        Almost every view in Septena spans seven days. A day is too noisy to learn from and a
-        month is too late to course-correct; a week is the shortest window where sleep, training,
-        eating, and habits actually start to tell a story about each other. The seven dots in the
-        logo, and the name itself (<em>heptad</em>, seven), just point at that.
+        Most views span seven days. A day is too noisy and a month is too late; a week is where
+        sleep, training, food, and habits start to relate to each other. The seven dots in the
+        logo, and the name (<em>heptad</em>, seven), just point at that.
       </p>
     </section>
   );
@@ -108,13 +107,11 @@ function BringYourOwnAgent() {
     <section className="mb-20 max-w-3xl space-y-5 text-base leading-relaxed sm:text-lg">
       <h2 className="text-2xl font-semibold tracking-tight">Bring your own agent</h2>
       <p>
-        The reason Septena stores everything as plain text under a folder you control isn&apos;t
-        purity — it&apos;s leverage. Your health log sits next to your notes, in a format any
-        model can read, and every event is git-versioned by default.
+        Your health data is a folder of YAML files on your machine. Any model can read it.
+        Every change is a git commit.
       </p>
       <p>
-        That means you don&apos;t need Septena to have an &quot;AI feature.&quot; Point Claude
-        Code, Cursor, an Obsidian plugin, or a local LLM at{" "}
+        Point Claude Code, Cursor, an Obsidian plugin, or a local LLM at{" "}
         <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
           ~/Documents/septena-data/
         </code>{" "}
@@ -122,36 +119,28 @@ function BringYourOwnAgent() {
       </p>
       <ul className="ml-6 list-disc space-y-2 text-foreground/90">
         <li>
-          <span className="font-medium">Structured → structured:</span> &quot;Plot my protein
-          intake vs. next-morning HRV for the last 90 days.&quot; Your agent reads the YAML
-          directly — no API, no schema docs.
+          <span className="font-medium">Read the data.</span> &quot;Plot my protein intake against
+          next-morning HRV for the last 90 days.&quot; The agent reads the YAML. No API, no schema
+          docs.
         </li>
         <li>
-          <span className="font-medium">Unstructured → structured:</span> paste a cafe receipt or
-          a photo of a food label and have your agent append a well-formed nutrition event into
-          the right folder.
+          <span className="font-medium">Write the data.</span> Paste a cafe receipt or a photo of
+          a food label, and have the agent append a clean nutrition entry to the right folder.
         </li>
         <li>
-          <span className="font-medium">Structured → unstructured:</span> &quot;Draft a note to
-          my doctor summarizing the last three months of sleep, weight, and training volume.&quot;
-          All the source files are right there to cite.
+          <span className="font-medium">Explain the data.</span> &quot;Draft a note to my doctor
+          summarizing the last three months of sleep, weight, and training volume.&quot;
         </li>
       </ul>
       <p>
-        Because the folder is a git repo, every change an agent makes is a diff you can review,
-        revert, or blame. The barrier between &quot;my structured data&quot; and &quot;my messy
-        notes&quot; dissolves: it&apos;s all one data folder, and whichever model you trust most this
-        month can work across both.
-      </p>
-      <p>
-        To make that reliable, every section ships a{" "}
-        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">SKILL.md</code> —
-        a compact contract describing the filename pattern, YAML schema, and example entries.
-        Point your agent at one skill and it can log into that section correctly from the first
-        try, no guessing.
+        The folder is a git repo, so every agent-written change is a reviewable diff. Every
+        section also ships a{" "}
+        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">SKILL.md</code>{" "}
+        with the filename pattern, YAML schema, and example entries. Point your agent at the
+        skill and it logs correctly the first time.
       </p>
       <p className="text-sm text-muted-foreground">
-        Septena doesn&apos;t ship an agent. It ships the substrate that makes your agent useful.
+        Septena does not ship an agent. It stores your data in a shape yours can use.
       </p>
     </section>
   );
@@ -163,8 +152,7 @@ function Sections() {
       <div className="max-w-2xl">
         <h2 className="text-2xl font-semibold tracking-tight">What Septena tracks</h2>
         <p className="mt-2 text-muted-foreground">
-          Eleven sections, one data folder. Each links to a deeper page with the data shape, the
-          design decisions, and a live demo.
+          Eleven sections, one folder. Each links to a page with the data shape and a live demo.
         </p>
       </div>
       {MARKETING_SECTIONS.map((s) => (
@@ -246,13 +234,13 @@ section: nutrition
 ---`}
       </pre>
       <p>
-        Edit the files in any text editor. Back them up with git. Write scripts against them.
-        When Septena stops working for you, your data is still there in a format you can read —
-        and that any language model, today or in ten years, can read too.
+        Edit the files in any text editor. Back them up with git. Write scripts against them. If
+        you stop using Septena, the files are still there and still readable.
       </p>
       <p>
-        There is no account, no sync server, no cloud. If you want sync, point your data folder
-        at iCloud Drive or Dropbox, or just <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">git push</code> it.
+        No account, no sync server, no cloud. For sync, put the folder in iCloud Drive or
+        Dropbox, or <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">git push</code>{" "}
+        it to a private repo.
       </p>
     </section>
   );
@@ -266,13 +254,12 @@ function Install() {
     >
       <h2 className="text-2xl font-semibold tracking-tight">Install</h2>
       <p>
-        Septena runs locally on your machine. Today that means a Node frontend and a Python backend
-        talking to a folder on disk. A packaged Mac app and an iOS companion are in progress, but
-        not yet.
+        Septena runs locally. Today that means a Node frontend and a Python backend talking to
+        a folder on disk. A packaged Mac app and an iOS companion are in progress.
       </p>
       <p>
-        The intended setup today is: you already have Node and Python installed, and you are happy
-        to run two local processes while using the app.
+        For now you need Node and Python installed, and you run two local processes while using
+        the app.
       </p>
       <ol className="list-decimal space-y-1 pl-6">
         <li>Clone the repo</li>
