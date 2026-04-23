@@ -161,7 +161,13 @@ function sectionsRegistry() {
   const HIDDEN = new Set(["gut", "air", "cannabis"]);
   return entries
     .filter((s) => !HIDDEN.has(s.key))
-    .map((s, idx) => ({ ...s, order: idx, enabled: true }));
+    .map((s, idx) => ({
+      ...s,
+      order: idx,
+      enabled: true,
+      show_in_nav: true,
+      show_on_dashboard: true,
+    }));
 }
 
 // ─── Exercise taxonomy ─────────────────────────────────────────────────────
