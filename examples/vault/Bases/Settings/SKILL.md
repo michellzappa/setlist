@@ -135,7 +135,7 @@ user opt-in (+ location config for weather).
   just because lbs is imperial.
 - **"Turn off the confetti animation"** → `{"animations":
   {"exercise_complete": false}}`.
-- **"Reorder my nav: Habits first, then Nutrition, then Exercise"** →
+- **"Reorder my nav: Habits first, then Nutrition, then Training"** →
   write the new list to `section_order`. Unlisted sections append in
   registry order.
 - **"Disable Cannabis"** → `{"sections": {"cannabis": {"enabled":

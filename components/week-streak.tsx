@@ -1,32 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { getEntries, type ExerciseEntry } from "@/lib/api";
+import { useExerciseTaxonomy, type ExerciseKind } from "@/hooks/use-exercise-taxonomy";
+import {
+  EXERCISE_TONE_COLOR,
+  SECTION_ACCENT,
+  SECTION_ACCENT_SHADE_1,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_SHADE_3,
+} from "@/lib/section-colors";
 import { cn } from "@/lib/utils";
 import { CardTitle, CardDescription, CardHeader, CardContent } from "@/components/ui/card";
 
 /** Last-7-days streak strip. Today is the rightmost dot, six days ago the
  *  leftmost. Each day is classified by what was trained — strength wins over
- *  cardio wins over mobility, mirroring main.py:exercise_group(). When all 7
- *  days have any activity, an orange capsule "connects" the dots (perfect
- *  week treatment, à la Duolingo). */
-
-// Mirrors the taxonomy in main.py. Anything not listed in CARDIO/MOBILITY/CORE
-// falls through to "strength" — including the LOWER set, since for the
-// week-strip view we only care about strength-vs-cardio-vs-mobility, not
-// upper/lower split.
-const CARDIO = new Set(["rowing", "elliptical", "stairs", "cycling", "running", "walking", "swimming"]);
-const MOBILITY = new Set(["surya namaskar", "pull up"]);
-const CORE = new Set(["ab crunch", "abdominal"]); // ignored — finisher, not session
+ *  cardio wins over mobility, mirroring the live exercise taxonomy. When all
+ *  7 days have any activity, a section-accent capsule connects the dots. */
 
 type DayKind = "strength" | "cardio" | "mobility" | "rest";
 
-function classify(exercises: string[]): DayKind {
+function classify(exercises: string[], classifyKind: (name: string | undefined | null) => ExerciseKind): DayKind {
   const groups = new Set<DayKind>();
   for (const ex of exercises) {
-    if (!ex || CORE.has(ex)) continue;
-    if (CARDIO.has(ex)) groups.add("cardio");
-    else if (MOBILITY.has(ex)) groups.add("mobility");
+    if (!ex) continue;
+    const kind = classifyKind(ex);
+    if (kind === "core") continue;
+    if (kind === "cardio") groups.add("cardio");
+    else if (kind === "mobility") groups.add("mobility");
     else groups.add("strength");
   }
   // Priority: strength > cardio > mobility > rest. A day with both a strength
@@ -59,14 +60,18 @@ function lastSevenDays(): { iso: string; weekday: string; dayNum: number; isToda
 // they recolor automatically with the user's exercise section accent. Rest
 // stays neutral. The arbitrary `[color:var(--…)]` syntax is the Tailwind v4
 // way to pull a custom property into a utility class.
-const KIND_DOT: Record<DayKind, string> = {
-  strength:
-    "bg-[color:var(--section-accent-shade-1)] border-[color:var(--section-accent-shade-1)]",
-  cardio:
-    "bg-[color:var(--section-accent-shade-2)] border-[color:var(--section-accent-shade-2)]",
-  mobility:
-    "bg-[color:var(--section-accent-shade-3)] border-[color:var(--section-accent-shade-3)]",
+const KIND_DOT_CLASS: Record<DayKind, string> = {
+  strength: "",
+  cardio: "",
+  mobility: "",
   rest: "bg-transparent border-muted-foreground/30",
+};
+
+const KIND_DOT_STYLE: Record<DayKind, CSSProperties | undefined> = {
+  strength: { backgroundColor: SECTION_ACCENT_SHADE_1, borderColor: SECTION_ACCENT_SHADE_1 },
+  cardio: { backgroundColor: SECTION_ACCENT_SHADE_2, borderColor: SECTION_ACCENT_SHADE_2 },
+  mobility: { backgroundColor: SECTION_ACCENT_SHADE_3, borderColor: SECTION_ACCENT_SHADE_3 },
+  rest: undefined,
 };
 
 const KIND_LABEL: Record<DayKind, string> = {
@@ -78,6 +83,7 @@ const KIND_LABEL: Record<DayKind, string> = {
 
 export function WeekStreak() {
   const [entries, setEntries] = useState<ExerciseEntry[] | null>(null);
+  const { classify: classifyKind } = useExerciseTaxonomy();
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +99,7 @@ export function WeekStreak() {
     };
   }, []);
 
-  const { days, kinds, perfect, z2Minutes, streak } = useMemo(() => {
+  const { days, kinds, perfect, z2Minutes } = useMemo(() => {
     const days = lastSevenDays();
     if (!entries) {
       return {
@@ -101,7 +107,6 @@ export function WeekStreak() {
         kinds: days.map(() => "rest" as DayKind),
         perfect: false,
         z2Minutes: 0,
-        streak: 0,
       };
     }
     const byDate = new Map<string, string[]>();
@@ -111,11 +116,11 @@ export function WeekStreak() {
       const bucket = byDate.get(e.date) ?? [];
       bucket.push(e.exercise);
       byDate.set(e.date, bucket);
-      if (CARDIO.has(e.exercise) && typeof e.duration_min === "number") {
+      if (classifyKind(e.exercise) === "cardio" && typeof e.duration_min === "number") {
         z2ByDate.set(e.date, (z2ByDate.get(e.date) ?? 0) + e.duration_min);
       }
     }
-    const kinds = days.map(({ iso }) => classify(byDate.get(iso) ?? []));
+    const kinds = days.map(({ iso }) => classify(byDate.get(iso) ?? [], classifyKind));
     const perfect = kinds.every((k) => k !== "rest");
     let z2Minutes = 0;
     for (const { iso } of days) z2Minutes += z2ByDate.get(iso) ?? 0;
@@ -124,21 +129,21 @@ export function WeekStreak() {
     today.setHours(0, 0, 0, 0);
     const toIso = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const isActive = (iso: string) => classify(byDate.get(iso) ?? []) !== "rest";
-    let streak = 0;
+    const isActive = (iso: string) => classify(byDate.get(iso) ?? [], classifyKind) !== "rest";
     let graceUsed = false;
     const cursor = new Date(today);
     if (!isActive(toIso(cursor))) cursor.setDate(cursor.getDate() - 1);
     for (;;) {
       const iso = toIso(cursor);
-      if (isActive(iso)) streak += 1;
-      else if (!graceUsed) graceUsed = true;
-      else break;
+      if (!isActive(iso)) {
+        if (!graceUsed) graceUsed = true;
+        else break;
+      }
       cursor.setDate(cursor.getDate() - 1);
       if (cursor.getFullYear() < 2020) break;
     }
-    return { days, kinds, perfect, z2Minutes, streak };
-  }, [entries]);
+    return { days, kinds, perfect, z2Minutes };
+  }, [classifyKind, entries]);
 
   const activeCount = kinds.filter((k) => k !== "rest").length;
   const Z2_TARGET = 150;
@@ -172,9 +177,9 @@ export function WeekStreak() {
                 // all derived from the same accent so changing the user's
                 // exercise color recolours every layer in one shot.
                 backgroundColor:
-                  "color-mix(in oklab, var(--section-accent) 15%, transparent)",
+                  `color-mix(in oklab, ${SECTION_ACCENT} 15%, transparent)`,
                 boxShadow:
-                  "0 0 0 2px color-mix(in oklab, var(--section-accent) 60%, transparent), 0 0 20px color-mix(in oklab, var(--section-accent) 35%, transparent)",
+                  `0 0 0 2px color-mix(in oklab, ${SECTION_ACCENT} 60%, transparent), 0 0 20px color-mix(in oklab, ${SECTION_ACCENT} 35%, transparent)`,
               }}
             />
           ) : null}
@@ -188,7 +193,8 @@ export function WeekStreak() {
                   </span>
                   <div
                     title={`${day.iso} — ${KIND_LABEL[kind]}`}
-                    className={cn("h-9 w-9 rounded-full border-2 transition-all", KIND_DOT[kind], day.isToday && "ring-2 ring-foreground/40 ring-offset-2 ring-offset-background")}
+                    className={cn("h-9 w-9 rounded-full border-2 transition-all", KIND_DOT_CLASS[kind], day.isToday && "ring-2 ring-foreground/40 ring-offset-2 ring-offset-background")}
+                    style={KIND_DOT_STYLE[kind]}
                   />
                   <span className={cn("text-[10px] tabular-nums", day.isToday ? "font-semibold text-foreground" : "text-muted-foreground")}>
                     {day.dayNum}
@@ -207,7 +213,7 @@ export function WeekStreak() {
             <p className="text-sm tabular-nums">
               <span
                 className="font-semibold"
-                style={{ color: z2Hit ? "var(--section-accent-shade-1)" : "var(--foreground)" }}
+                style={{ color: z2Hit ? SECTION_ACCENT_SHADE_1 : "var(--foreground)" }}
               >{Math.round(z2Minutes)}</span>
               <span className="text-muted-foreground"> / {Z2_TARGET} min</span>
             </p>
@@ -218,8 +224,8 @@ export function WeekStreak() {
               style={{
                 width: `${z2Pct}%`,
                 backgroundColor: z2Hit
-                  ? "var(--section-accent-shade-2)"
-                  : "var(--section-accent-shade-3)",
+                  ? SECTION_ACCENT_SHADE_2
+                  : SECTION_ACCENT_SHADE_3,
               }}
             />
           </div>
@@ -233,9 +239,9 @@ export function WeekStreak() {
 function Legend() {
   return (
     <div className="hidden gap-3 text-xs text-muted-foreground sm:flex">
-      <LegendDot shade="var(--section-accent-shade-1)" label="Strength" />
-      <LegendDot shade="var(--section-accent-shade-2)" label="Cardio" />
-      <LegendDot shade="var(--section-accent-shade-3)" label="Mobility" />
+      <LegendDot shade={EXERCISE_TONE_COLOR.strength} label="Strength" />
+      <LegendDot shade={EXERCISE_TONE_COLOR.cardio} label="Cardio" />
+      <LegendDot shade={EXERCISE_TONE_COLOR.mobility} label="Mobility" />
     </div>
   );
 }

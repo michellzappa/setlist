@@ -64,14 +64,14 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "distance": "km",
     },
     "theme": "system",
-    "icon_color": "#ff6600",
+    "icon_color": "#5b6df2",
     "animations": {
         "exercise_complete": True,
         "first_meal": True,
         "histograms_raise": True,
     },
     "sections": {
-        "exercise":     {"label": "Exercise",     "emoji": "🏋️", "color": "hsl(25,95%,53%)",   "tagline": "Sessions, progressions & PRs"},
+        "exercise":     {"label": "Training",     "emoji": "🏋️", "color": "hsl(25,95%,53%)",   "tagline": "Sessions, progressions & PRs"},
         "nutrition":    {"label": "Nutrition",    "emoji": "🍱", "color": "hsl(45,90%,48%)",   "tagline": "Meals, macros & fasting"},
         "habits":       {"label": "Habits",       "emoji": "✅", "color": "hsl(220,60%,55%)",  "tagline": "Morning, afternoon & evening routines"},
         "chores":       {"label": "Chores",       "emoji": "🧹", "color": "hsl(200,45%,50%)",  "tagline": "Recurring tasks, deferrable"},

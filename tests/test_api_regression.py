@@ -191,6 +191,6 @@ class ApiRegressionTests(unittest.TestCase):
         self.assertEqual(by_key["habits"]["emoji"], "✅")
         self.assertTrue(by_key["habits"]["enabled"])
 
-        self.assertEqual(by_key["exercise"]["label"], "Exercise")
-        self.assertEqual(by_key["exercise"]["path"], "/exercise")
+        self.assertEqual(by_key["exercise"]["label"], "Training")
+        self.assertEqual(by_key["exercise"]["path"], "/training")
         self.assertFalse(by_key["exercise"]["enabled"])

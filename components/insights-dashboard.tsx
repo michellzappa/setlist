@@ -924,7 +924,7 @@ export function InsightsDashboard() {
     { title: "Sleep score → Next-day training", xLabel: "Sleep", yLabel: "Volume", yUnit: "k", data: trainingVsSleep, color: exerciseColor, expected: "+" },
     { title: "Last caffeine (hr) → Sleep score", xLabel: "Last caffeine", yLabel: "Sleep", xUnit: "h", data: sleepVsCaffeineHour, color: caffeineColor, yDomain: [50, 100], expected: "-" },
     { title: "Fasting window → Readiness", xLabel: "Fasting", yLabel: "Readiness", xUnit: "h", data: readinessVsFasting, color: nutritionColor, yDomain: [50, 100] },
-    { title: "Exercise minutes → Resting HR", xLabel: "Exercise", yLabel: "RHR", xUnit: "min", yUnit: "bpm", data: rhrVsExercise, color: exerciseColor, expected: "-" },
+    { title: "Training minutes → Resting HR", xLabel: "Training", yLabel: "RHR", xUnit: "min", yUnit: "bpm", data: rhrVsExercise, color: exerciseColor, expected: "-" },
     { title: "Last meal (hr) → Sleep score", xLabel: "Last meal", yLabel: "Sleep", xUnit: "h", data: sleepVsLastMeal, color: nutritionColor, yDomain: [50, 100], expected: "-" },
     { title: "Overnight CO₂ → Sleep score", xLabel: "CO₂", yLabel: "Sleep", xUnit: "ppm", data: sleepVsCo2, color: airColor, yDomain: [50, 100], expected: "-" },
     { title: "Overnight CO₂ peak → HRV", xLabel: "CO₂ peak", yLabel: "HRV", xUnit: "ppm", yUnit: "ms", data: hrvVsCo2Peak, color: airColor, expected: "-" },

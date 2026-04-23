@@ -1,9 +1,9 @@
-# Exercise
+# Training
 
 Track strength, cardio, mobility, and yoga sessions with automatic
 progression charts and PR tracking.
 
-![Exercise](../screenshots/exercise.png)
+![Training](../screenshots/exercise.png)
 
 ## What it does
 
@@ -30,7 +30,7 @@ section: exercise
 ---
 ```
 
-See [`examples/vault/Bases/Exercise/SKILL.md`](../../examples/vault/Bases/Exercise/SKILL.md) for the full schema.
+See [`examples/vault/Bases/Exercise/SKILL.md`](../../examples/vault/Bases/Exercise/SKILL.md) for the full schema. The folder path still uses `Exercise/` for now.
 
 ## Endpoints
 

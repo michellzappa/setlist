@@ -100,8 +100,8 @@ def get_meta() -> Dict[str, Any]:
     """Data quality and recency overview for all sections."""
     sources: Dict[str, Any] = {}
 
-    # Exercise
-    sources["exercise"] = {"label": "Exercise", **_dir_meta(DATA_DIR)}
+    # Training
+    sources["exercise"] = {"label": "Training", **_dir_meta(DATA_DIR)}
     # Nutrition
     sources["nutrition"] = {"label": "Nutrition", **_dir_meta(NUTRITION_DIR)}
     # Habits

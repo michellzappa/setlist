@@ -3,23 +3,8 @@
 import { usePathname } from "next/navigation";
 import { type CSSProperties, type ReactNode } from "react";
 import { useSectionColor, useSections } from "@/hooks/use-sections";
+import { sectionAccentVars } from "@/lib/section-colors";
 import type { SectionKey } from "@/lib/sections";
-
-function sectionAccentVars(color: string): CSSProperties {
-  return {
-    "--section-accent": color,
-    // Custom properties resolve where they are defined, not where they are
-    // consumed, so the full accent ramp has to live on the same element that
-    // overrides the section accent. Leaving these at :root made every
-    // exercise shade keep the neutral foreground color instead of the user's
-    // chosen section color.
-    "--section-accent-soft": `color-mix(in oklab, ${color} 14%, transparent)`,
-    "--section-accent-strong": `oklch(from ${color} calc(l - 0.10) c h)`,
-    "--section-accent-shade-1": color,
-    "--section-accent-shade-2": `oklch(from ${color} calc(l + 0.06) c h)`,
-    "--section-accent-shade-3": `oklch(from ${color} calc(l + 0.13) calc(c * 0.85) h)`,
-  } as CSSProperties;
-}
 
 /** Sets `--section-accent` (and derived shade vars) on a wrapper div
  *  scoped to whichever section owns the current pathname. Descendants

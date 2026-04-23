@@ -1,12 +1,18 @@
 # Septena
 
-**A local-first personal health dashboard that stores everything as
-human-readable YAML in a plain, git-native folder on your disk.**
+**A local-first personal health dashboard for people comfortable running
+a small local app: Node frontend, Python backend, and human-readable
+YAML in a plain, git-native folder on your disk.**
 
-Septena is one app for several corners of personal health — exercise,
+Septena is one app for several corners of personal health — training,
 nutrition, habits, sleep, body, vitals, supplements, caffeine, chores —
 tracked through a clean web UI, stored as plain text files you
 can read, edit, and back up like any other notes.
+
+Today, Septena is for technical users: people who are fine cloning a
+repo, installing Node and Python dependencies, and running a local web
+app on their own machine. A packaged desktop app may come later; that
+is not the current setup model.
 
 ![Overview](docs/screenshots/overview.png)
 
@@ -30,6 +36,32 @@ with data before logging your own._
   Settings UI. Nothing is baked into the app that you can't see and
   change.
 
+## Who It's For
+
+Septena currently assumes a user who is comfortable with:
+
+- running a local Python + Node app
+- editing a `.env.local` file when needed
+- keeping their own data in a folder on disk
+- optionally using Git for backup/versioning
+
+It does **not** currently assume a packaged installer, hosted backend,
+account system, or managed sync service.
+
+## Color system
+
+Septena uses two separate color layers:
+
+- **Brand** is fixed. The logo/mark uses a seven-color spectrum, and
+  non-section surfaces like marketing, onboarding, and icon fallbacks use
+  one stable brand accent.
+- **Sections** are configurable. Each section still owns its own accent,
+  and section pages derive lighter/darker tones from that accent for
+  charts, pills, buttons, and training-type indicators.
+
+That split keeps the product recognizable even when a user changes their
+section palette. Details live in [docs/COLOR_SYSTEM.md](docs/COLOR_SYSTEM.md).
+
 ## What you can track
 
 Septena ships with these sections. Each one is **auto-detected by
@@ -42,7 +74,7 @@ schema, and the relevant endpoints.
 
 | Section | What it does | Storage |
 |---|---|---|
-| [**Exercise**](docs/sections/exercise.md) | Training sessions, progression charts, PR tracking. Pre-fillable templates for upper/lower/cardio/yoga days. | YAML per set |
+| [**Training**](docs/sections/exercise.md) | Training sessions, progression charts, PR tracking. Pre-fillable templates for upper/lower/cardio/yoga days. | YAML per set |
 | [**Nutrition**](docs/sections/nutrition.md) | Meals, supplements, snacks, per-meal macros, rolling daily targets, fasting-window tracking. | YAML per meal |
 | [**Habits**](docs/sections/habits.md) | Fixed daily checklist bucketed morning / afternoon / evening with 30-day history. | YAML per day |
 | [**Chores**](docs/sections/chores.md) | Recurring, deferrable tasks with overdue tracking. | YAML per chore + per completion |
@@ -54,7 +86,7 @@ schema, and the relevant endpoints.
 | [**Air**](docs/sections/air.md) | Ambient CO₂, temperature, humidity — live band, day-stats, overnight windows. | Read-only from Aranet4 |
 | [**Insights**](docs/sections/insights.md) | Cross-section correlations and patterns. | Derived |
 
-The core three — Exercise, Nutrition, Habits — ship as starter
+The core three — Training, Nutrition, Habits — ship as starter
 scaffolding under [`examples/vault/Bases/`](examples/vault/Bases/). The
 rest live under [`examples/vault/optional/`](examples/vault/optional/),
 ready to copy into your vault when you want them.
@@ -95,7 +127,7 @@ section: nutrition
 ```
 
 Files live at `$SEPTENA_DATA_DIR/<Section>/Log/`. Filenames vary by section
-(e.g. nutrition uses `YYYY-MM-DD--HHMM--NN.md`; exercise uses
+(e.g. nutrition uses `YYYY-MM-DD--HHMM--NN.md`; training uses
 `YYYY-MM-DD--{exercise-slug}--NN.md`). Each section has its own parser
 but they share `date`, `id`, and `section` across the universe.
 
@@ -122,8 +154,10 @@ the sections. Delete the folder when done — nothing else is touched.
 
 ## Quickstart
 
-**Prerequisites:** Python 3.11+, Node 20+. The data directory is just a
-folder of Markdown files — no Obsidian required.
+**Prerequisites:** Python 3.11+, Node 20+. Septena currently assumes
+you already have both installed and are comfortable running a local dev
+stack. The data directory is just a folder of Markdown files — no
+Obsidian required.
 
 ```bash
 # 1. Clone
@@ -283,7 +317,7 @@ One `APIRouter` per section under `api/routers/`. Dev server on port
 YAML from disk (cheap at personal-scale data volumes).
 
 **No build step for data.** Edit a YAML file in any editor, reload the
-page, changes appear. The Exercise section caches for performance and
+page, changes appear. The Training section caches for performance and
 auto-invalidates on file mtime change.
 
 ## Adding your own section
@@ -323,7 +357,7 @@ than writing from scratch.
 **Known holdouts:**
 - Session templates (gym routine) still live in TypeScript — see
   `lib/session-templates.ts`. Moving to vault YAML is tracked.
-- `components/training-dashboard.tsx` still mirrors the exercise-type
+- `components/training-dashboard.tsx` still mirrors the training-type
   sets (`CARDIO_EXERCISES`, `MOBILITY_EXERCISES`, `CORE_EXERCISES`)
   used by `metricKind` to pick the right chart rendering. The backend
   is fully config-driven via `Bases/Exercise/exercise-config.yaml`;

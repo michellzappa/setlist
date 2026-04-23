@@ -1,12 +1,13 @@
 // Dynamic PWA manifest. Mirrors `icon_color` from /api/settings into the
 // manifest's `theme_color` so the iOS home-screen icon and status bar tint
-// match the favicon without a rebuild.
+// match the favicon without a rebuild. Falls back to the fixed Septena
+// brand accent when no override is set.
 
 const BACKEND =
   process.env.SEPTENA_BACKEND_URL ??
   process.env.SETLIST_BACKEND_URL ??
   "http://127.0.0.1:4445";
-const FALLBACK = "#ff6600";
+const FALLBACK = "#5b6df2";
 
 export const dynamic = "force-dynamic";
 

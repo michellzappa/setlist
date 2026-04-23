@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { SeptenaMark } from "@/components/septena-mark";
 import { useNavSections } from "@/hooks/use-sections";
 
 /** Floating home button for mobile PWA navigation.
@@ -46,9 +47,13 @@ export function MobileHomeFab() {
     return () => clearPressTimer();
   }, [clearPressTimer]);
 
+  const closeMenu = useEffectEvent(() => {
+    setMenuOpen(false);
+  });
+
   // Close menu on route change (user tapped a section link).
   useEffect(() => {
-    setMenuOpen(false);
+    closeMenu();
   }, [pathname]);
 
 
@@ -156,19 +161,7 @@ export function MobileHomeFab() {
             <path d="M12 5v14M5 12h14" />
           </svg>
         ) : (
-          <svg
-            viewBox="0 0 512 512"
-            fill="currentColor"
-            className="h-6 w-6 transition-transform"
-          >
-            <circle cx="256" cy="107" r="49" />
-            <circle cx="373" cy="162" r="49" />
-            <circle cx="402" cy="290" r="49" />
-            <circle cx="321" cy="391" r="49" />
-            <circle cx="191" cy="391" r="49" />
-            <circle cx="110" cy="290" r="49" />
-            <circle cx="139" cy="162" r="49" />
-          </svg>
+          <SeptenaMark className="h-6 w-6 transition-transform" variant="currentColor" />
         )}
       </button>
     </>

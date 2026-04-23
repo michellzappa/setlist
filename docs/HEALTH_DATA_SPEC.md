@@ -196,7 +196,7 @@ with urllib.request.urlopen(req, timeout=10) as r:
 
 **Data root:** `~/Documents/septena-data/`
 
-### 4a. Training Sessions (Exercise — canonical)
+### 4a. Training Sessions (stored under `Exercise/` for now)
 ```
 ~/Documents/septena-data/Exercise/Log/*.md
 ~/Documents/septena-data/Exercise/Exercise.base    ← optional Obsidian Bases view config
@@ -257,7 +257,7 @@ section: nutrition
 **Frontend:** `http://127.0.0.1:4444` (Next.js)
 
 **Currently connected to Septena:**
-- ✅ Exercise YAML → `Bases/Exercise/Log/` → backend reads → frontend charts
+- ✅ Training YAML → `Bases/Exercise/Log/` → backend reads → frontend charts
 
 **NOT yet connected:**
 - ❌ Withings → Septena (weight + body fat)

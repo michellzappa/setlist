@@ -40,7 +40,7 @@ const HEALTH_CACHE_PATH = join(CACHE_DIR, "health-cache.json");
 
 const DEFAULT_SECTIONS = [
   { slug: "overview", path: "/" },
-  { slug: "exercise", path: "/exercise" },
+  { slug: "exercise", path: "/training" },
   { slug: "nutrition", path: "/nutrition" },
   { slug: "habits", path: "/habits" },
   { slug: "supplements", path: "/supplements" },

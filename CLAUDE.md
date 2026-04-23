@@ -41,7 +41,8 @@ septena/                              # Next.js frontend :4444
     onboarding-gate.tsx, backend-status-banner.tsx, pull-to-refresh.tsx
   lib/
     api.ts                            → API client — one block per section (see // ── markers)
-    sections.ts                       → section registry: code-side wiring + EXERCISE_SHADES
+    sections.ts                       → section registry: code-side wiring + frontend fallback metadata
+    section-colors.ts                 → shared brand/section color tokens + derived exercise tones
     pr.ts, session-draft.ts, session-templates.ts, idb.ts, utils.ts, fasting.ts, macro-targets.ts
   main.py                             → thin entrypoint: `from api.app import app`
   api/                                → FastAPI backend :4445
@@ -72,7 +73,8 @@ Two halves: the wiring (stable, code) and the metadata (user-editable, settings)
 
 - **`api/routers/sections.py:SECTION_IMMUTABLE`** — `{ key: { path, apiBase, dataDir } }` (`dataDir` is the on-disk folder under `$SEPTENA_DATA_DIR`). Changing any of these means shipping a new frontend route, so it stays in source.
 - **`DEFAULT_SETTINGS["sections"]`** in `api/routers/settings.py` — `{ label, emoji, color, tagline }` per key. Users override in `Bases/Settings/settings.yaml`.
-- **`lib/sections.ts`** — code-side defaults the frontend falls back to before `GET /api/sections` resolves. Also exports `EXERCISE_SHADES` (strength / cardio / mobility shades of orange, aligned to tailwind `orange-500/400/300`).
+- **`lib/sections.ts`** — code-side defaults the frontend falls back to before `GET /api/sections` resolves.
+- **`lib/section-colors.ts`** — shared brand/section color tokens. Publishes derived exercise tones from the section accent instead of hardcoded orange shades.
 
 `GET /api/sections` merges both halves, ordered by `settings.section_order`, with `enabled` defaulting to vault-folder-presence + integration reachability (see `api/paths.py:available_sections`) and user-explicit overrides winning when present.
 
@@ -165,7 +167,7 @@ Only Exercise caches (`_cache`, `fresh_cache` dep); every other router re-reads 
 - `api/routers/caffeine.py:CAFFEINE_METHODS`
 - `api/routers/exercise/taxonomy.py:_DEFAULT_CARDIO / _DEFAULT_MOBILITY / _DEFAULT_CORE / _DEFAULT_LOWER / _DEFAULT_ALIASES`
 - `components/training-dashboard.tsx:CARDIO_EXERCISES / MOBILITY_EXERCISES / CORE_EXERCISES` (frontend mirror)
-- `lib/sections.ts:EXERCISE_SHADES`
+- `lib/section-colors.ts:EXERCISE_TONE_COLOR`
 
 Moving these to per-section `{section}-config.yaml` + `/api/{section}/config` would mirror how strains/beans already work.
 
@@ -255,8 +257,10 @@ One block per section, all appended to the same file. See the `// ── {Sectio
 
 ## Design System
 
-- **Orange** is the **global** accent — tabs, launcher cards, exercise dashboard. Exercise's section color is also orange (`hsl(25,95%,53%)` ≈ `orange-500`); other sections have their own colors used for in-section CTAs and charts, but the nav tab pill stays orange.
-- **Tabs:** sticky top, pill style. Active = `border-orange-500 bg-orange-500 text-white`. Inactive hovers to orange.
+- **Brand:** Septena has a fixed seven-color mark plus one stable brand accent for marketing, onboarding, and icon fallbacks. Brand colors do not mirror live section settings.
+- **Sections:** Section colors are user-configurable and functional. `SectionThemeRoot` publishes the active section accent and derived ramp into page scope.
+- **Exercise:** strength/cardio/mobility tones derive from the Exercise section accent via `lib/section-colors.ts`; they are not their own hardcoded orange/blue/purple palette.
+- **Tabs:** sticky top, pill style. Active section tabs use that section's color. The home pill stays neutral and only picks up contextual hover color from the current section.
 - **Cards:** `border-border bg-background` with section-color hover on interactive elements
 - **Charts:** Recharts, section-coloured; see `components/training-dashboard.tsx` for the house style
 - **Fonts:** System stack (no Google Fonts)

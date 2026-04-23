@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Septena",
-  description: "Personal week tracker — exercise, nutrition, habits, vitals.",
+  description: "Personal week tracker — training, nutrition, habits, vitals.",
   manifest: "/manifest.json",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],

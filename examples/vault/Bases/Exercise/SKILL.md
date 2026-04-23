@@ -1,9 +1,9 @@
 ---
 name: septena-exercise
-description: Log training sessions (strength, cardio, mobility) to Septena's Exercise section. One Markdown file per exercise entry.
+description: Log training sessions (strength, cardio, mobility) to Septena's Training section. One Markdown file per exercise entry.
 ---
 
-# Septena · Exercise
+# Septena · Training
 
 Track training sessions, exercise progression, and cardio zones.
 

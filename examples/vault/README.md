@@ -16,7 +16,7 @@ cp -R examples/vault/Bases/* "$SEPTENA_DATA_DIR"
 
 Gives you three active-tracking sections plus app settings:
 
-- **Exercise** — training sessions and progression
+- **Training** — training sessions and progression
 - **Nutrition** — meals, macros, fasting windows
 - **Habits** — morning / afternoon / evening checklist
 - **Settings** — app preferences (section order, animations)
@@ -48,7 +48,7 @@ picks it up on the next request.
 
 ## What's not included
 
-- **Session templates** for Exercise — these live in
+- **Session templates** for Training — these live in
   `lib/session-templates.ts` and must be edited in TypeScript for now.
 - **Integration tokens** — put those under `SEPTENA_INTEGRATIONS_DIR`,
   not inside the vault. See the main README.
