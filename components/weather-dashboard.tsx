@@ -20,7 +20,7 @@ export function WeatherDashboard() {
         <Card>
           <CardContent className="py-6">
             <p className="text-sm text-muted-foreground">
-              Set a location in <Link href="/settings" className="underline hover:text-foreground">Settings</Link> to see weather.
+              Set a location in <Link href="/septena/settings" className="underline hover:text-foreground">Settings</Link> to see weather.
             </p>
           </CardContent>
         </Card>

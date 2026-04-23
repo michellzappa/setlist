@@ -81,7 +81,7 @@ export default function SectionSettingsPage() {
         subtitle={tagline || undefined}
         emoji={emoji || undefined}
         color={color || undefined}
-        back={{ href: "/settings", label: "Settings" }}
+        back={{ href: "/septena/settings", label: "Settings" }}
       />
 
       <div className="space-y-4">

@@ -139,7 +139,7 @@ function NewSessionInner() {
     try {
       await postSession(payload);
       setSaved(true);
-      setTimeout(() => { router.push("/exercise"); }, 1500);
+      setTimeout(() => { router.push("/septena/training"); }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
       setSaving(false);
@@ -164,7 +164,7 @@ function NewSessionInner() {
     <div className="min-h-screen bg-muted/30">
       <>
         <div className="mb-4">
-          <Link href="/exercise" className="text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/septena/training" className="text-sm text-muted-foreground hover:text-foreground">
             ← Back to dashboard
           </Link>
         </div>

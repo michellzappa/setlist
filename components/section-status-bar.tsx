@@ -52,7 +52,7 @@ export function SectionStatusBar({ section }: { section: SectionKey }) {
         if (section === "exercise") {
           const stats = await getStats();
           const line1 = `${stats.total_sessions ?? 0} sessions · ${stats.exercises_count ?? 0} exercises`;
-          const line2 = `Last: ${relativeTime(stats.last_logged_at)} · Path: ${vault}/Exercise/Log/`;
+          const line2 = `Last: ${relativeTime(stats.last_logged_at)} · Vault: ${vault}/Exercise/Log/`;
           setData({ line1, line2, color });
         } else if (section === "health") {
           const [oura, withings, apple] = await Promise.all([
@@ -190,13 +190,13 @@ export function SectionStatusBar({ section }: { section: SectionKey }) {
       {loadTime && <p className="mt-0.5">{loadTime}</p>}
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
         <Link
-          href="/data"
+          href="/septena/data"
           className="underline-offset-4 hover:text-foreground hover:underline"
         >
           Data sources & freshness →
         </Link>
         <Link
-          href={`/settings/${section}`}
+          href={`/septena/settings/${section}`}
           className="underline-offset-4 hover:text-foreground hover:underline"
         >
           {sectionLabel} settings →

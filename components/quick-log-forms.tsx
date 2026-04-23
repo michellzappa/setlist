@@ -159,7 +159,7 @@ export function ExerciseQuickLog({ onDone }: { onDone: () => void }) {
       if (navigating) return;
       setNavigating(type);
       HAPTIC();
-      router.push(`/exercise/session/new?type=${type}`);
+      router.push(`/septena/training/session/new?type=${type}`);
       onDone();
     },
     [navigating, router, onDone],

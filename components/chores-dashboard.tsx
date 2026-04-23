@@ -170,7 +170,7 @@ export function ChoresDashboard() {
         <Card>
           <CardContent className="py-6 text-sm text-muted-foreground">
             No chores configured. Add some in{" "}
-            <a href="/settings/chores" className="underline">
+            <a href="/septena/settings/chores" className="underline">
               Settings → Chores
             </a>
             .

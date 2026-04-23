@@ -44,8 +44,8 @@ function parseHHMM(t: string | null | undefined): number | null {
 /** Map an event's `source` label to the section page it belongs to.
  *  Most sources are section keys already; sleep → /sleep, withings → /body. */
 function sourceToPath(source: string): string {
-  if (source === "withings") return "/body";
-  if (source === "sleep") return "/sleep";
+  if (source === "withings") return "/septena/body";
+  if (source === "sleep") return "/septena/sleep";
   return `/${source}`;
 }
 

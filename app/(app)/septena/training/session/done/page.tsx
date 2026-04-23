@@ -1,25 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import useSWR from "swr";
 
 import { draft, type ActiveSession } from "@/lib/session-draft";
+import {
+  SECTION_ACCENT,
+  SECTION_ACCENT_SHADE_1,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_SHADE_3,
+  SECTION_ACCENT_SOFT,
+  SECTION_ACCENT_STRONG,
+} from "@/lib/section-colors";
 import { SESSION_META, isCardio, type SessionType } from "@/lib/session-templates";
 import { getEntries, getSettings } from "@/lib/api";
 import { computePRs, type ExercisePR } from "@/lib/pr";
 
 // ─── Confetti ────────────────────────────────────────────────────────────
-// Hand-rolled. No dependency. 60 particles, orange palette, CSS keyframes.
+// Hand-rolled. No dependency. 60 particles, section palette, CSS keyframes.
 
 const CONFETTI_COUNT = 70;
 const COLORS = [
-  "var(--section-accent-shade-1)",
-  "var(--section-accent-shade-2)",
-  "var(--section-accent-shade-3)",
-  "var(--section-accent-strong)",
-  "var(--section-accent-soft)",
+  SECTION_ACCENT_SHADE_1,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_SHADE_3,
+  SECTION_ACCENT_STRONG,
+  SECTION_ACCENT_SOFT,
 ];
 
 type Particle = {
@@ -34,7 +42,7 @@ type Particle = {
 };
 
 function Confetti() {
-  const particles: Particle[] = useMemo(
+  const [particles] = useState<Particle[]>(
     () =>
       Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
         id: i,
@@ -46,7 +54,6 @@ function Confetti() {
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
         size: 6 + Math.random() * 8, // px
       })),
-    [],
   );
 
   return (
@@ -207,7 +214,7 @@ export default function SessionDonePage() {
   useEffect(() => {
     draft.load().then(async (s) => {
       if (!s) {
-        router.replace("/exercise");
+        router.replace("/septena/training");
         return;
       }
       setStats(computeStats(s));
@@ -240,7 +247,7 @@ export default function SessionDonePage() {
 
   async function goHome() {
     await draft.clear();
-    router.push("/exercise");
+    router.push("/septena/training");
   }
 
   if (loading || !stats) {
@@ -332,7 +339,7 @@ export default function SessionDonePage() {
                       <span
                         title="New all-time weight PR"
                         className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
-                        style={{ backgroundColor: "var(--section-accent)" }}
+                        style={{ backgroundColor: SECTION_ACCENT_SHADE_1 }}
                       >
                         PR kg
                       </span>
@@ -340,7 +347,8 @@ export default function SessionDonePage() {
                     {pr?.volumePR && (
                       <span
                         title="New all-time volume PR (weight × sets × reps)"
-                        className="rounded-full bg-purple-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
+                        className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
+                        style={{ backgroundColor: SECTION_ACCENT_SHADE_2 }}
                       >
                         PR vol
                       </span>
@@ -372,9 +380,9 @@ export default function SessionDonePage() {
         <button
           onClick={goHome}
           className="mt-8 w-full rounded-2xl py-4 text-lg font-semibold text-white shadow-lg transition-colors"
-          style={{ backgroundColor: "var(--section-accent)" }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--section-accent-strong)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "var(--section-accent)"; }}
+          style={{ backgroundColor: SECTION_ACCENT }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = SECTION_ACCENT_STRONG; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = SECTION_ACCENT; }}
         >
           Back to dashboard →
         </button>

@@ -98,7 +98,7 @@ export function SupplementsDashboard() {
             <Card>
               <CardContent className="py-6 text-sm text-muted-foreground">
                 No supplements configured. Add some in{" "}
-                <a href="/settings/supplements" className="underline">
+                <a href="/septena/settings/supplements" className="underline">
                   Settings → Supplements
                 </a>
                 .

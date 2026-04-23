@@ -126,7 +126,7 @@ export function HabitsDashboard() {
         <Card>
           <CardContent className="py-6 text-sm text-muted-foreground">
             No habits configured. Add some in{" "}
-            <a href="/settings/habits" className="underline">
+            <a href="/septena/settings/habits" className="underline">
               Settings → Habits
             </a>
             .

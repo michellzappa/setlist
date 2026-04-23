@@ -24,6 +24,35 @@ const nextConfig: NextConfig = {
   // vault in parallel with the user's main dev server at :4444 — each
   // server gets its own build output dir (and thus its own `dev/lock`).
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
+  async redirects() {
+    return [
+      {
+        source: "/exercise",
+        destination: "/septena/training",
+        permanent: false,
+      },
+      {
+        source: "/exercise/:path*",
+        destination: "/septena/training/:path*",
+        permanent: false,
+      },
+      {
+        source: "/training",
+        destination: "/septena/training",
+        permanent: false,
+      },
+      {
+        source: "/training/:path*",
+        destination: "/septena/training/:path*",
+        permanent: false,
+      },
+      {
+        source: "/demo/exercise",
+        destination: "/demo/training",
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

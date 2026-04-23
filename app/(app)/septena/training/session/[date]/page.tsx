@@ -22,7 +22,7 @@ export default async function SessionPage({ params }: { params: Promise<{ date: 
   return (
     <>
       <div className="mb-6">
-        <Link href="/exercise" className="text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/septena/training" className="text-sm text-muted-foreground hover:text-foreground">
           ← Back to dashboard
         </Link>
       </div>

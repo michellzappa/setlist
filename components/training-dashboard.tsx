@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { type CSSProperties, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -14,7 +14,6 @@ import {
   type ExerciseEntry,
   type ProgressionPoint,
   type Stats,
-  type CardioHistory,
 } from "@/lib/api";
 import { computePRs } from "@/lib/pr";
 import { cn } from "@/lib/utils";
@@ -31,12 +30,20 @@ import {
 import { WeekStreak } from "@/components/week-streak";
 import { SectionHeaderAction, SectionHeaderActionButton } from "@/components/section-header-action";
 import { useExerciseTaxonomy, type ExerciseKind } from "@/hooks/use-exercise-taxonomy";
-import { relativeTime, formatDateLong as formatDate, addDaysISO } from "@/lib/date-utils";
+import { formatDateLong as formatDate, addDaysISO } from "@/lib/date-utils";
 import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
 import { useSelectedDate } from "@/hooks/use-selected-date";
-import { StatCard } from "@/components/stat-card";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
+import { useDemoHref } from "@/hooks/use-demo-href";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
+import {
+  EXERCISE_TONE_COLOR,
+  exerciseToneColor,
+  SECTION_ACCENT_SHADE_1,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_SHADE_3,
+  SECTION_ACCENT_STRONG,
+} from "@/lib/section-colors";
 
 type DashboardState = {
   stats: Stats | null;
@@ -69,7 +76,7 @@ function isMeta(name: string): name is typeof META_STRENGTH | typeof META_CARDIO
 const chartConfig = {
   metric: {
     label: "Metric",
-    color: "var(--section-accent-shade-1)",
+    color: SECTION_ACCENT_SHADE_1,
   },
 } satisfies ChartConfig;
 
@@ -190,9 +197,6 @@ export function TrainingDashboard() {
     error: null,
   });
   const [pillCounts, setPillCounts] = useState<Record<string, number>>({});
-  const [nextWorkout, setNextWorkout] = useState<{ type: string; emoji: string; label: string } | null>(null);
-  const [lastWorkoutDate, setLastWorkoutDate] = useState<string | null>(null);
-
   // Sync SWR data into existing state shape.
   if (bulk && state.stats !== bulk.stats) {
     setState((current) => ({
@@ -203,9 +207,6 @@ export function TrainingDashboard() {
       loading: false,
       error: null,
     }));
-    if (bulk.next.suggested) setNextWorkout(bulk.next.suggested);
-    const lastStrength = bulk.next.last_date.upper || bulk.next.last_date.lower;
-    setLastWorkoutDate(lastStrength ?? null);
     setPillCounts(bulk.counts);
   }
   if (swrError && state.error !== (swrError instanceof Error ? swrError.message : "Failed to load dashboard")) {
@@ -410,19 +411,20 @@ export function TrainingDashboard() {
    *  settings.yaml cascades through all three shades automatically. */
   const lineColor = useMemo(() => {
     const ex = state.selectedExercise;
-    if (ex === META_CARDIO) return "var(--section-accent-shade-2)";
-    if (ex === META_STRENGTH) return "var(--section-accent-shade-1)";
-    if (selectedKind === "mobility") return "var(--section-accent-shade-3)";
-    if (selectedKind === "cardio") return "var(--section-accent-shade-2)";
-    return "var(--section-accent-shade-1)";
+    if (ex === META_CARDIO) return EXERCISE_TONE_COLOR.cardio;
+    if (ex === META_STRENGTH) return EXERCISE_TONE_COLOR.strength;
+    return exerciseToneColor(selectedKind);
   }, [state.selectedExercise, selectedKind]);
 
-  if (isLoading && !bulk) return <DashboardSkeleton title="Exercise" />;
+  const demoHref = useDemoHref();
+  const startHref = demoHref("/septena/training/session/start");
+
+  if (isLoading && !bulk) return <DashboardSkeleton title="Training" />;
 
   return (
     <>
       <SectionHeaderAction>
-        <SectionHeaderActionButton href="/exercise/session/start">
+        <SectionHeaderActionButton href={startHref}>
           + Log
         </SectionHeaderActionButton>
       </SectionHeaderAction>
@@ -567,16 +569,19 @@ export function TrainingDashboard() {
                             </p>
                             {(isWeightPR || isVolumePR) && (
                               <p className="mt-1 flex gap-1">
-                                {isWeightPR && (
+                            {isWeightPR && (
                                   <span
                                     className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
-                                    style={{ backgroundColor: "var(--section-accent-shade-1)" }}
+                                    style={{ backgroundColor: SECTION_ACCENT_SHADE_1 }}
                                   >
                                     PR kg
                                   </span>
                                 )}
                                 {isVolumePR && (
-                                  <span className="rounded-full bg-purple-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                                  <span
+                                    className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
+                                    style={{ backgroundColor: SECTION_ACCENT_SHADE_2 }}
+                                  >
                                     PR vol
                                   </span>
                                 )}
@@ -616,7 +621,7 @@ export function TrainingDashboard() {
                                 cy={cy}
                                 r={r + 3}
                                 fill="none"
-                                stroke="#eab308" /* yellow-500 */
+                                stroke={SECTION_ACCENT_STRONG}
                                 strokeWidth={2}
                               />
                             )}
@@ -654,11 +659,11 @@ export function TrainingDashboard() {
                   // so the badge means "this aggregate covers N exercises".
                   const metaStrength = { name: META_STRENGTH, count: strength.length };
                   const metaCardio = { name: META_CARDIO, count: cardio.length };
-                  const categories: Array<{ title: string; accent: "cardio" | "orange"; items: typeof pillButtons }> = [
-                    { title: "Cardio & mobility", accent: "cardio", items: [metaCardio, ...cardio] },
-                    { title: "Strength", accent: "orange", items: [metaStrength, ...strength] },
+                  const categories: Array<{ title: string; tone: "cardio" | "strength"; items: typeof pillButtons }> = [
+                    { title: "Cardio & mobility", tone: "cardio", items: [metaCardio, ...cardio] },
+                    { title: "Strength", tone: "strength", items: [metaStrength, ...strength] },
                   ];
-                  return categories.map(({ title, accent, items }) =>
+                  return categories.map(({ title, tone, items }) =>
                     items.length === 0 ? null : (
                       <div key={title}>
                         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
@@ -669,44 +674,55 @@ export function TrainingDashboard() {
                             // shade-1 (full accent). Hover uses one shade lighter than
                             // the selected state. Driven entirely off the section
                             // accent so the user's exercise color cascades through.
-                            const fillVar =
-                              accent === "cardio"
-                                ? "var(--section-accent-shade-2)"
-                                : "var(--section-accent-shade-1)";
+                            const fillVar = EXERCISE_TONE_COLOR[tone];
                             const hoverVar =
-                              accent === "cardio"
-                                ? "var(--section-accent-shade-3)"
-                                : "var(--section-accent-shade-2)";
+                              tone === "cardio"
+                                ? SECTION_ACCENT_SHADE_3
+                                : SECTION_ACCENT_SHADE_2;
+                            const idleStyle: CSSProperties = {
+                              borderColor: `color-mix(in oklab, ${fillVar} 30%, var(--border))`,
+                              backgroundColor: `color-mix(in oklab, ${fillVar} 8%, var(--background))`,
+                              color: fillVar,
+                            };
+                            const selectedStyle: CSSProperties = {
+                              borderColor: fillVar,
+                              backgroundColor: fillVar,
+                            };
                             return (
                               <button
                                 key={name}
                                 onClick={() => { void onSelectExercise(name); }}
                                 className={cn(
                                   "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
-                                  selected
-                                    ? "text-white"
-                                    : "border-border bg-card text-muted-foreground hover:text-foreground",
+                                  selected ? "text-white" : "",
                                 )}
-                                style={
-                                  selected
-                                    ? { borderColor: fillVar, backgroundColor: fillVar }
-                                    : undefined
-                                }
+                                style={selected ? selectedStyle : idleStyle}
                                 onMouseEnter={(e) => {
-                                  if (!selected) e.currentTarget.style.borderColor = hoverVar;
+                                  if (!selected) {
+                                    e.currentTarget.style.borderColor = hoverVar;
+                                    e.currentTarget.style.backgroundColor = `color-mix(in oklab, ${hoverVar} 12%, var(--background))`;
+                                    e.currentTarget.style.color = hoverVar;
+                                  }
                                 }}
                                 onMouseLeave={(e) => {
-                                  if (!selected) e.currentTarget.style.borderColor = "";
+                                  if (!selected) {
+                                    e.currentTarget.style.borderColor = idleStyle.borderColor as string;
+                                    e.currentTarget.style.backgroundColor = idleStyle.backgroundColor as string;
+                                    e.currentTarget.style.color = idleStyle.color as string;
+                                  }
                                 }}
                               >
                                 {META_LABEL[name] ?? name}
                                 <span
-                                  className={cn(
-                                    "ml-1.5 rounded-full px-1.5 py-0.5 text-xs",
+                                  className="ml-1.5 rounded-full px-1.5 py-0.5 text-xs"
+                                  style={
                                     selected
-                                      ? "bg-black/30 text-black dark:bg-white/30 dark:text-white"
-                                      : "bg-muted text-muted-foreground",
-                                  )}
+                                      ? { backgroundColor: "rgb(255 255 255 / 0.24)", color: "white" }
+                                      : {
+                                          backgroundColor: `color-mix(in oklab, ${fillVar} 12%, var(--background))`,
+                                          color: fillVar,
+                                        }
+                                  }
                                 >
                                   {count}
                                 </span>

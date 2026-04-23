@@ -22,6 +22,7 @@ const SettingsDashboard    = dynamic(() => import("@/components/settings-dashboa
 
 const WIRED: Record<string, React.ComponentType> = {
   exercise:    TrainingDashboard,
+  training:    TrainingDashboard,
   nutrition:   NutritionDashboard,
   habits:      HabitsDashboard,
   chores:      ChoresDashboard,

@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { draft, type ActiveSession, type ActiveEntry } from "@/lib/session-draft";
+import {
+  exerciseToneColor,
+  SECTION_ACCENT,
+  SECTION_ACCENT_SHADE_1,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_STRONG,
+} from "@/lib/section-colors";
 import { BASIC_FIT_MACHINES, SESSION_META, isCardio } from "@/lib/session-templates";
 
 /** Live session totals shown in the header panel. Recomputed from the
@@ -39,15 +46,15 @@ function computeSessionTotals(session: ActiveSession) {
  *  whole minutes), and the totals come from the parent's session prop so
  *  they refresh as soon as Done is tapped. */
 function SessionStatsPanel({ session }: { session: ActiveSession }) {
-  const [, force] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = setInterval(() => force((n) => n + 1), 30_000);
+    const t = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
 
   const startedAt = session.started_at ? new Date(session.started_at) : null;
   const elapsedMin = startedAt
-    ? Math.max(0, Math.round((Date.now() - startedAt.getTime()) / 60_000))
+    ? Math.max(0, Math.round((now - startedAt.getTime()) / 60_000))
     : null;
   const { cardioMinutes, liftedKg } = computeSessionTotals(session);
   const fmt = new Intl.NumberFormat("en-GB");
@@ -57,17 +64,17 @@ function SessionStatsPanel({ session }: { session: ActiveSession }) {
       <StatTile
         label="Elapsed"
         value={elapsedMin == null ? "—" : `${elapsedMin}m`}
-        accent="orange"
+        accent="strength"
       />
       <StatTile
         label="Cardio"
         value={`${fmt.format(Math.round(cardioMinutes))} min`}
-        accent="blue"
+        accent="cardio"
       />
       <StatTile
         label="Lifted"
         value={`${fmt.format(Math.round(liftedKg))} kg`}
-        accent="orange"
+        accent="strength"
       />
     </div>
   );
@@ -80,15 +87,13 @@ function StatTile({
 }: {
   label: string;
   value: string;
-  accent: "orange" | "blue";
+  accent: "strength" | "cardio";
 }) {
   return (
     <div className="rounded-2xl border bg-background p-3 shadow-sm">
       <p
-        className={cn(
-          "text-[10px] font-semibold uppercase tracking-wider",
-          accent === "blue" ? "text-blue-600" : "text-[color:var(--section-accent-strong)]",
-        )}
+        className="text-[10px] font-semibold uppercase tracking-wider"
+        style={{ color: exerciseToneColor(accent) }}
       >
         {label}
       </p>
@@ -147,11 +152,11 @@ export default function ActiveSessionPage() {
   useEffect(() => {
     draft.load().then((s) => {
       if (!s) {
-        router.replace("/exercise/session/start");
+        router.replace("/septena/training/session/start");
         return;
       }
       if (s.status === "concluded") {
-        router.replace("/exercise/session/done");
+        router.replace("/septena/training/session/done");
         return;
       }
       setSession(s);
@@ -236,7 +241,7 @@ export default function ActiveSessionPage() {
       return; // leave draft in place for user to review
     }
     await draft.finish(); // concludes but doesn't clear — done page reads it
-    router.push("/exercise/session/done");
+    router.push("/septena/training/session/done");
   }
 
   const progress = useMemo(() => {
@@ -259,7 +264,7 @@ export default function ActiveSessionPage() {
     <div className="min-h-screen bg-muted/30 pb-24">
       <>
         <div className="mb-4 flex items-center justify-between">
-          <Link href="/exercise" className="text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/septena/training" className="text-sm text-muted-foreground hover:text-foreground">
             ← Dashboard
           </Link>
           <span className="text-sm font-medium">
@@ -287,7 +292,6 @@ export default function ActiveSessionPage() {
               <EntryCard
                 key={`${entry.exercise}-${idx}`}
                 entry={entry}
-                index={idx}
                 active={activeIndex === idx}
                 onActivate={() => setActiveIndex(idx)}
                 onChange={(field, value) => updateField(idx, field, value)}
@@ -321,7 +325,6 @@ export default function ActiveSessionPage() {
 
 function EntryCard({
   entry,
-  index,
   active,
   onActivate,
   onChange,
@@ -335,7 +338,6 @@ function EntryCard({
   onConfirmSwap,
 }: {
   entry: ActiveEntry;
-  index: number;
   active: boolean;
   onActivate: () => void;
   onChange: (field: keyof ActiveEntry, value: string | number | null) => void;
@@ -481,7 +483,15 @@ function EntryCard({
             </button>
             <button
               onClick={onRequestSwap}
-              className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground hover:border-blue-300 hover:text-blue-600"
+              className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = SECTION_ACCENT_SHADE_2;
+                e.currentTarget.style.color = SECTION_ACCENT_SHADE_2;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "";
+                e.currentTarget.style.color = "";
+              }}
             >
               ↔ Swap
             </button>
@@ -489,9 +499,9 @@ function EntryCard({
               onClick={onDone}
               disabled={saving}
               className="flex-1 rounded-xl py-2.5 font-semibold text-white transition-colors disabled:opacity-60"
-              style={{ backgroundColor: "var(--section-accent)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--section-accent-strong)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "var(--section-accent)"; }}
+              style={{ backgroundColor: SECTION_ACCENT }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = SECTION_ACCENT_STRONG; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = SECTION_ACCENT; }}
             >
               {saving ? "Saving…" : failed ? "Retry" : isReedit ? "Update ✓" : "Done →"}
             </button>
@@ -589,7 +599,10 @@ function SwapPicker({
       <button
         onClick={() => onConfirm(target)}
         disabled={busy || !target}
-        className="w-full rounded-xl bg-blue-500 py-2.5 font-semibold text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
+        className="w-full rounded-xl py-2.5 font-semibold text-white transition-colors disabled:opacity-50"
+        style={{ backgroundColor: SECTION_ACCENT_SHADE_2 }}
+        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = SECTION_ACCENT_SHADE_1; }}
+        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = SECTION_ACCENT_SHADE_2; }}
       >
         {busy ? "Swapping…" : "Swap"}
       </button>

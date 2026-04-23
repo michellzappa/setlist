@@ -502,7 +502,7 @@ export function SettingsDashboard() {
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} />
                       {emoji && <span aria-hidden className="text-base leading-none">{emoji}</span>}
                       <Link
-                        href={`/settings/${key}`}
+                        href={`/septena/settings/${key}`}
                         className="flex-1 truncate text-sm font-medium hover:underline"
                       >
                         {meta.label}
@@ -844,7 +844,7 @@ export function SettingsDashboard() {
           <CardContent>
             <div className="divide-y divide-border/60">
               <ToggleRow
-                label="Exercise complete"
+                label="Training complete"
                 description="Confetti when a workout wraps."
                 checked={draft.animations.exercise_complete}
                 onChange={(v) => patchAnimations({ exercise_complete: v })}
@@ -873,4 +873,3 @@ export function SettingsDashboard() {
     </>
   );
 }
-

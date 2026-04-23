@@ -1211,7 +1211,7 @@ function MetaActionBar() {
   const toHref = useDemoHref();
   const ACTIONS: { href: string; label: string; icon: React.ReactNode }[] = [
     {
-      href: "/insights",
+      href: "/septena/insights",
       label: "Insights",
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1221,7 +1221,7 @@ function MetaActionBar() {
       ),
     },
     {
-      href: "/data",
+      href: "/septena/data",
       label: "Data sources",
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1232,7 +1232,7 @@ function MetaActionBar() {
       ),
     },
     {
-      href: "/settings",
+      href: "/septena/settings",
       label: "Settings",
       icon: (
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -1415,7 +1415,7 @@ export function OverviewDashboard() {
           </p>
         </div>
 
-        <Link href={toHref("/timeline")}><TodayTimeline /></Link>
+        <Link href={toHref("/septena/timeline")}><TodayTimeline /></Link>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleSections.map((s) => {

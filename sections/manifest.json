@@ -1,172 +1,172 @@
 {
   "exercise": {
     "key": "exercise",
-    "label": "Exercise",
-    "path": "/exercise",
+    "label": "Training",
+    "path": "/septena/training",
     "apiBase": "/api",
     "dataDir": "Exercise/Log",
     "folderName": "Exercise",
     "color": "hsl(25,95%,53%)",
     "tagline": "Sessions, progressions & PRs",
-    "emoji": "🏋️"
+    "emoji": "\ud83c\udfcb\ufe0f"
   },
   "nutrition": {
     "key": "nutrition",
     "label": "Nutrition",
-    "path": "/nutrition",
+    "path": "/septena/nutrition",
     "apiBase": "/api/nutrition",
     "dataDir": "Nutrition/Log",
     "folderName": "Nutrition",
     "color": "hsl(45,90%,48%)",
     "tagline": "Meals, macros & fasting",
-    "emoji": "🍱"
+    "emoji": "\ud83c\udf71"
   },
   "habits": {
     "key": "habits",
     "label": "Habits",
-    "path": "/habits",
+    "path": "/septena/habits",
     "apiBase": "/api/habits",
     "dataDir": "Habits/Log",
     "folderName": "Habits",
     "color": "hsl(220,60%,55%)",
     "tagline": "Morning, afternoon & evening routines",
-    "emoji": "✅"
+    "emoji": "\u2705"
   },
   "chores": {
     "key": "chores",
     "label": "Chores",
-    "path": "/chores",
+    "path": "/septena/chores",
     "apiBase": "/api/chores",
     "dataDir": "Chores/Log",
     "folderName": "Chores",
     "color": "hsl(200,45%,50%)",
     "tagline": "Recurring tasks, deferrable",
-    "emoji": "🧹"
+    "emoji": "\ud83e\uddf9"
   },
   "groceries": {
     "key": "groceries",
     "label": "Groceries",
-    "path": "/groceries",
+    "path": "/septena/groceries",
     "apiBase": "/api/groceries",
     "dataDir": "Groceries",
     "folderName": "Groceries",
     "color": "hsl(142,55%,38%)",
     "tagline": "Smart grocery checklist",
-    "emoji": "🛒"
+    "emoji": "\ud83d\uded2"
   },
   "supplements": {
     "key": "supplements",
     "label": "Supplements",
-    "path": "/supplements",
+    "path": "/septena/supplements",
     "apiBase": "/api/supplements",
     "dataDir": "Supplements/Log",
     "folderName": "Supplements",
     "color": "hsl(340,70%,50%)",
     "tagline": "Daily stack & streaks",
-    "emoji": "💊"
+    "emoji": "\ud83d\udc8a"
   },
   "cannabis": {
     "key": "cannabis",
     "label": "Cannabis",
-    "path": "/cannabis",
+    "path": "/septena/cannabis",
     "apiBase": "/api/cannabis",
     "dataDir": "Cannabis/Log",
     "folderName": "Cannabis",
     "color": "hsl(145,55%,38%)",
     "tagline": "Log sessions, strains & usage",
-    "emoji": "🌿"
+    "emoji": "\ud83c\udf3f"
   },
   "caffeine": {
     "key": "caffeine",
     "label": "Caffeine",
-    "path": "/caffeine",
+    "path": "/septena/caffeine",
     "apiBase": "/api/caffeine",
     "dataDir": "Caffeine/Log",
     "folderName": "Caffeine",
     "color": "hsl(22,55%,32%)",
     "tagline": "V60s, matcha & time of day",
-    "emoji": "☕"
+    "emoji": "\u2615"
   },
   "gut": {
     "key": "gut",
     "label": "Gut",
-    "path": "/gut",
+    "path": "/septena/gut",
     "apiBase": "/api/gut",
     "dataDir": "Gut/Log",
     "folderName": "Gut",
     "color": "hsl(28,35%,40%)",
     "tagline": "Bristol, blood & discomfort",
-    "emoji": "🌀"
+    "emoji": "\ud83c\udf00"
   },
   "health": {
     "key": "health",
     "label": "Health",
-    "path": "/health",
+    "path": "/septena/health",
     "apiBase": "/api/health",
     "dataDir": "",
     "color": "hsl(270,60%,55%)",
     "tagline": "HRV, weight & vitals",
-    "emoji": "💓"
+    "emoji": "\ud83d\udc93"
   },
   "sleep": {
     "key": "sleep",
     "label": "Sleep",
-    "path": "/sleep",
+    "path": "/septena/sleep",
     "apiBase": "/api/health",
     "dataDir": "",
     "color": "hsl(230,55%,55%)",
     "tagline": "Score, stages & trends",
-    "emoji": "🌙"
+    "emoji": "\ud83c\udf19"
   },
   "body": {
     "key": "body",
     "label": "Body",
-    "path": "/body",
+    "path": "/septena/body",
     "apiBase": "/api/health",
     "dataDir": "",
     "color": "hsl(170,50%,42%)",
     "tagline": "Weight, body fat & trends",
-    "emoji": "⚖️"
+    "emoji": "\u2696\ufe0f"
   },
   "weather": {
     "key": "weather",
     "label": "Weather",
-    "path": "/weather",
+    "path": "/septena/weather",
     "apiBase": "/api/weather",
     "dataDir": "",
     "color": "hsl(205,75%,50%)",
     "tagline": "Today's conditions & forecast",
-    "emoji": "☀️"
+    "emoji": "\u2600\ufe0f"
   },
   "air": {
     "key": "air",
     "label": "Air",
-    "path": "/air",
+    "path": "/septena/air",
     "apiBase": "/api/air",
     "dataDir": "Air/Log",
     "folderName": "Air",
     "color": "hsl(190,70%,45%)",
-    "tagline": "CO₂, temperature & humidity",
-    "emoji": "🌬️"
+    "tagline": "CO\u2082, temperature & humidity",
+    "emoji": "\ud83c\udf2c\ufe0f"
   },
   "calendar": {
     "key": "calendar",
     "label": "Calendar",
-    "path": "/calendar",
+    "path": "/septena/calendar",
     "apiBase": "/api/calendar",
     "dataDir": "",
     "color": "hsl(290,55%,55%)",
     "tagline": "Today's events at a glance",
-    "emoji": "📅"
+    "emoji": "\ud83d\udcc5"
   },
   "correlations": {
     "key": "correlations",
     "label": "Insights",
-    "path": "/insights",
+    "path": "/septena/insights",
     "apiBase": "",
     "dataDir": "",
     "color": "hsl(220,8%,55%)",
     "tagline": "Cross-section patterns",
-    "emoji": "🔗"
+    "emoji": "\ud83d\udd17"
   }
 }

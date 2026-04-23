@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { getNextWorkout, getLastEntries, type NextWorkoutResponse } from "@/lib/api";
+import {
+  SECTION_ACCENT,
+  SECTION_ACCENT_SOFT,
+  SECTION_ACCENT_STRONG,
+} from "@/lib/section-colors";
 import { draft, type ActiveSession } from "@/lib/session-draft";
 import { SESSION_META, TEMPLATES, type SessionType } from "@/lib/session-templates";
 import { cn } from "@/lib/utils";
@@ -59,7 +64,7 @@ export default function StartSessionPage() {
   }, []);
 
   async function resumeDraft() {
-    router.push("/exercise/session/active");
+    router.push("/septena/training/session/active");
   }
 
   async function discardDraft() {
@@ -82,7 +87,7 @@ export default function StartSessionPage() {
       const exercises = TEMPLATES[selected].map((t) => t.exercise);
       const lastByExercise = await getLastEntries(exercises);
       await draft.start(selected, lastByExercise);
-      router.push("/exercise/session/active");
+      router.push("/septena/training/session/active");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start session");
       setStarting(false);
@@ -98,7 +103,7 @@ export default function StartSessionPage() {
       const exercises = TEMPLATES[selected].map((t) => t.exercise);
       const lastByExercise = await getLastEntries(exercises);
       await draft.start(selected, lastByExercise);
-      router.push("/exercise/session/active");
+      router.push("/septena/training/session/active");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start session");
       setStarting(false);
@@ -114,7 +119,7 @@ export default function StartSessionPage() {
     <div className="min-h-screen bg-muted/30">
       <>
         <div className="mb-4">
-          <Link href="/exercise" className="text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/septena/training" className="text-sm text-muted-foreground hover:text-foreground">
             ← Back to dashboard
           </Link>
         </div>
@@ -184,17 +189,19 @@ export default function StartSessionPage() {
                     <span className="text-3xl">{meta.emoji}</span>
                     <div>
                       <p className="text-xl font-semibold">{meta.label}</p>
-                      <p className={cn("text-sm", isSelected ? "text-orange-100" : "text-muted-foreground")}>
+                      <p className={cn("text-sm", isSelected ? "text-white/80" : "text-muted-foreground")}>
                         Last: {formatDaysAgo(daysAgo)}
                       </p>
                     </div>
                   </div>
                   {isSuggested && (
                     <span
-                      className={cn(
-                        "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider",
-                        isSelected ? "bg-white/25 text-white" : "bg-[color:var(--section-accent-soft)] text-[color:var(--section-accent-strong)]",
-                      )}
+                      className="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider"
+                      style={
+                        isSelected
+                          ? { backgroundColor: "rgb(255 255 255 / 0.25)", color: "white" }
+                          : { backgroundColor: SECTION_ACCENT_SOFT, color: SECTION_ACCENT_STRONG }
+                      }
                     >
                       Suggested
                     </span>
@@ -208,9 +215,9 @@ export default function StartSessionPage() {
             onClick={startSession}
             disabled={!selected || loading || starting}
             className="mt-6 w-full rounded-2xl py-4 text-lg font-semibold text-white transition-colors disabled:opacity-50"
-            style={{ backgroundColor: "var(--section-accent)" }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--section-accent-strong)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "var(--section-accent)"; }}
+            style={{ backgroundColor: SECTION_ACCENT }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = SECTION_ACCENT_STRONG; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = SECTION_ACCENT; }}
           >
             {starting ? "Starting…" : loading ? "Loading…" : "Start session →"}
           </button>

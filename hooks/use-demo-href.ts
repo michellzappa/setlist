@@ -13,6 +13,9 @@ export function useDemoHref(): (path: string) => string {
     if (!path.startsWith("/")) return path;
     if (path === "/demo" || path.startsWith("/demo/")) return path;
     if (path === "/" || path === "/septena") return "/demo";
+    // Real app lives under /septena/<section>; demo lives under /demo/<section>.
+    // Strip the /septena prefix so /septena/training → /demo/training.
+    if (path.startsWith("/septena/")) return "/demo/" + path.slice("/septena/".length);
     return `/demo${path}`;
   };
 }
