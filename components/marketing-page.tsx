@@ -35,12 +35,15 @@ function Hero() {
   return (
     <section className="mb-20 grid gap-6 md:grid-cols-2 md:items-center md:gap-10">
       <div className="max-w-xl">
+        <p className="mb-3 text-sm font-medium uppercase tracking-wider text-brand-accent">
+          Seven days. One view.
+        </p>
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          One place for every signal your body sends.
+          A weekly view of everything your body is telling you.
         </h1>
         <p className="mt-5 text-lg text-muted-foreground sm:text-xl">
-          A local-first personal health command center — training, nutrition, habits, sleep,
-          vitals. Your data stays on your disk as plain YAML, ready for any AI agent you trust.
+          Training, nutrition, habits, sleep, vitals — one place, one week at a time. Local-first,
+          stored as plain YAML, ready for any AI agent you trust.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <Link
@@ -91,8 +94,10 @@ function Why() {
         files. That&apos;s the whole architecture.
       </p>
       <p>
-        The name is from <em>heptad</em> — seven. Most views in the app span a week because that
-        is the window where patterns start to show up.
+        Almost every view in Septena spans seven days. A day is too noisy to learn from and a
+        month is too late to course-correct; a week is the shortest window where sleep, training,
+        eating, and habits actually start to tell a story about each other. The seven dots in the
+        logo, and the name itself (<em>heptad</em>, seven), just point at that.
       </p>
     </section>
   );
