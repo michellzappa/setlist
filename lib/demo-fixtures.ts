@@ -931,8 +931,8 @@ function buildOura(days: number): OuraRowF[] {
       efficiency: 92 + ((i * 3) % 5),
       hrv: 48 + jitter,
       resting_hr: 56 - jitter,
-      bedtime: `${date}T23:${10 + (i % 40)}:00`,
-      wake_time: `${addDays(date, 1)}T07:${(i * 7) % 55}:00`,
+      bedtime: `23:${String(10 + (i % 40)).padStart(2, "0")}`,
+      wake_time: `07:${String((i * 7) % 55).padStart(2, "0")}`,
       readiness_score: 80 + jitter,
       activity_score: 78 + ((i * 5) % 10),
       steps: 8200 + ((i * 97) % 3500),
@@ -998,8 +998,8 @@ function buildApple(days: number): AppleRowF[] {
       apple_rem_h: 1.7,
       apple_core_h: 3.9,
       apple_awake_h: 0.3,
-      apple_bedtime: `${date}T23:20:00`,
-      apple_wake_time: `${addDays(date, 1)}T07:00:00`,
+      apple_bedtime: "23:20",
+      apple_wake_time: "07:00",
     });
   }
   return rows;
@@ -1154,7 +1154,7 @@ function settings() {
       histograms_raise: true,
     },
     sections: {},
-    icon_color: "#ff6600",
+    icon_color: "#5b6df2",
   };
 }
 

@@ -68,6 +68,9 @@ export function GroceriesDashboard() {
 
   const lowItems = useMemo(() => items.filter((i) => i.low), [items]);
   const lowCount = lowItems.length;
+  const totalCount = items.length;
+  const stockedCount = totalCount - lowCount;
+  const stockedPct = totalCount > 0 ? (stockedCount / totalCount) * 100 : 0;
 
   const handleAdd = useCallback(async () => {
     if (!newName.trim()) return;
@@ -122,6 +125,23 @@ export function GroceriesDashboard() {
           <p className="text-xs text-muted-foreground">{lowCount === 0 ? "Nothing to buy" : `${lowCount} to check off`}</p>
         </button>
       </div>
+
+      {totalCount > 0 && (
+        <div className="mb-6">
+          <div className="mb-1 flex items-baseline justify-between">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Stocked</p>
+            <p className="text-xs tabular-nums text-muted-foreground">
+              {stockedCount}/{totalCount}
+            </p>
+          </div>
+          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${stockedPct}%`, backgroundColor: GROCERIES_COLOR }}
+            />
+          </div>
+        </div>
+      )}
 
       {!shopperMode && showAdd && (
         <Card className="mb-4">
