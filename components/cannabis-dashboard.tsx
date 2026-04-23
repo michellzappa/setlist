@@ -7,6 +7,7 @@ import { TimeInput } from "@/components/time-input";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Scatter, ScatterChart, ZAxis, ReferenceLine } from "recharts";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { CHART_GRID, CHART_GRID_FULL, X_AXIS_DATE, Y_AXIS } from "@/lib/chart-defaults";
+import { SECTION_ACCENT_SHADE_3 } from "@/lib/section-colors";
 
 import {
   getCannabisConfig,
@@ -488,9 +489,9 @@ export function CannabisDashboard() {
                 />
                 <ZAxis type="number" range={[80, 80]} />
                 {/* Shaded bands for rough daypart context */}
-                <ReferenceLine y={6} stroke="hsl(var(--muted-foreground) / 0.3)" strokeDasharray="2 2" />
-                <ReferenceLine y={12} stroke="hsl(var(--muted-foreground) / 0.3)" strokeDasharray="2 2" />
-                <ReferenceLine y={18} stroke="hsl(var(--muted-foreground) / 0.3)" strokeDasharray="2 2" />
+                <ReferenceLine y={6} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
+                <ReferenceLine y={12} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
+                <ReferenceLine y={18} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
                 {avgHour !== null && (
                   <ReferenceLine
                     y={avgHour}

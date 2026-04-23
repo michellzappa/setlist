@@ -209,7 +209,7 @@ export default function SessionDonePage() {
     new Map(),
   );
   const { data: settings } = useSWR("settings", getSettings);
-  const confettiEnabled = settings?.animations?.exercise_complete ?? true;
+  const confettiEnabled = settings?.animations?.training_complete ?? true;
 
   useEffect(() => {
     draft.load().then(async (s) => {
@@ -220,7 +220,7 @@ export default function SessionDonePage() {
       setStats(computeStats(s));
       setDoneEntries(s.entries.filter((e) => e.status === "done"));
       // Fetch-all + compute PRs. The POST that concluded the session
-      // already ran load_cache() server-side, so /api/entries includes
+      // already ran load_cache() server-side, so /api/training/entries includes
       // the just-written files.
       try {
         const all = await getEntries();

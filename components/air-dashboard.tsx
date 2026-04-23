@@ -13,21 +13,28 @@ import {
   type AirTimeSeriesPoint,
 } from "@/lib/api";
 import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
+import {
+  SECTION_ACCENT,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_SHADE_3,
+  SECTION_ACCENT_SOFT,
+  SECTION_ACCENT_STRONG,
+} from "@/lib/section-colors";
 import { StatCard } from "@/components/stat-card";
 
 const CO2_BAND_COLOR: Record<string, string> = {
-  good: "hsl(150,55%,45%)",
-  ok:   "hsl(45,80%,50%)",
-  poor: "hsl(25,85%,55%)",
-  bad:  "hsl(0,70%,52%)",
+  good: SECTION_ACCENT_SHADE_3,
+  ok: SECTION_ACCENT_SHADE_2,
+  poor: SECTION_ACCENT,
+  bad: SECTION_ACCENT_STRONG,
 };
 
 const tempConfig = {
-  temp_c: { label: "Temp (°C)", color: "hsl(15,75%,55%)" },
+  temp_c: { label: "Temp (°C)", color: SECTION_ACCENT_SHADE_2 },
 } satisfies ChartConfig;
 
 const humConfig = {
-  humidity_pct: { label: "Humidity (%)", color: "hsl(220,60%,55%)" },
+  humidity_pct: { label: "Humidity (%)", color: SECTION_ACCENT_SHADE_3 },
 } satisfies ChartConfig;
 
 function formatHourTick(iso: string) {
@@ -36,7 +43,7 @@ function formatHourTick(iso: string) {
 }
 
 export function AirDashboard() {
-  const COLOR = "var(--section-accent)";
+  const COLOR = SECTION_ACCENT;
   const co2Config = {
     co2_ppm: { label: "CO₂ (ppm)", color: COLOR },
   } satisfies ChartConfig;
@@ -98,20 +105,20 @@ export function AirDashboard() {
           label="Temp"
           value={latest?.temp_c != null ? latest.temp_c.toFixed(1) : null}
           unit="°C"
-          color="hsl(15,75%,55%)"
+          color={SECTION_ACCENT_SHADE_2}
         />
         <StatCard
           label="Humidity"
           value={latest?.humidity_pct ?? null}
           unit="%"
-          color="hsl(220,60%,55%)"
+          color={SECTION_ACCENT_SHADE_3}
           target="40–60%"
         />
         <StatCard
           label="Today > 1000"
           value={today?.minutes_over_1000 ?? 0}
           unit="min"
-          color={today && today.minutes_over_1000 > 0 ? "hsl(0,70%,52%)" : COLOR}
+          color={today && today.minutes_over_1000 > 0 ? SECTION_ACCENT_STRONG : COLOR}
           direction="down"
         />
       </div>
@@ -141,10 +148,10 @@ export function AirDashboard() {
                 />
                 <YAxis {...Y_AXIS} domain={[400, "auto"]} width={40} tickFormatter={(v: number) => `${Math.round(v)}`} />
                 {/* Health bands */}
-                <ReferenceArea y1={1000} y2={1400} fill="hsl(25,85%,55%)" fillOpacity={0.06} />
-                <ReferenceArea y1={1400} y2={5000} fill="hsl(0,70%,52%)" fillOpacity={0.08} />
-                <ReferenceLine y={1000} stroke="hsl(25,85%,55%)" strokeDasharray="6 3" strokeOpacity={0.6} />
-                <ReferenceLine y={1400} stroke="hsl(0,70%,52%)" strokeDasharray="6 3" strokeOpacity={0.6} />
+                <ReferenceArea y1={1000} y2={1400} fill={SECTION_ACCENT_SOFT} fillOpacity={0.5} />
+                <ReferenceArea y1={1400} y2={5000} fill={SECTION_ACCENT_SHADE_2} fillOpacity={0.08} />
+                <ReferenceLine y={1000} stroke={SECTION_ACCENT_SHADE_2} strokeDasharray="6 3" strokeOpacity={0.6} />
+                <ReferenceLine y={1400} stroke={SECTION_ACCENT_STRONG} strokeDasharray="6 3" strokeOpacity={0.6} />
                 <Line
                   type="monotone"
                   dataKey="co2_ppm"
@@ -193,8 +200,8 @@ export function AirDashboard() {
                     tickFormatter={(v) => formatHourTick(v as string)} tick={{ fontSize: 10 }} minTickGap={40} />
                   <YAxis {...Y_AXIS} domain={[0, 100]}
                     tickFormatter={(v: number) => `${v}%`} />
-                  <ReferenceLine y={40} stroke="hsl(220,40%,55%)" strokeDasharray="6 3" strokeOpacity={0.4} />
-                  <ReferenceLine y={60} stroke="hsl(220,40%,55%)" strokeDasharray="6 3" strokeOpacity={0.4} />
+                  <ReferenceLine y={40} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="6 3" strokeOpacity={0.4} />
+                  <ReferenceLine y={60} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="6 3" strokeOpacity={0.4} />
                   <Line type="monotone" dataKey="humidity_pct" stroke="var(--color-humidity_pct)"
                     strokeWidth={2} dot={false} isAnimationActive={false} />
                 </LineChart>
@@ -217,7 +224,7 @@ export function AirDashboard() {
                 <XAxis {...WEEKDAY_X_AXIS} />
                 <YAxis {...Y_AXIS} domain={[400, "auto"]} width={40}
                   tickFormatter={(v: number) => `${Math.round(v)}`} />
-                <ReferenceLine y={1000} stroke="hsl(25,85%,55%)" strokeDasharray="6 3" strokeOpacity={0.6} />
+                <ReferenceLine y={1000} stroke={SECTION_ACCENT_SHADE_2} strokeDasharray="6 3" strokeOpacity={0.6} />
                 <Line type="monotone" dataKey="co2_max" stroke="var(--color-co2_ppm)"
                   strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
               </LineChart>

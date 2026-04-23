@@ -388,7 +388,7 @@ def health_combined(days: int = 7, end: str | None = None) -> Dict[str, Any]:
     so the cache remains a live "now" snapshot rather than a time-travelled view."""
     # Demo mode: return the pre-seeded cache so screenshots render without
     # needing live Oura/Withings/HAE credentials.
-    if (os.environ.get("SEPTENA_DEMO_HEALTH") or os.environ.get("SETLIST_DEMO_HEALTH")) == "1" and HEALTH_CACHE_PATH.exists():
+    if os.environ.get("SEPTENA_DEMO_HEALTH") == "1" and HEALTH_CACHE_PATH.exists():
         try:
             return json.loads(HEALTH_CACHE_PATH.read_text())
         except Exception:

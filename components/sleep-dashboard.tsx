@@ -14,6 +14,12 @@ import {
 } from "@/lib/api";
 import { formatDateShort as formatDate } from "@/lib/date-utils";
 import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
+import {
+  SECTION_ACCENT,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_SHADE_3,
+  SECTION_ACCENT_STRONG,
+} from "@/lib/section-colors";
 import { StatCard } from "@/components/stat-card";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
 import { useSelectedDate } from "@/hooks/use-selected-date";
@@ -46,7 +52,7 @@ function ScoreRing({ value, label, color, max = 100, subtitle, direction, target
           <circle cx="18" cy="18" r="15.9" fill="none" strokeWidth="3" strokeDasharray={`${pct} 100`}
             strokeDashoffset="0" strokeLinecap="round" style={{ stroke: color }} />
         </svg>
-        <span className="absolute text-xl font-semibold">
+        <span className="absolute text-xl font-semibold" style={{ color }}>
           {value !== null ? value : "—"}
         </span>
       </div>
@@ -65,16 +71,16 @@ function ScoreRing({ value, label, color, max = 100, subtitle, direction, target
 }
 
 const sleepStagesConfig = {
-  deep_h: { label: "Deep", color: "hsl(250,65%,25%)" },
-  rem_h: { label: "REM", color: "hsl(275,50%,55%)" },
-  light_h: { label: "Light", color: "hsl(230,35%,68%)" },
+  deep_h: { label: "Deep", color: SECTION_ACCENT_STRONG },
+  rem_h: { label: "REM", color: SECTION_ACCENT },
+  light_h: { label: "Light", color: SECTION_ACCENT_SHADE_3 },
 } satisfies ChartConfig;
 
 export function SleepDashboard() {
-  const COLOR = "var(--section-accent)";
+  const COLOR = SECTION_ACCENT;
   const sleepScoreConfig = {
     sleep_score: { label: "Sleep Score", color: COLOR },
-    readiness_score: { label: "Readiness", color: "hsl(140,60%,45%)" },
+    readiness_score: { label: "Readiness", color: SECTION_ACCENT_SHADE_2 },
   } satisfies ChartConfig;
   const totalConfig = {
     total_h: { label: "Total Sleep", color: COLOR },
@@ -149,8 +155,8 @@ export function SleepDashboard() {
       {/* Scores */}
       <div className="mb-4 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 [&>*]:min-w-0">
         <ScoreRing value={latestOuraSleep.sleep_score ?? latestOuraSleep.efficiency ?? null} label="Sleep Score" color={COLOR} subtitle={ouraSubtitle} direction="up" target="85+" />
-        <ScoreRing value={latestOuraReadiness.readiness_score ?? null} label="Readiness" color="hsl(140,60%,45%)" subtitle={ouraSubtitle} direction="up" target="85+" />
-        <ScoreRing value={latestOuraSleep.efficiency ?? null} label="Efficiency" color="hsl(220,40%,65%)" subtitle={ouraSubtitle} direction="up" target="85%+" />
+        <ScoreRing value={latestOuraReadiness.readiness_score ?? null} label="Readiness" color={SECTION_ACCENT_SHADE_2} subtitle={ouraSubtitle} direction="up" target="85+" />
+        <ScoreRing value={latestOuraSleep.efficiency ?? null} label="Efficiency" color={SECTION_ACCENT_SHADE_3} subtitle={ouraSubtitle} direction="up" target="85%+" />
         <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-card p-4">
           <div className="text-center">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Bedtime</p>
@@ -166,8 +172,8 @@ export function SleepDashboard() {
       {/* Duration stats */}
       <div className="mb-4 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 [&>*]:min-w-0">
         <StatCard label="Total Sleep" value={latestOuraTotal.total_h ?? latestAppleTotalSleep.apple_total_h ?? null} unit="hrs" color={COLOR} sublabel={ouraSubtitle} direction="up" target="7–9 hrs" />
-        <StatCard label="Deep Sleep" value={latestOuraDeep.deep_h ?? latestAppleDeepSleep.apple_deep_h ?? null} unit="hrs" sublabel={ouraSubtitle} direction="up" target="1–2 hrs" />
-        <StatCard label="REM Sleep" value={latestOuraREM.rem_h ?? latestAppleREMSleep.apple_rem_h ?? null} unit="hrs" sublabel={ouraSubtitle} direction="up" target="1.5–2 hrs" />
+        <StatCard label="Deep Sleep" value={latestOuraDeep.deep_h ?? latestAppleDeepSleep.apple_deep_h ?? null} unit="hrs" color={SECTION_ACCENT_STRONG} sublabel={ouraSubtitle} direction="up" target="1–2 hrs" />
+        <StatCard label="REM Sleep" value={latestOuraREM.rem_h ?? latestAppleREMSleep.apple_rem_h ?? null} unit="hrs" color={SECTION_ACCENT_SHADE_2} sublabel={ouraSubtitle} direction="up" target="1.5–2 hrs" />
       </div>
 
       {/* Charts */}
@@ -176,7 +182,7 @@ export function SleepDashboard() {
         {oura7.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Sleep <span className="text-xs font-normal" style={{ color: COLOR }}>↑</span> & Readiness <span className="text-xs font-normal" style={{ color: "hsl(140,60%,45%)" }}>↑ 85+</span></CardTitle>
+              <CardTitle>Sleep <span className="text-xs font-normal" style={{ color: COLOR }}>↑</span> & Readiness <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_2 }}>↑ 85+</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
               <ChartContainer config={sleepScoreConfig} className="h-[160px] w-full">
@@ -184,7 +190,7 @@ export function SleepDashboard() {
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis {...WEEKDAY_X_AXIS} interval={0} />
                   <YAxis {...Y_AXIS} domain={[0, 100]} width={28} />
-                  <ReferenceLine y={85} stroke="hsl(140,40%,45%)" strokeDasharray="6 3" strokeOpacity={0.5} />
+                  <ReferenceLine y={85} stroke={SECTION_ACCENT_SHADE_2} strokeDasharray="6 3" strokeOpacity={0.5} />
                   <Line type="monotone" dataKey="sleep_score" stroke="var(--color-sleep_score)"
                     strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="readiness_score" stroke="var(--color-readiness_score)"

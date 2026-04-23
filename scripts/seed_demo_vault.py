@@ -375,7 +375,7 @@ def seed_settings_and_macros(cfg: SeedConfig) -> None:
     })
     _write_config(cfg.vault / "Settings/settings.yaml", {
         "section_order": [
-            "exercise", "nutrition", "habits", "supplements",
+            "training", "nutrition", "habits", "supplements",
             "chores", "caffeine", "sleep", "body", "health",
         ],
         # Demo vault has no data for these — hide from nav + home grid so

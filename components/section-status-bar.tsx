@@ -49,10 +49,10 @@ export function SectionStatusBar({ section }: { section: SectionKey }) {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        if (section === "exercise") {
+        if (section === "training") {
           const stats = await getStats();
           const line1 = `${stats.total_sessions ?? 0} sessions · ${stats.exercises_count ?? 0} exercises`;
-          const line2 = `Last: ${relativeTime(stats.last_logged_at)} · Vault: ${vault}/Exercise/Log/`;
+          const line2 = `Last: ${relativeTime(stats.last_logged_at)} · Vault: ${vault}/${sectionMeta?.dataDir ?? "Training/Log"}/`;
           setData({ line1, line2, color });
         } else if (section === "health") {
           const [oura, withings, apple] = await Promise.all([

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SeptenaMark } from "@/components/septena-mark";
 import { mutate } from "swr";
 
-/** Intercepts all rendering when the vault directory is missing or
+/** Intercepts all rendering when the data directory is missing or
  *  empty. Shows a setup checklist with the two main bootstrap paths:
  *  copy the example skeleton, or seed demo data. User clicks "Check
  *  again" after they've run the commands — we re-fetch /api/config. */
@@ -34,11 +34,11 @@ function OnboardingScreen({ vaultPath, exists }: { vaultPath: string; exists: bo
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Welcome to Septena</h1>
             <p className="mt-2 text-muted-foreground">
               {exists
-                ? "Your vault directory exists but has no section folders yet. Pick one of the two paths below to get started."
-                : "We couldn't find your vault directory. Pick one of the two paths below to get started."}
+                ? "Your data folder exists but has no section folders yet. Pick one of the two paths below to get started."
+                : "We couldn't find your data folder. Pick one of the two paths below to get started."}
             </p>
             <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-              The Septena mark keeps its fixed seven-color palette. Once your vault is in place,
+              The Septena mark keeps its fixed seven-color palette. Once your data folder is in place,
               each section inside the app gets its own configurable accent for charts, buttons,
               and navigation.
             </p>
@@ -48,7 +48,7 @@ function OnboardingScreen({ vaultPath, exists }: { vaultPath: string; exists: bo
 
       <Card className="mb-4 border-brand-accent-soft">
         <CardHeader>
-          <CardTitle className="text-brand-accent">Current vault path</CardTitle>
+          <CardTitle className="text-brand-accent">Current data folder</CardTitle>
           <CardDescription>
             Set by <code>SEPTENA_DATA_DIR</code>, or defaults to{" "}
             <code>~/Documents/septena-data</code>.
@@ -67,7 +67,7 @@ function OnboardingScreen({ vaultPath, exists }: { vaultPath: string; exists: bo
         <CardContent>
           <pre className="overflow-x-auto rounded bg-muted px-3 py-2 text-xs">{`cp -R examples/vault/Bases/* "${vaultPath}/"`}</pre>
           <p className="mt-3 text-sm text-muted-foreground">
-            Creates the core three sections — <strong>Training</strong>, <strong>Nutrition</strong>, <strong>Habits</strong> — plus Settings. Want more?
+            Creates the core three sections — <strong>Training</strong>, <strong>Nutrition</strong>, <strong>Habits</strong> — plus Settings, inside your data folder. Want more?
             Drop extras from <code>examples/vault/optional/</code> (Supplements, Chores,
             Caffeine, Cannabis) into the same place. Each folder that exists becomes a tab.
           </p>

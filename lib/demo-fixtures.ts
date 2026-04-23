@@ -24,15 +24,26 @@ const FIXTURES: Array<{ pattern: RegExp; handler: FixtureHandler }> = [
   // hide it in demo mode. Every other section appears, enabled, so the
   // topnav looks realistic even before its tile has fixtures.
   { pattern: /^\/api\/sections$/, handler: sectionsRegistry },
-  // ── Exercise ──────────────────────────────────────────────────────────
+  // ── Training ──────────────────────────────────────────────────────────
+  { pattern: /^\/api\/training\/stats$/, handler: exerciseStats },
   { pattern: /^\/api\/stats$/, handler: exerciseStats },
+  { pattern: /^\/api\/training\/next-workout$/, handler: exerciseNextWorkout },
   { pattern: /^\/api\/next-workout$/, handler: exerciseNextWorkout },
+  { pattern: /^\/api\/training\/summary$/, handler: exerciseSummary },
   { pattern: /^\/api\/summary$/, handler: exerciseSummary },
+  { pattern: /^\/api\/training\/entries$/, handler: exerciseEntries },
   { pattern: /^\/api\/entries$/, handler: exerciseEntries },
+  { pattern: /^\/api\/training\/cardio-history$/, handler: cardioHistory },
   { pattern: /^\/api\/cardio-history$/, handler: cardioHistory },
+  { pattern: /^\/api\/training\/progression\//, handler: exerciseProgression },
   { pattern: /^\/api\/progression\//, handler: exerciseProgression },
+  { pattern: /^\/api\/training\/config$/, handler: exerciseConfig },
   { pattern: /^\/api\/exercise\/config$/, handler: exerciseConfig },
-  { pattern: /^\/api\/exercises$/, handler: () => EXERCISE_LIST.map((e) => e.name) },
+  { pattern: /^\/api\/training\/exercises$/, handler: trainingExercises },
+  { pattern: /^\/api\/exercises$/, handler: trainingExercises },
+  { pattern: /^\/api\/training\/last-entries$/, handler: exerciseLastEntries },
+  { pattern: /^\/api\/last-entries$/, handler: exerciseLastEntries },
+  { pattern: /^\/api\/training\/sessions\//, handler: exerciseSession },
   { pattern: /^\/api\/sessions\//, handler: exerciseSession },
   // ── Nutrition ────────────────────────────────────────────────────────
   { pattern: /^\/api\/nutrition\/macros-config$/, handler: nutritionMacrosConfig },
@@ -103,7 +114,7 @@ function emptyFallback(url: URL): unknown {
       vault_exists: true,
       vault_has_sections: true,
       integrations: { oura: false, withings: false, apple_health: false },
-      available_sections: ["exercise"],
+      available_sections: ["training"],
     };
   }
   if (p === "/api/sections") return [];
@@ -387,8 +398,16 @@ function exerciseEntries() {
   return ALL_ENTRIES;
 }
 
+function trainingExercises() {
+  return EXERCISE_LIST.map((e) => e.name);
+}
+
 function exerciseProgression(url: URL) {
-  const name = decodeURIComponent(url.pathname.replace("/api/progression/", ""));
+  const name = decodeURIComponent(
+    url.pathname
+      .replace(/^\/api\/training\/progression\//, "")
+      .replace("/api/progression/", ""),
+  );
   const data = ALL_ENTRIES
     .filter((e) => e.exercise === name)
     .map((e) => ({
@@ -405,8 +424,53 @@ function exerciseProgression(url: URL) {
   return { exercise: name, data };
 }
 
+function exerciseLastEntries(_: URL, init?: RequestInit) {
+  const payload = init?.body ? JSON.parse(String(init.body)) as { exercises?: string[]; history_limit?: number } : {};
+  const names = Array.isArray(payload.exercises) ? payload.exercises : [];
+  const limit = Math.max(1, Number(payload.history_limit ?? 5));
+  const out: Record<string, unknown> = {};
+  for (const name of names) {
+    const points = ALL_ENTRIES
+      .filter((e) => e.exercise === name)
+      .map((e) => ({
+        date: e.date,
+        weight: e.weight,
+        difficulty: e.difficulty,
+        sets: e.sets,
+        reps: e.reps,
+        duration_min: e.duration_min ?? null,
+        distance_m: e.distance_m ?? null,
+        level: null as number | null,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (points.length === 0) {
+      out[name] = null;
+      continue;
+    }
+    const history = points.slice(-limit).reverse();
+    const latest = points[points.length - 1];
+    const pacePoints = history.filter((point) => typeof point.distance_m === "number" && typeof point.duration_min === "number" && point.duration_min > 0);
+    const avgPace = pacePoints.length > 0
+      ? Number((
+        pacePoints.reduce(
+          (sum, point) => sum + (point.distance_m as number) / (point.duration_min as number),
+          0,
+        ) / pacePoints.length
+      ).toFixed(1))
+      : null;
+    out[name] = {
+      ...latest,
+      avg_pace_m_per_min: avgPace,
+      history,
+    };
+  }
+  return out;
+}
+
 function exerciseSession(url: URL) {
-  const date = url.pathname.replace("/api/sessions/", "");
+  const date = url.pathname
+    .replace(/^\/api\/training\/sessions\//, "")
+    .replace("/api/sessions/", "");
   const data = ALL_ENTRIES.filter((e) => e.date === date);
   return { date, data };
 }
@@ -1149,7 +1213,7 @@ function settings() {
     theme: "system",
     mini_stats: {},
     animations: {
-      exercise_complete: true,
+      training_complete: true,
       first_meal: true,
       histograms_raise: true,
     },

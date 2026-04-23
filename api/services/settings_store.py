@@ -8,6 +8,14 @@ import api.paths as paths
 from api.storage.plain_yaml import PlainYamlDocument, read_yaml_document, write_yaml_document
 from api.storage.schemas import deep_merge, filter_settings_patch, sanitize_settings
 
+SECTION_KEY_ALIASES = {
+    "exercise": "training",
+}
+
+ANIMATION_KEY_ALIASES = {
+    "exercise_complete": "training_complete",
+}
+
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "day_phases": [
         {
@@ -33,7 +41,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         },
     ],
     "section_order": [
-        "exercise", "nutrition", "habits", "chores", "groceries", "supplements",
+        "training", "nutrition", "habits", "chores", "groceries", "supplements",
         "cannabis", "caffeine", "gut", "health", "sleep", "body",
         "weather", "calendar", "air",
     ],
@@ -66,12 +74,12 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "theme": "system",
     "icon_color": "#5b6df2",
     "animations": {
-        "exercise_complete": True,
+        "training_complete": True,
         "first_meal": True,
         "histograms_raise": True,
     },
     "sections": {
-        "exercise":     {"label": "Training",     "emoji": "🏋️", "color": "hsl(25,95%,53%)",   "tagline": "Sessions, progressions & PRs"},
+        "training":     {"label": "Training",     "emoji": "🏋️", "color": "hsl(25,95%,53%)",   "tagline": "Sessions, progressions & PRs"},
         "nutrition":    {"label": "Nutrition",    "emoji": "🍱", "color": "hsl(45,90%,48%)",   "tagline": "Meals, macros & fasting"},
         "habits":       {"label": "Habits",       "emoji": "✅", "color": "hsl(220,60%,55%)",  "tagline": "Morning, afternoon & evening routines"},
         "chores":       {"label": "Chores",       "emoji": "🧹", "color": "hsl(200,45%,50%)",  "tagline": "Recurring tasks, deferrable"},
@@ -83,8 +91,8 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "health":       {"label": "Health",       "emoji": "💓", "color": "hsl(270,60%,55%)",  "tagline": "HRV, weight & vitals"},
         "sleep":        {"label": "Sleep",        "emoji": "🌙", "color": "hsl(230,55%,55%)",  "tagline": "Score, stages & trends"},
         "body":         {"label": "Body",         "emoji": "⚖️", "color": "hsl(170,50%,42%)",  "tagline": "Weight, body fat & trends"},
-        "weather":      {"label": "Weather",      "emoji": "☀️", "color": "hsl(205,75%,50%)",  "tagline": "Today's conditions & forecast", "enabled": False},
-        "calendar":     {"label": "Calendar",     "emoji": "📅", "color": "hsl(290,55%,55%)",  "tagline": "Today's events at a glance",   "enabled": False},
+        "weather":      {"label": "Weather",      "emoji": "☀️", "color": "hsl(205,75%,50%)",  "tagline": "Today's conditions & forecast", "show_in_nav": False, "show_on_dashboard": False},
+        "calendar":     {"label": "Calendar",     "emoji": "📅", "color": "hsl(290,55%,55%)",  "tagline": "Today's events at a glance",   "show_in_nav": False, "show_on_dashboard": False},
         "air":          {"label": "Air",          "emoji": "🌬️", "color": "hsl(190,70%,45%)",  "tagline": "CO₂, temperature & humidity"},
         "correlations": {"label": "Insights",     "emoji": "🔗", "color": "hsl(220,8%,55%)",   "tagline": "Cross-section patterns"},
     },
@@ -99,6 +107,62 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
 }
 
 
+def _canonicalize_section_order(value: Any) -> Any:
+    if not isinstance(value, list):
+        return value
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        key = SECTION_KEY_ALIASES.get(str(item), str(item))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
+def _canonicalize_sections(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    out: Dict[str, Any] = {}
+    for key, meta in value.items():
+        canonical = SECTION_KEY_ALIASES.get(str(key), str(key))
+        if canonical == "training" and isinstance(meta, dict):
+            normalized_meta = dict(meta)
+            label = str(normalized_meta.get("label") or "").strip().lower()
+            if label == "exercise":
+                normalized_meta["label"] = "Training"
+            meta = normalized_meta
+        if canonical in out and isinstance(out[canonical], dict) and isinstance(meta, dict):
+            out[canonical] = deep_merge(out[canonical], meta)
+        else:
+            out[canonical] = meta
+    return out
+
+
+def _canonicalize_animations(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    out = dict(value)
+    if "training_complete" not in out and "exercise_complete" in out:
+        out["training_complete"] = out["exercise_complete"]
+    out.pop("exercise_complete", None)
+    return out
+
+
+def _canonicalize_settings(data: Any) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        return {}
+    out = dict(data)
+    if "section_order" in out:
+        out["section_order"] = _canonicalize_section_order(out["section_order"])
+    if "sections" in out:
+        out["sections"] = _canonicalize_sections(out["sections"])
+    if "animations" in out:
+        out["animations"] = _canonicalize_animations(out["animations"])
+    return out
+
+
 def _read_raw_document() -> PlainYamlDocument:
     try:
         document = read_yaml_document(paths.SETTINGS_PATH, default={})
@@ -111,14 +175,14 @@ def _read_raw_document() -> PlainYamlDocument:
 
 
 def load_settings() -> Dict[str, Any]:
-    raw = _read_raw_document().data
+    raw = _canonicalize_settings(_read_raw_document().data)
     return sanitize_settings(raw, DEFAULT_SETTINGS)
 
 
 def save_settings_patch(patch: Dict[str, Any]) -> Dict[str, Any]:
     document = _read_raw_document()
-    raw = document.data if isinstance(document.data, dict) else {}
-    filtered_patch = filter_settings_patch(patch)
+    raw = _canonicalize_settings(document.data if isinstance(document.data, dict) else {})
+    filtered_patch = filter_settings_patch(_canonicalize_settings(patch))
     merged_raw = deep_merge(raw, filtered_patch)
     write_yaml_document(
         paths.SETTINGS_PATH,

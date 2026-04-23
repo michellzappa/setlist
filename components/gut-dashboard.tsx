@@ -24,6 +24,7 @@ import {
 } from "@/lib/date-utils";
 import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
 import { useSelectedDate } from "@/hooks/use-selected-date";
+import { SECTION_ACCENT_SHADE_2, SECTION_ACCENT_STRONG } from "@/lib/section-colors";
 
 const GUT_COLOR = "var(--section-accent)";
 const BRISTOL_IDS = [1, 2, 3, 4, 5, 6, 7];
@@ -331,7 +332,7 @@ export function GutDashboard() {
         <StatCard
           label="Blood"
           value={day ? bloodLabel(day.max_blood) : null}
-          color={day && day.max_blood > 0 ? "hsl(0,70%,50%)" : GUT_COLOR}
+          color={day && day.max_blood > 0 ? SECTION_ACCENT_STRONG : GUT_COLOR}
         />
         <StatCard
           label="Discomfort"
@@ -342,7 +343,7 @@ export function GutDashboard() {
           label="Open"
           value={day ? openDiscomfort : null}
           sublabel={openDiscomfort > 0 ? "Unresolved discomfort" : undefined}
-          color={openDiscomfort > 0 ? "hsl(0,70%,50%)" : GUT_COLOR}
+          color={openDiscomfort > 0 ? SECTION_ACCENT_SHADE_2 : GUT_COLOR}
         />
       </div>
 
@@ -376,7 +377,7 @@ export function GutDashboard() {
                             · {bristolLabel(entry.bristol)}
                           </span>
                           {entry.blood > 0 && (
-                            <span className="ml-2 font-semibold" style={{ color: "hsl(0,70%,45%)" }}>
+                            <span className="ml-2 font-semibold" style={{ color: SECTION_ACCENT_STRONG }}>
                               · Blood: {bloodLabel(entry.blood)}
                             </span>
                           )}
@@ -396,7 +397,7 @@ export function GutDashboard() {
                     <div className="mt-2 flex items-center gap-2 text-xs">
                       {open && (
                         <>
-                          <span className="font-medium" style={{ color: "hsl(0,70%,45%)" }}>
+                          <span className="font-medium" style={{ color: SECTION_ACCENT_SHADE_2 }}>
                             Discomfort open since {fmtClock(entry.discomfort_start)}
                           </span>
                           <button

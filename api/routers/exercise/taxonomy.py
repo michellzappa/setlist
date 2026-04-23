@@ -1,6 +1,6 @@
-"""Exercise taxonomy — config loader, seed defaults, group classification.
+"""Training taxonomy — config loader, seed defaults, group classification.
 
-Config at Bases/Exercise/exercise-config.yaml is authoritative. The settings
+Config at Bases/Training/training-config.yaml is authoritative. The settings
 UI reads/writes it through routes defined here.
 """
 from __future__ import annotations
@@ -14,11 +14,11 @@ from starlette.requests import Request
 from api import logger
 from api.io import atomic_write_text
 from api.parsing import _slugify
-from api.paths import EXERCISE_CONFIG_PATH
+from api.paths import TRAINING_CONFIG_PATH
 
-router = APIRouter(tags=["exercise"])
+router = APIRouter(tags=["training"])
 
-# Seed sets used when exercise-config.yaml is missing (fresh install).
+# Seed sets used when training-config.yaml is missing (fresh install).
 _DEFAULT_CARDIO = {"rowing", "elliptical", "stairs"}
 _DEFAULT_MOBILITY = {"surya namaskar", "pull up"}
 _DEFAULT_CORE = {"ab crunch", "abdominal"}
@@ -60,23 +60,23 @@ def _seed_exercises() -> List[Dict[str, Any]]:
 
 def _load_config() -> Dict[str, Any]:
     """Config is authoritative. Falls back to seed defaults if YAML missing."""
-    if EXERCISE_CONFIG_PATH.exists():
+    if TRAINING_CONFIG_PATH.exists():
         try:
-            raw = yaml.safe_load(EXERCISE_CONFIG_PATH.read_text(encoding="utf-8")) or {}
+            raw = yaml.safe_load(TRAINING_CONFIG_PATH.read_text(encoding="utf-8")) or {}
             return {
                 "types": raw.get("types") or _DEFAULT_TYPES,
                 "exercises": raw.get("exercises") or [],
                 "aliases": raw.get("aliases") or {},
             }
         except Exception as exc:  # noqa: BLE001
-            logger.warning("exercise-config.yaml failed to parse: %s", exc)
+            logger.warning("training-config.yaml failed to parse: %s", exc)
     return {"types": _DEFAULT_TYPES, "exercises": _seed_exercises(), "aliases": dict(_DEFAULT_ALIASES)}
 
 
 def _save_config(data: Dict[str, Any]) -> None:
-    EXERCISE_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    TRAINING_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
-    atomic_write_text(EXERCISE_CONFIG_PATH, body)
+    atomic_write_text(TRAINING_CONFIG_PATH, body)
 
 
 def _config_lookup() -> Dict[str, str]:
@@ -136,11 +136,13 @@ def day_groups(entries_for_day: List[Dict[str, Any]]) -> set[str]:
     } - {"core"}
 
 
+@router.get("/api/training/config")
 @router.get("/api/exercise/config")
 def exercise_config() -> Dict[str, Any]:
     return _load_config()
 
 
+@router.post("/api/training/exercises")
 @router.post("/api/exercise/exercises")
 async def exercise_add(request: Request) -> Dict[str, Any]:
     """Body: {name, type, subgroup?}. Adds a new exercise to config."""
@@ -165,6 +167,7 @@ async def exercise_add(request: Request) -> Dict[str, Any]:
     return new_ex
 
 
+@router.put("/api/training/exercises/{ex_id}")
 @router.put("/api/exercise/exercises/{ex_id}")
 async def exercise_update(ex_id: str, request: Request) -> Dict[str, Any]:
     """Body: partial {name?, type?, subgroup?}. Renaming does NOT rewrite log files."""
@@ -190,6 +193,7 @@ async def exercise_update(ex_id: str, request: Request) -> Dict[str, Any]:
     raise HTTPException(status_code=404, detail="exercise not found")
 
 
+@router.delete("/api/training/exercises/{ex_id}")
 @router.delete("/api/exercise/exercises/{ex_id}")
 def exercise_delete(ex_id: str) -> Dict[str, Any]:
     """Remove an exercise from config. Historical log files are preserved."""

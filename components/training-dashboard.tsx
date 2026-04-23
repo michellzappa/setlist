@@ -90,7 +90,7 @@ type MetricKind = "pace" | "duration" | "weight" | "binary" | "volume" | "cardio
 /** Translate an exercise name + its taxonomy classification into the chart
  *  metric kind used for rendering. The classification comes from
  *  `useExerciseTaxonomy()` so there's no hardcoded cardio/mobility Set —
- *  config edits in Bases/Exercise/exercise-config.yaml take effect
+ *  config edits in Bases/Training/training-config.yaml take effect
  *  automatically. A few exercise names still hardcode their metric shape
  *  (rowing/elliptical → pace, stairs → duration, surya namaskar → binary)
  *  because those are display choices not type choices. Anything we don't

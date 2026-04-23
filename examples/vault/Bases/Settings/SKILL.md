@@ -22,7 +22,7 @@ Missing file → shipped defaults apply. Malformed YAML → shipped defaults
 # Order of the tabs in the nav bar and cards on the homepage.
 # Keys not present here are appended in registry order.
 section_order:
-  - exercise
+  - training
   - nutrition
   - habits
   - chores
@@ -62,7 +62,7 @@ theme: "system"            # system | light | dark
 mini_stats: {}
 
 animations:
-  exercise_complete: true  # confetti on session-done page
+  training_complete: true  # confetti on session-done page
   first_meal: true         # break-fast celebration on nutrition dashboard
   histograms_raise: true   # quick raise-from-baseline on chart bars
 
@@ -134,7 +134,7 @@ user opt-in (+ location config for weather).
   "distance": "mi"}}` — note the current setting stays on `"weight"`
   just because lbs is imperial.
 - **"Turn off the confetti animation"** → `{"animations":
-  {"exercise_complete": false}}`.
+  {"training_complete": false}}`.
 - **"Reorder my nav: Habits first, then Nutrition, then Training"** →
   write the new list to `section_order`. Unlisted sections append in
   registry order.

@@ -1,18 +1,11 @@
 import type { NextConfig } from "next";
 
-const BACKEND_URL =
-  process.env.SEPTENA_BACKEND_URL ??
-  process.env.SETLIST_BACKEND_URL ??
-  "http://127.0.0.1:4445";
+const BACKEND_URL = process.env.SEPTENA_BACKEND_URL ?? "http://127.0.0.1:4445";
 
 // Comma-separated hostnames allowed by Next.js in dev. Default is just
 // localhost — set SEPTENA_DEV_ORIGINS in .env.local to include your LAN
 // hostname, Tailscale IP, or `*.ts.net` for phone access.
-const DEV_ORIGINS = (
-  process.env.SEPTENA_DEV_ORIGINS ??
-  process.env.SETLIST_DEV_ORIGINS ??
-  "localhost"
-)
+const DEV_ORIGINS = (process.env.SEPTENA_DEV_ORIGINS ?? "localhost")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -32,6 +25,9 @@ const nextConfig: NextConfig = {
       { source: "/exercise/:path*", destination: "/septena/training/:path*", permanent: false },
       { source: "/training", destination: "/septena/training", permanent: false },
       { source: "/training/:path*", destination: "/septena/training/:path*", permanent: false },
+      { source: "/septena/exercise", destination: "/septena/training", permanent: false },
+      { source: "/septena/exercise/:path*", destination: "/septena/training/:path*", permanent: false },
+      { source: "/septena/settings/exercise", destination: "/septena/settings/training", permanent: false },
       { source: "/demo/exercise", destination: "/demo/training", permanent: false },
     ];
     if (onVercel) {

@@ -1,6 +1,6 @@
-"""In-memory cache of Exercise/Log YAML files.
+"""In-memory cache of Training/Log YAML files.
 
-Unlike other sections, exercise caches aggressively: the working set is a
+Unlike other sections, training caches aggressively: the working set is a
 few hundred files and every dashboard view hits multiple routes, so a
 single disk scan per request would show up as lag.
 """

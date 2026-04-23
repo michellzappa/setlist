@@ -14,6 +14,12 @@ import {
 } from "@/lib/api";
 import { formatDateShort as formatDate } from "@/lib/date-utils";
 import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
+import {
+  SECTION_ACCENT,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_SHADE_3,
+  SECTION_ACCENT_STRONG,
+} from "@/lib/section-colors";
 import { StatCard } from "@/components/stat-card";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
 import { useSelectedDate } from "@/hooks/use-selected-date";
@@ -51,7 +57,7 @@ function ScoreRing({ value, label, color, max = 100, unit = "", subtitle, direct
           <circle cx="18" cy="18" r="15.9" fill="none" strokeWidth="3" strokeDasharray={`${pct} 100`}
             strokeDashoffset="0" strokeLinecap="round" style={{ stroke: color }} />
         </svg>
-        <span className="absolute text-xl font-semibold">
+        <span className="absolute text-xl font-semibold" style={{ color }}>
           {value !== null ? value : "—"}{unit && value !== null && <span className="text-xs font-normal text-muted-foreground">{unit}</span>}
         </span>
       </div>
@@ -70,20 +76,20 @@ function ScoreRing({ value, label, color, max = 100, unit = "", subtitle, direct
 }
 
 const stepsConfig = {
-  steps: { label: "Steps", color: "hsl(270,60%,55%)" },
+  steps: { label: "Steps", color: SECTION_ACCENT },
 } satisfies ChartConfig;
 
 const calConfig = {
-  active_cal: { label: "Active Cal", color: "hsl(30,80%,50%)" },
+  active_cal: { label: "Active Cal", color: SECTION_ACCENT_SHADE_2 },
 } satisfies ChartConfig;
 
 const vo2Config = {
-  vo2_max: { label: "VO2 Max", color: "hsl(280,60%,55%)" },
+  vo2_max: { label: "VO2 Max", color: SECTION_ACCENT_SHADE_3 },
 } satisfies ChartConfig;
 
 const hrvConfig = {
-  hrv: { label: "HRV (ms)", color: "hsl(270,60%,55%)" },
-  resting_heart_rate: { label: "Resting HR", color: "hsl(0,70%,50%)" },
+  hrv: { label: "HRV (ms)", color: SECTION_ACCENT },
+  resting_heart_rate: { label: "Resting HR", color: SECTION_ACCENT_STRONG },
 } satisfies ChartConfig;
 
 
@@ -173,21 +179,21 @@ export function HealthDashboard() {
 
       {/* Source scores */}
       <div className="mb-4 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 [&>*]:min-w-0">
-        <ScoreRing value={latestOuraReadiness.readiness_score ?? null} label="Readiness" color="hsl(140,60%,45%)" subtitle={ouraSubtitle} direction="up" target="85+" />
-        <ScoreRing value={latestAppleVO2.vo2_max ?? null} label="VO2 Max" color="hsl(280,60%,55%)" max={60} subtitle={appleSubtitle} direction="up" target="40+" />
-        <ScoreRing value={latestAppleSpO2.spo2 ?? null} label="SpO2 %" color="hsl(270,60%,55%)" max={100} subtitle={appleSubtitle} direction="up" target="95–100%" />
-        <ScoreRing value={latestAppleCardio.cardio_recovery ?? null} label="Cardio Rec." color="hsl(330,60%,50%)" max={40} subtitle={appleSubtitle} direction="up" target="25+" />
+        <ScoreRing value={latestOuraReadiness.readiness_score ?? null} label="Readiness" color={SECTION_ACCENT} subtitle={ouraSubtitle} direction="up" target="85+" />
+        <ScoreRing value={latestAppleVO2.vo2_max ?? null} label="VO2 Max" color={SECTION_ACCENT_SHADE_3} max={60} subtitle={appleSubtitle} direction="up" target="40+" />
+        <ScoreRing value={latestAppleSpO2.spo2 ?? null} label="SpO2 %" color={SECTION_ACCENT_SHADE_2} max={100} subtitle={appleSubtitle} direction="up" target="95–100%" />
+        <ScoreRing value={latestAppleCardio.cardio_recovery ?? null} label="Cardio Rec." color={SECTION_ACCENT_STRONG} max={40} subtitle={appleSubtitle} direction="up" target="25+" />
       </div>
 
       <div className="mb-4 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 [&>*]:min-w-0">
-        <ScoreRing value={latestOuraHRV.hrv ?? null} label="HRV (ms)" color="hsl(270,60%,55%)" max={150} subtitle={ouraSubtitle} direction="up" target="50+" />
-        <ScoreRing value={latestAppleRHR.resting_heart_rate ?? null} label="Resting HR" color="hsl(0,70%,50%)" max={100} subtitle={appleSubtitle} direction="down" target="50–60" />
-        <ScoreRing value={latestAppleResp.respiratory_rate ?? null} label="Resp Rate" color="hsl(150,60%,40%)" max={30} subtitle={appleSubtitle} direction="down" target="12–18" />
+        <ScoreRing value={latestOuraHRV.hrv ?? null} label="HRV (ms)" color={SECTION_ACCENT} max={150} subtitle={ouraSubtitle} direction="up" target="50+" />
+        <ScoreRing value={latestAppleRHR.resting_heart_rate ?? null} label="Resting HR" color={SECTION_ACCENT_STRONG} max={100} subtitle={appleSubtitle} direction="down" target="50–60" />
+        <ScoreRing value={latestAppleResp.respiratory_rate ?? null} label="Resp Rate" color={SECTION_ACCENT_SHADE_2} max={30} subtitle={appleSubtitle} direction="down" target="12–18" />
       </div>
 
       {/* Key stats */}
       <div className="mb-4 grid min-w-0 gap-2 sm:grid-cols-2 sm:gap-3 [&>*]:min-w-0">
-        <StatCard label="Steps" value={latestAppleSteps.steps != null ? fmt(latestAppleSteps.steps) : null} unit="" color="hsl(270,60%,55%)" sublabel={appleSubtitle} direction="up" target="10k+" />
+        <StatCard label="Steps" value={latestAppleSteps.steps != null ? fmt(latestAppleSteps.steps) : null} unit="" color={SECTION_ACCENT} sublabel={appleSubtitle} direction="up" target="10k+" />
       </div>
 
 
@@ -197,7 +203,7 @@ export function HealthDashboard() {
         {apple7.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Daily Steps <span className="text-xs font-normal" style={{ color: "hsl(270,60%,55%)" }}>↑ 10k+</span></CardTitle>
+              <CardTitle>Daily Steps <span className="text-xs font-normal" style={{ color: SECTION_ACCENT }}>↑ 10k+</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 px-4">
               <ChartContainer config={stepsConfig} className="h-[160px] w-full overflow-hidden">
@@ -206,7 +212,7 @@ export function HealthDashboard() {
                   <XAxis {...WEEKDAY_X_AXIS} interval={0} />
                   <YAxis {...Y_AXIS} width={44}
                     tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`} />
-                  <ReferenceLine y={10000} stroke="hsl(270,40%,50%)" strokeDasharray="6 3" strokeOpacity={0.5} />
+                  <ReferenceLine y={10000} stroke={SECTION_ACCENT} strokeDasharray="6 3" strokeOpacity={0.5} />
                   <Tooltip cursor={false} formatter={(v) => [fmt(v as number), "Steps"]} />
                   <Bar dataKey="steps" fill="var(--color-steps)" radius={[2, 2, 0, 0]} {...barAnim} />
                 </BarChart>
@@ -219,7 +225,7 @@ export function HealthDashboard() {
         {apple7.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Active Calories <span className="text-xs font-normal" style={{ color: "hsl(30,80%,50%)" }}>↑</span></CardTitle>
+              <CardTitle>Active Calories <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_2 }}>↑</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 px-4">
               <ChartContainer config={calConfig} className="h-[160px] w-full overflow-hidden">
@@ -239,7 +245,7 @@ export function HealthDashboard() {
         {apple7.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>VO2 Max <span className="text-xs font-normal" style={{ color: "hsl(280,60%,55%)" }}>↑ 40+</span></CardTitle>
+              <CardTitle>VO2 Max <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_3 }}>↑ 40+</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 px-4">
               <ChartContainer config={vo2Config} className="h-[160px] w-full overflow-hidden">
@@ -247,7 +253,7 @@ export function HealthDashboard() {
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis {...WEEKDAY_X_AXIS} interval={0} />
                   <YAxis {...Y_AXIS} domain={[30, 45]} width={28} />
-                  <ReferenceLine y={40} stroke="hsl(280,40%,50%)" strokeDasharray="6 3" strokeOpacity={0.5} />
+                  <ReferenceLine y={40} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="6 3" strokeOpacity={0.5} />
                   <Line type="monotone" dataKey="vo2_max" stroke="var(--color-vo2_max)"
                     strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
@@ -260,7 +266,7 @@ export function HealthDashboard() {
         {oura7.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>HRV <span className="text-xs font-normal" style={{ color: "hsl(270,60%,55%)" }}>↑</span> & Resting HR <span className="text-xs font-normal" style={{ color: "hsl(0,70%,50%)" }}>↓</span></CardTitle>
+              <CardTitle>HRV <span className="text-xs font-normal" style={{ color: SECTION_ACCENT }}>↑</span> & Resting HR <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_STRONG }}>↓</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 px-4">
               <ChartContainer config={hrvConfig} className="h-[160px] w-full overflow-hidden">

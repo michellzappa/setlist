@@ -1,5 +1,5 @@
 """FastAPI app wiring. Instantiates the app, attaches CORS, warms the
-exercise cache at startup, and mounts every section router.
+training cache at startup, and mounts every section router.
 """
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Exercise has no prefix (its routes predate the prefixed pattern). Every
+# Training keeps the legacy unprefixed aliases for compatibility; every
 # other section router declares its own `/api/{section}` prefix.
 app.include_router(exercise.router)
 app.include_router(nutrition.router)

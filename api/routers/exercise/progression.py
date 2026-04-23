@@ -15,9 +15,10 @@ from api.routers.settings import load_targets
 from .cache import _cache, fresh_cache
 from .taxonomy import _load_config
 
-router = APIRouter(tags=["exercise"])
+router = APIRouter(tags=["training"])
 
 
+@router.get("/api/training/exercises", dependencies=[Depends(fresh_cache)])
 @router.get("/api/exercises", dependencies=[Depends(fresh_cache)])
 def get_exercises() -> List[str]:
     """Distinct exercise names for the logger.
@@ -33,12 +34,14 @@ def get_exercises() -> List[str]:
     return sorted(names)
 
 
+@router.get("/api/training/progression/{exercise}", dependencies=[Depends(fresh_cache)])
 @router.get("/api/progression/{exercise}", dependencies=[Depends(fresh_cache)])
 def get_progression(exercise: str) -> Dict[str, Any]:
     data = _cache.get("progression", {}).get(exercise, [])
     return {"exercise": exercise, "data": data}
 
 
+@router.get("/api/training/summary", dependencies=[Depends(fresh_cache)])
 @router.get("/api/summary", dependencies=[Depends(fresh_cache)])
 def get_summary(since: str = "") -> List[Dict[str, Any]]:
     """One row per exercise: latest weight, latest date, trend, count.
@@ -129,6 +132,7 @@ def _last_nonnull_values(points: List[Dict[str, Any]]) -> Dict[str, Any] | None:
     return out
 
 
+@router.post("/api/training/last-entries", dependencies=[Depends(fresh_cache)])
 @router.post("/api/last-entries", dependencies=[Depends(fresh_cache)])
 async def post_last_entries(request: Request) -> Dict[str, Any]:
     """Return per-exercise composed "last known values" + last 5 entries as history."""
@@ -148,6 +152,7 @@ async def post_last_entries(request: Request) -> Dict[str, Any]:
     return out
 
 
+@router.get("/api/training/entries", dependencies=[Depends(fresh_cache)])
 @router.get("/api/entries", dependencies=[Depends(fresh_cache)])
 def get_entries(since: Optional[str] = None) -> List[Dict[str, Any]]:
     entries = _cache.get("entries", [])
@@ -161,6 +166,7 @@ def get_entries(since: Optional[str] = None) -> List[Dict[str, Any]]:
 CARDIO_HISTORY_EXERCISES = {"elliptical", "rowing", "stairs", "cycling", "running", "walking", "swimming"}
 
 
+@router.get("/api/training/cardio-history", dependencies=[Depends(fresh_cache)])
 @router.get("/api/cardio-history", dependencies=[Depends(fresh_cache)])
 def cardio_history(days: int = 30) -> Dict[str, Any]:
     """Daily cardio minutes + rolling 7-day totals."""

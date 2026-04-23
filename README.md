@@ -89,7 +89,7 @@ schema, and the relevant endpoints.
 The core three — Training, Nutrition, Habits — ship as starter
 scaffolding under [`examples/vault/Bases/`](examples/vault/Bases/). The
 rest live under [`examples/vault/optional/`](examples/vault/optional/),
-ready to copy into your vault when you want them.
+ready to copy into your data folder when you want them.
 
 ## Optional integrations
 
@@ -136,8 +136,8 @@ See `docs/HEALTH_DATA_SPEC.md` for the health-data pipeline and
 
 ## Try it with demo data
 
-Before committing to your own vault, run Septena against a disposable
-vault of deterministic fake data:
+Before committing to your own data folder, run Septena against
+disposable deterministic demo data:
 
 ```bash
 pip install -r requirements.txt                 # one-time
@@ -159,30 +159,91 @@ you already have both installed and are comfortable running a local dev
 stack. The data directory is just a folder of Markdown files — no
 Obsidian required.
 
+### 1. Clone and install
+
 ```bash
-# 1. Clone
 git clone https://github.com/septena/septena.git
 cd septena
-
-# 2. Point Septena at a vault (or leave defaults)
 cp .env.example .env.local
-# edit .env.local — at minimum, SEPTENA_DATA_DIR if your vault isn't at
-# ~/Documents/septena-data/
-
-# 3. Install
 pip install -r requirements.txt
 npm install
-
-# 4. Run (two terminals)
-uvicorn main:app --port 4445 --reload        # backend
-npm run dev                                   # frontend → :4444
 ```
 
-Open `http://localhost:4444`. **First run:** if your data directory
-doesn't exist yet, Septena shows an onboarding screen with two paths —
-copy the starter scaffolding from `examples/vault/Bases/` into a new
-directory, or point `SEPTENA_DATA_DIR` at an existing folder. Once any
-section folder is present, that section appears in the nav.
+### 2. Choose one setup path
+
+#### Option A — Run with demo data
+
+```bash
+npm run seed-demo
+SEPTENA_DATA_DIR=/tmp/septena-demo-vault \
+SEPTENA_INTEGRATIONS_DIR=/tmp/none \
+uvicorn main:app --port 4445 --reload
+```
+
+In a second terminal:
+
+```bash
+cd septena
+npm run dev
+```
+
+Then open `http://localhost:4444`.
+
+#### Option B — Run with a new data folder
+
+If you want to use the default location, leave `.env.local` unchanged.
+If not, set `SEPTENA_DATA_DIR` in `.env.local` to your preferred folder.
+
+Create the folder and start the backend:
+
+```bash
+mkdir -p ~/Documents/septena-data
+uvicorn main:app --port 4445 --reload
+```
+
+In a second terminal:
+
+```bash
+cd septena
+npm run dev
+```
+
+Then open `http://localhost:4444`.
+
+On first run, Septena will show onboarding because the data folder is
+empty. Copy the starter scaffolding into your data folder:
+
+```bash
+cp -R examples/vault/Bases/* ~/Documents/septena-data/
+```
+
+If you set a custom `SEPTENA_DATA_DIR`, copy into that folder instead.
+Click `Check again` in the app once the folders exist.
+
+#### Option C — Run with an existing data folder
+
+Set `SEPTENA_DATA_DIR` in `.env.local` if your data folder is not at
+`~/Documents/septena-data`, then start both processes:
+
+```bash
+uvicorn main:app --port 4445 --reload
+```
+
+In a second terminal:
+
+```bash
+cd septena
+npm run dev
+```
+
+Then open `http://localhost:4444`. Any section folders already present
+in your data folder will appear automatically.
+
+### 3. What happens next
+
+- `demo data`: you land in a fully populated fake dataset
+- `new data folder`: you copy starter sections, then the app picks them up
+- `existing data folder`: Septena auto-detects the sections already present
 
 ## Configuration
 
@@ -240,6 +301,12 @@ can read and write files (Claude, Cursor, Codex, Claude Code, Claude
 Desktop) can log data, compute totals, and modify configuration — the
 Septena app doesn't even need to be running.
 
+Agents can also do the initial local setup for you. Good prompts:
+
+- `Install Septena locally and run it with demo data.`
+- `Install Septena locally, create a new empty data folder, and start the app.`
+- `Use this README to run Septena against my existing data folder.`
+
 Every section ships a **`SKILL.md`** describing its file layout, YAML
 schema, and agent-friendly examples:
 
@@ -278,7 +345,7 @@ Most section behavior is driven by YAML you edit directly:
   enable/disable. Also editable via the Settings tab.
 - **Session templates** (gym routine): `lib/session-templates.ts` — the
   one holdout still in TypeScript. Edit this file to match your own
-  split / equipment. Slated to move to vault YAML in a later release.
+  split / equipment. Slated to move into YAML in the data folder in a later release.
 
 ## Architecture
 
@@ -328,7 +395,7 @@ canonical step-by-step guide covering:
 - The five archetypes (per-event log, fixed-set checklist,
   cadence-based, stateful checklist, integration-backed) — pick the
   one that matches your data shape.
-- Vault layout + universal YAML frontmatter.
+- Data-folder layout + universal YAML frontmatter.
 - Backend router + shared parsing helpers from `api/parsing.py`.
 - Registry wiring (`api/paths.py`, `api/routers/sections.py`,
   `api/routers/settings.py`, `lib/sections.ts`).
@@ -356,7 +423,7 @@ than writing from scratch.
 
 **Known holdouts:**
 - Session templates (gym routine) still live in TypeScript — see
-  `lib/session-templates.ts`. Moving to vault YAML is tracked.
+  `lib/session-templates.ts`. Moving them into YAML in the data folder is tracked.
 - `components/training-dashboard.tsx` still mirrors the training-type
   sets (`CARDIO_EXERCISES`, `MOBILITY_EXERCISES`, `CORE_EXERCISES`)
   used by `metricKind` to pick the right chart rendering. The backend

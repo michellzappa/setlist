@@ -17,34 +17,47 @@ from api.section_manifest import folder_backed_sections
 # HEALTH_ROOT is read-only aggregated health data (Oura/Withings/HAE snapshots).
 # INTEGRATIONS_DIR holds credentials/tokens for optional external services.
 # CACHE_DIR is app-owned scratch space.
-#
-# SETLIST_* env vars are accepted as a one-release fallback while you migrate
-# from the old name. New setups should use SEPTENA_DATA_DIR.
 DATA_ROOT = Path(
     os.environ.get("SEPTENA_DATA_DIR")
-    or os.environ.get("SETLIST_DATA_DIR")
-    or os.environ.get("SETLIST_VAULT")
     or Path.home() / "Documents/septena-data"
 )
 HEALTH_ROOT = Path(
     os.environ.get("SEPTENA_HEALTH_DIR")
-    or os.environ.get("SETLIST_HEALTH_DIR")
     or Path.home() / "Documents/septena-data/Health"
 )
 INTEGRATIONS_DIR = Path(
     os.environ.get("SEPTENA_INTEGRATIONS_DIR")
-    or os.environ.get("SETLIST_INTEGRATIONS_DIR")
     or Path.home() / ".config/openclaw"
 )
 CACHE_DIR = Path(
     os.environ.get("SEPTENA_CACHE_DIR")
-    or os.environ.get("SETLIST_CACHE_DIR")
     or Path.home() / ".config/septena"
 )
 
 # ── Section directories ───────────────────────────────────────────────────
-DATA_DIR = DATA_ROOT / "Exercise/Log"
-EXERCISE_CONFIG_PATH = DATA_ROOT / "Exercise/exercise-config.yaml"
+
+
+def _preferred_path(primary: str, legacy: str | None = None) -> Path:
+    """Pick the canonical path unless an existing legacy location is active.
+
+    This avoids splitting writes across `Training/...` and `Exercise/...`
+    before the one-shot migration has been run.
+    """
+    primary_path = DATA_ROOT / primary
+    if primary_path.exists() or not legacy:
+        return primary_path
+    legacy_path = DATA_ROOT / legacy
+    if legacy_path.exists():
+        return legacy_path
+    return primary_path
+
+
+TRAINING_DIR = _preferred_path("Training/Log", "Exercise/Log")
+TRAINING_CONFIG_PATH = _preferred_path("Training/training-config.yaml", "Exercise/exercise-config.yaml")
+
+# Legacy aliases for modules that still import the old constant names.
+DATA_DIR = TRAINING_DIR
+EXERCISE_CONFIG_PATH = TRAINING_CONFIG_PATH
 
 NUTRITION_DIR = DATA_ROOT / "Nutrition/Log"
 MACROS_CONFIG_PATH = DATA_ROOT / "Nutrition/macros-config.yaml"
@@ -93,6 +106,9 @@ HEALTH_CACHE_PATH = CACHE_DIR / "health-cache.json"
 # exists under DATA_ROOT. Integration-only sections (sleep/body/health)
 # follow different visibility rules — see available_sections below.
 _DATA_FOLDER_SECTIONS: Dict[str, str] = folder_backed_sections()
+_LEGACY_FOLDER_ALIASES: Dict[str, tuple[str, ...]] = {
+    "training": ("Exercise",),
+}
 
 
 def available_sections(oura: bool, withings: bool, apple: bool) -> List[str]:
@@ -107,7 +123,8 @@ def available_sections(oura: bool, withings: bool, apple: bool) -> List[str]:
     """
     out: List[str] = []
     for key, folder in _DATA_FOLDER_SECTIONS.items():
-        if (DATA_ROOT / folder).is_dir():
+        folders = (folder, *_LEGACY_FOLDER_ALIASES.get(key, ()))
+        if any((DATA_ROOT / name).is_dir() for name in folders):
             out.append(key)
     if oura or apple:
         out.append("sleep")

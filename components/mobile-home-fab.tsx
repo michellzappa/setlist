@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { SeptenaMark } from "@/components/septena-mark";
 import { useNavSections } from "@/hooks/use-sections";
+import { useDemoHref } from "@/hooks/use-demo-href";
 
 /** Floating home button for mobile PWA navigation.
  *
@@ -23,6 +24,7 @@ export function MobileHomeFab() {
   // user's section_order from settings.
   const visibleSections = useNavSections();
   const router = useRouter();
+  const toHref = useDemoHref();
   const [menuOpen, setMenuOpen] = useState(false);
   const [pressed, setPressed] = useState(false);
   const longPressFired = useRef(false);
@@ -69,7 +71,7 @@ export function MobileHomeFab() {
     clearPressTimer();
     if (longPressFired.current) return;
     // Short tap → navigate home.
-    router.push("/septena");
+    router.push(toHref("/septena"));
   };
 
   const handlePointerLeave = () => {
@@ -104,7 +106,7 @@ export function MobileHomeFab() {
           }}
         >
           <Link
-            href="/septena"
+            href={toHref("/septena")}
             onClick={() => setMenuOpen(false)}
             className="flex items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 text-sm font-semibold shadow-md backdrop-blur"
           >
@@ -112,11 +114,12 @@ export function MobileHomeFab() {
             Home
           </Link>
           {visibleSections.map((s) => {
-            const active = pathname === s.path || pathname.startsWith(s.path + "/");
+            const href = toHref(s.path);
+            const active = pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
                 key={s.key}
-                href={s.path}
+                href={href}
                 onClick={() => setMenuOpen(false)}
                 className="flex items-center gap-2 rounded-full border bg-background/95 px-4 py-2 text-sm font-medium shadow-md backdrop-blur"
                 style={

@@ -293,4 +293,4 @@ GET /api/sleep               → Oura API → sleep efficiency, deep sleep, HRV
 - **No hardcoded credentials** in scripts — always read from credential files listed above
 - **Token refresh** must happen automatically in scripts (3-hour expiry for Withings)
 - **YAML is canonical** for exercise, nutrition, and habits — no markdown files as source of truth
-- **Septena = septena repo** (renamed from `training-viz` → `setlist` → `septena`, April 2026)
+- **Septena = septena repo**

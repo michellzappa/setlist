@@ -23,8 +23,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TaskGroup, TaskRow } from "@/components/tasks";
 import { ChecklistStats, ChecklistChart } from "@/components/checklist-primitives";
 import { shortDate, computeStreak } from "@/lib/date-utils";
+import { SECTION_ACCENT_SHADE_3 } from "@/lib/section-colors";
 
-const HABITS_COLOR = "hsl(220, 60%, 55%)";
+const HABITS_COLOR = "var(--section-accent)";
 
 const HAPTIC = () => {
   try {
@@ -154,7 +155,7 @@ export function HabitsDashboard() {
                   defaultCollapsed={false}
                   nowBadge={!isPast && !isFuture}
                   statusLabel={timeLeft ?? undefined}
-                  statusColor="hsl(24,100%,50%)"
+                  statusColor={SECTION_ACCENT_SHADE_3}
                   emptyHint="No habits in this bucket."
                 >
                   {items.map((h) => (

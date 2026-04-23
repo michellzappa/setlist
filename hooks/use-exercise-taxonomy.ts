@@ -21,15 +21,15 @@ export type ExerciseTaxonomy = {
 const UNREADY: ExerciseTaxonomy = { classify: () => "unknown", ready: false };
 
 /** Single source of truth for exercise classification on the frontend.
- *  Reads from /api/exercise/config — the backend's authoritative taxonomy
- *  loaded from Bases/Exercise/exercise-config.yaml. Aliases are honored.
+ *  Reads from /api/training/config — the backend's authoritative taxonomy
+ *  loaded from Bases/Training/training-config.yaml. Aliases are honored.
  *
  *  Before this hook existed, each dashboard kept its own hardcoded
  *  `CARDIO_EXERCISES`/`MOBILITY_EXERCISES`/`CORE_EXERCISES` Sets that
  *  silently drifted from the backend seed when the user added a new
  *  exercise through Settings. */
 export function useExerciseTaxonomy(): ExerciseTaxonomy {
-  const { data } = useSWR("exercise-config", getExerciseConfig, {
+  const { data } = useSWR("training-config", getExerciseConfig, {
     revalidateOnFocus: false,
   });
 

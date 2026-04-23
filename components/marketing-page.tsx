@@ -32,7 +32,7 @@ const SECTIONS: SectionBlock[] = [
       "I log strength, cardio, and mobility work the same day I do it. The app tracks progression per exercise, surfaces personal records, and suggests the next logical workout based on what I did last time. Strength is where the data pays off; cardio and mobility get lighter treatment.",
     screenshot: "/screenshots/exercise.png",
     demoHref: "/demo/training",
-    accent: SECTION_REGISTRY.exercise.color,
+    accent: SECTION_REGISTRY.training.color,
   },
   {
     slug: "nutrition",
@@ -273,7 +273,7 @@ section: nutrition
         a format you can read.
       </p>
       <p>
-        There is no account, no sync server, no cloud. If you want sync, point your vault folder
+        There is no account, no sync server, no cloud. If you want sync, point your data folder
         at iCloud Drive or Dropbox.
       </p>
     </section>
@@ -306,7 +306,7 @@ function Install() {
         </li>
         <li>
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">npm run seed-demo</code>{" "}
-          to populate a demo vault, or point{" "}
+          to populate demo data, or point{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">
             $SEPTENA_DATA_DIR
           </code>{" "}

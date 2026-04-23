@@ -1,7 +1,7 @@
 # App-level settings. All fields are optional — missing keys fall back
 # to defaults. Safe to delete and let Septena regenerate on first write.
 section_order:
-  - exercise
+  - training
   - nutrition
   - habits
   - chores

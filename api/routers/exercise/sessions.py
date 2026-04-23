@@ -1,5 +1,6 @@
-"""Session write + per-session read routes: POST /api/sessions, last/by-date
-lookups, /api/stats, /api/reload, /api/next-workout.
+"""Session write + per-session read routes: POST /api/training/sessions,
+last/by-date lookups, /api/training/stats, /api/training/reload,
+/api/training/next-workout.
 """
 from __future__ import annotations
 
@@ -17,9 +18,10 @@ from api.paths import DATA_DIR
 from .cache import _cache, fresh_cache, load_cache
 from .taxonomy import _is_cardio_type, exercise_group
 
-router = APIRouter(tags=["exercise"])
+router = APIRouter(tags=["training"])
 
 
+@router.post("/api/training/sessions")
 @router.post("/api/sessions")
 async def post_sessions(request: Request) -> Dict[str, Any]:
     """Write one .md file per entry using the NEW schema.
@@ -90,6 +92,7 @@ async def post_sessions(request: Request) -> Dict[str, Any]:
     return {"written": written, "concluded_at": concluded_at, "session_type": session_type}
 
 
+@router.get("/api/training/sessions/last", dependencies=[Depends(fresh_cache)])
 @router.get("/api/sessions/last", dependencies=[Depends(fresh_cache)])
 def get_last_session(type: str = "") -> Dict[str, Any]:
     entries_by_date = _cache.get("sessions_by_date", {})
@@ -104,11 +107,13 @@ def get_last_session(type: str = "") -> Dict[str, Any]:
     return {"session_type": type, "date": sorted_dates[0], "entries": entries_by_date.get(sorted_dates[0], [])}
 
 
+@router.get("/api/training/sessions/{session_date}", dependencies=[Depends(fresh_cache)])
 @router.get("/api/sessions/{session_date}", dependencies=[Depends(fresh_cache)])
 def get_sessions(session_date: str) -> Dict[str, Any]:
     return {"date": session_date, "data": _cache.get("sessions_by_date", {}).get(session_date, [])}
 
 
+@router.get("/api/training/stats", dependencies=[Depends(fresh_cache)])
 @router.get("/api/stats", dependencies=[Depends(fresh_cache)])
 def get_stats() -> Dict[str, Any]:
     # `last_logged_at`: the max `concluded_at` across all parsed entries.
@@ -135,6 +140,7 @@ def get_stats() -> Dict[str, Any]:
     )
 
 
+@router.get("/api/training/reload")
 @router.get("/api/reload")
 def reload_data() -> Dict[str, Any]:
     cache = load_cache()
@@ -154,6 +160,7 @@ SESSION_META = {
 }
 
 
+@router.get("/api/training/next-workout", dependencies=[Depends(fresh_cache)])
 @router.get("/api/next-workout", dependencies=[Depends(fresh_cache)])
 def get_next_workout() -> Dict[str, Any]:
     """Classify past days by the groups they contained, return days-since for

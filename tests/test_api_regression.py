@@ -182,6 +182,39 @@ class ApiRegressionTests(unittest.TestCase):
         raw = yaml.safe_load((self.vault / "Settings" / "settings.yaml").read_text(encoding="utf-8"))
         self.assertIn("mini_stats", raw)
 
+    def test_settings_aliases_canonicalize_to_training(self) -> None:
+        settings_path = self.vault / "Settings" / "settings.yaml"
+        raw = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
+        raw["section_order"] = ["exercise", "nutrition", "training"]
+        raw["sections"] = {"exercise": {"label": "Exercise", "enabled": False}}
+        raw["animations"] = {"exercise_complete": False, "first_meal": True}
+        settings_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+
+        settings = self.client.get("/api/settings").json()
+        self.assertEqual(settings["section_order"][0], "training")
+        self.assertNotIn("exercise", settings["section_order"])
+        self.assertIn("training", settings["sections"])
+        self.assertNotIn("exercise", settings["sections"])
+        self.assertEqual(settings["sections"]["training"]["label"], "Training")
+        self.assertFalse(settings["animations"]["training_complete"])
+
+        updated = self.client.put("/api/settings", json={
+            "section_order": ["exercise", "nutrition"],
+            "sections": {"exercise": {"enabled": True}},
+            "animations": {"exercise_complete": True},
+        }).json()
+        self.assertEqual(updated["section_order"][0], "training")
+        self.assertTrue(updated["sections"]["training"]["enabled"])
+        self.assertTrue(updated["animations"]["training_complete"])
+
+        raw = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["section_order"][0], "training")
+        self.assertNotIn("exercise", raw["section_order"])
+        self.assertIn("training", raw["sections"])
+        self.assertNotIn("exercise", raw["sections"])
+        self.assertTrue(raw["animations"]["training_complete"])
+        self.assertNotIn("exercise_complete", raw["animations"])
+
     def test_sections_use_manifest_defaults_and_folder_enablement(self) -> None:
         sections = self.client.get("/api/sections").json()
         by_key = {section["key"]: section for section in sections}
@@ -191,6 +224,6 @@ class ApiRegressionTests(unittest.TestCase):
         self.assertEqual(by_key["habits"]["emoji"], "✅")
         self.assertTrue(by_key["habits"]["enabled"])
 
-        self.assertEqual(by_key["exercise"]["label"], "Training")
-        self.assertEqual(by_key["exercise"]["path"], "/training")
-        self.assertFalse(by_key["exercise"]["enabled"])
+        self.assertEqual(by_key["training"]["label"], "Training")
+        self.assertEqual(by_key["training"]["path"], "/septena/training")
+        self.assertFalse(by_key["training"]["enabled"])

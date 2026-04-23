@@ -17,6 +17,7 @@ import { StatCard } from "@/components/stat-card";
 import { TaskGroup, TaskRow } from "@/components/tasks";
 import { shortDate } from "@/lib/date-utils";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
+import { SECTION_ACCENT_STRONG } from "@/lib/section-colors";
 
 const HAPTIC = () => {
   try {
@@ -159,7 +160,7 @@ export function ChoresDashboard() {
           label="Overdue"
           value={overdueCount}
           sublabel={overdueCount === 0 ? "all caught up" : "past their due date"}
-          color={overdueCount > 0 ? "hsl(0,70%,55%)" : CHORES_COLOR}
+          color={overdueCount > 0 ? SECTION_ACCENT_STRONG : CHORES_COLOR}
         />
         <StatCard label="Last 30 days" value={completions30d} sublabel="completions logged" />
       </div>

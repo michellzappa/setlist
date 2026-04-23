@@ -8,7 +8,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/bin/python3</string>
-        <string>/Users/botbot/Documents/repos/setlist/scripts/aranet_poller.py</string>
+        <string>/Users/botbot/Documents/repos/septena/scripts/aranet_poller.py</string>
     </array>
 
     <!-- Every 6 hours. Aranet4 stores ~7 days on-device, so catching up after downtime is free. -->

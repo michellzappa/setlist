@@ -140,7 +140,7 @@ export function DataMeta() {
   if (error || !data) return null;
 
   const sources = data.sources;
-  const vaultKeys = ["exercise", "nutrition", "habits", "supplements", "cannabis", "caffeine", "calendar", "weather"];
+  const vaultKeys = ["training", "nutrition", "habits", "supplements", "cannabis", "caffeine", "calendar", "weather"];
   const health = sources.health;
 
   return (

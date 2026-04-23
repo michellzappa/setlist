@@ -149,9 +149,9 @@ function fmtDaysAgo(n: number | null): string {
 export function ExerciseQuickLog({ onDone }: { onDone: () => void }) {
   // Live color from /api/sections, not the static SECTIONS fallback —
   // honors user customisation in settings.yaml.
-  const accent = useSectionColor("exercise");
+  const accent = useSectionColor("training");
   const router = useRouter();
-  const { data, isLoading } = useSWR("quicklog-exercise", () => getNextWorkout());
+  const { data, isLoading } = useSWR("quicklog-training", () => getNextWorkout());
   const [navigating, setNavigating] = useState<SessionType | null>(null);
 
   const pick = useCallback(

@@ -40,7 +40,7 @@ export function TodayTimeline() {
   const nutritionColor = useSectionColor("nutrition");
   const cannabisColor = useSectionColor("cannabis");
   const caffeineColor = useSectionColor("caffeine");
-  const exerciseColor = useSectionColor("exercise");
+  const trainingColor = useSectionColor("training");
   const habitsColor = useSectionColor("habits");
   const supplementsColor = useSectionColor("supplements");
   const choresColor = useSectionColor("chores");
@@ -56,7 +56,7 @@ export function TodayTimeline() {
       //   - getHealthCache() serves the on-disk snapshot with no upstream API
       //     calls, so it returns instantly — we only need the latest oura row
       //     for wake_time.
-      const [nutrition, cannabis, caffeine, exercise, health, habits, chores, supplements, gut, calendar] = await Promise.all([
+      const [nutrition, cannabis, caffeine, training, health, habits, chores, supplements, gut, calendar] = await Promise.all([
         getNutritionEntries(today).catch(() => []),
         getCannabisDay(today).catch(() => ({ entries: [] as { time: string }[] })),
         getCaffeineDay(today).catch(() => ({ entries: [] as { time: string; method: string }[] })),
@@ -68,7 +68,7 @@ export function TodayTimeline() {
         getGutDay(today).catch(() => null),
         getCalendar().catch(() => null),
       ]);
-      return { nutrition, cannabis, caffeine, exercise, health, habits, chores, supplements, gut, calendar };
+      return { nutrition, cannabis, caffeine, training, health, habits, chores, supplements, gut, calendar };
     },
     { refreshInterval: 60_000, revalidateOnFocus: false },
   );
@@ -97,16 +97,16 @@ export function TodayTimeline() {
     if (h == null) continue;
     dots.push({ hour: h, color: caffeineColor, label: `${c.time} · ${c.method}` });
   }
-  // Exercise — one dot per session (dedupe on concluded_at time).
+  // Training — one dot per session (dedupe on concluded_at time).
   const seenExerciseTimes = new Set<string>();
-  for (const e of data?.exercise ?? []) {
+  for (const e of data?.training ?? []) {
     if (e.date !== today || !e.concluded_at) continue;
     const hhmm = e.concluded_at.slice(11, 16);
     if (seenExerciseTimes.has(hhmm)) continue;
     seenExerciseTimes.add(hhmm);
     const h = parseHHMM(hhmm);
     if (h == null) continue;
-    dots.push({ hour: h, color: exerciseColor, label: `${hhmm} · ${e.session || e.exercise || "exercise"}` });
+    dots.push({ hour: h, color: trainingColor, label: `${hhmm} · ${e.session || e.exercise || "training"}` });
   }
   // Habits — one dot per completed habit with a recorded time.
   for (const bucket of data?.habits?.buckets ?? []) {

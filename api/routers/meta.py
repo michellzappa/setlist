@@ -101,7 +101,7 @@ def get_meta() -> Dict[str, Any]:
     sources: Dict[str, Any] = {}
 
     # Training
-    sources["exercise"] = {"label": "Training", **_dir_meta(DATA_DIR)}
+    sources["training"] = {"label": "Training", **_dir_meta(DATA_DIR)}
     # Nutrition
     sources["nutrition"] = {"label": "Nutrition", **_dir_meta(NUTRITION_DIR)}
     # Habits

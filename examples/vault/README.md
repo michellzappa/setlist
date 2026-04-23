@@ -1,8 +1,8 @@
-# Septena vault skeleton
+# Septena data folder skeleton
 
 Two layers: a lean **core** (`Bases/`) that's the sensible default, and
 **optional** extensions (`optional/`) you drop in when you want them.
-The app auto-detects which sections exist in your vault — no config
+The app auto-detects which sections exist in your data folder — no config
 toggle required. Drag a folder in, the section appears. Remove it, the
 section disappears (data stays in the folder; it's just hidden from
 nav).
@@ -43,7 +43,7 @@ cp -R examples/vault/optional/Cannabis "$SEPTENA_DATA_DIR/"
 - **Caffeine** — drink log with time-of-day patterns
 - **Cannabis** — session log, strains, capsule inventory
 
-Each section folder is self-contained — copy the whole thing and Septena
+Each section folder is self-contained — copy the whole thing into your data folder and Septena
 picks it up on the next request.
 
 ## What's not included
@@ -51,4 +51,4 @@ picks it up on the next request.
 - **Session templates** for Training — these live in
   `lib/session-templates.ts` and must be edited in TypeScript for now.
 - **Integration tokens** — put those under `SEPTENA_INTEGRATIONS_DIR`,
-  not inside the vault. See the main README.
+  not inside the data folder. See the main README.

@@ -14,35 +14,41 @@ import {
 } from "@/lib/api";
 import { formatDateShort as formatDate } from "@/lib/date-utils";
 import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
+import {
+  SECTION_ACCENT,
+  SECTION_ACCENT_SHADE_2,
+  SECTION_ACCENT_SHADE_3,
+  SECTION_ACCENT_STRONG,
+} from "@/lib/section-colors";
 import { StatCard } from "@/components/stat-card";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 
 const fatConfig = {
-  fat_pct: { label: "Body Fat (%)", color: "hsl(340,60%,50%)" },
+  fat_pct: { label: "Body Fat (%)", color: SECTION_ACCENT_SHADE_2 },
 } satisfies ChartConfig;
 
 const boneConfig = {
-  bone_mineral_kg: { label: "Bone (kg)", color: "hsl(33,60%,50%)" },
+  bone_mineral_kg: { label: "Bone (kg)", color: SECTION_ACCENT_SHADE_3 },
 } satisfies ChartConfig;
 
 const vascularConfig = {
-  vascular_age: { label: "Vascular Age", color: "hsl(200,60%,50%)" },
+  vascular_age: { label: "Vascular Age", color: SECTION_ACCENT_STRONG },
 } satisfies ChartConfig;
 
 const spo2Config = {
-  spo2_pct: { label: "SpO2 (%)", color: "hsl(200,70%,50%)" },
+  spo2_pct: { label: "SpO2 (%)", color: SECTION_ACCENT },
 } satisfies ChartConfig;
 
 const pulseConfig = {
-  pulse_wave_mps: { label: "Pulse Wave (m/s)", color: "hsl(270,60%,50%)" },
+  pulse_wave_mps: { label: "Pulse Wave (m/s)", color: SECTION_ACCENT_STRONG },
 } satisfies ChartConfig;
 
 const fatRatioConfig = {
-  fat_ratio_pct: { label: "Fat Ratio (%)", color: "hsl(142,55%,40%)" },
+  fat_ratio_pct: { label: "Fat Ratio (%)", color: SECTION_ACCENT_SHADE_2 },
 } satisfies ChartConfig;
 
 export function BodyDashboard() {
-  const COLOR = "var(--section-accent)";
+  const COLOR = SECTION_ACCENT;
   const weightConfig = {
     weight_kg: { label: "Weight (kg)", color: COLOR },
   } satisfies ChartConfig;
@@ -131,26 +137,26 @@ export function BodyDashboard() {
       {/* Stats */}
       <div className="mb-4 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7 [&>*]:min-w-0">
         <StatCard label="Weight" value={latestWeight.weight_kg ?? null} unit="kg" color={COLOR} sublabel={subtitle} direction="down" />
-        <StatCard label="Body Fat" value={latestFat.fat_pct ?? null} unit="%" color="hsl(340,60%,50%)" sublabel={subtitle} direction="down" target={targets?.fat_min_pct && targets?.fat_max_pct ? `${targets.fat_min_pct}–${targets.fat_max_pct}%` : undefined} />
+        <StatCard label="Body Fat" value={latestFat.fat_pct ?? null} unit="%" color={SECTION_ACCENT_SHADE_2} sublabel={subtitle} direction="down" target={targets?.fat_min_pct && targets?.fat_max_pct ? `${targets.fat_min_pct}–${targets.fat_max_pct}%` : undefined} />
         <StatCard
           label="Weekly Δ"
           value={weightDelta !== null ? `${weightDelta > 0 ? "+" : ""}${weightDelta}` : null}
           unit="kg"
-          color={weightDelta !== null && weightDelta <= 0 ? COLOR : "hsl(0,60%,50%)"}
+          color={weightDelta !== null && weightDelta <= 0 ? COLOR : SECTION_ACCENT_STRONG}
           sublabel="7d avg vs prior 7d"
           direction="down"
         />
         {latestBone.bone_mineral_kg != null && (
-          <StatCard label="Bone" value={latestBone.bone_mineral_kg} unit="kg" color="hsl(33,60%,50%)" sublabel={latestBone.date ? formatDate(latestBone.date) : undefined} />
+          <StatCard label="Bone" value={latestBone.bone_mineral_kg} unit="kg" color={SECTION_ACCENT_SHADE_3} sublabel={latestBone.date ? formatDate(latestBone.date) : undefined} />
         )}
         {latestVascular.vascular_age != null && (
-          <StatCard label="Vascular Age" value={latestVascular.vascular_age} unit="" color="hsl(200,60%,50%)" sublabel={latestVascular.date ? formatDate(latestVascular.date) : undefined} />
+          <StatCard label="Vascular Age" value={latestVascular.vascular_age} unit="" color={SECTION_ACCENT_STRONG} sublabel={latestVascular.date ? formatDate(latestVascular.date) : undefined} />
         )}
         {latestSpo2.spo2_pct != null && (
-          <StatCard label="SpO2" value={latestSpo2.spo2_pct} unit="%" color="hsl(210,60%,50%)" sublabel={latestSpo2.date ? formatDate(latestSpo2.date) : undefined} />
+          <StatCard label="SpO2" value={latestSpo2.spo2_pct} unit="%" color={SECTION_ACCENT} sublabel={latestSpo2.date ? formatDate(latestSpo2.date) : undefined} />
         )}
         {latestPulse.pulse_wave_mps != null && (
-          <StatCard label="Pulse Wave" value={latestPulse.pulse_wave_mps} unit="m/s" color="hsl(270,60%,50%)" sublabel={latestPulse.date ? formatDate(latestPulse.date) : undefined} />
+          <StatCard label="Pulse Wave" value={latestPulse.pulse_wave_mps} unit="m/s" color={SECTION_ACCENT_STRONG} sublabel={latestPulse.date ? formatDate(latestPulse.date) : undefined} />
         )}
       </div>
 
@@ -171,7 +177,7 @@ export function BodyDashboard() {
                   <Line type="monotone" dataKey="weight_kg" stroke="var(--color-weight_kg)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke="#94a3b8" strokeOpacity={0.45} />
+                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
                   ))}
                 </LineChart>
               </ChartContainer>
@@ -182,7 +188,7 @@ export function BodyDashboard() {
         {withingsWithFat.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Body Fat <span className="text-xs font-normal" style={{ color: "hsl(340,60%,50%)" }}>↓ 10–15%</span></CardTitle>
+              <CardTitle>Body Fat <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_2 }}>↓ 10–15%</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
               <ChartContainer config={fatConfig} className="h-[200px] w-full">
@@ -191,11 +197,11 @@ export function BodyDashboard() {
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS} domain={["dataMin - 1", "dataMax + 1"]}
                     tickFormatter={(v: number) => `${Math.round(v)}%`} />
-                  <ReferenceLine y={15} stroke="hsl(340,40%,50%)" strokeDasharray="6 3" strokeOpacity={0.5} />
+                  <ReferenceLine y={15} stroke={SECTION_ACCENT_SHADE_2} strokeDasharray="6 3" strokeOpacity={0.5} />
                   <Line type="monotone" dataKey="fat_pct" stroke="var(--color-fat_pct)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke="#94a3b8" strokeOpacity={0.45} />
+                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
                   ))}
                 </LineChart>
               </ChartContainer>
@@ -206,7 +212,7 @@ export function BodyDashboard() {
         {withingsWithBone.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Bone <span className="text-xs font-normal" style={{ color: "hsl(33,60%,50%)" }}>mineral kg</span></CardTitle>
+              <CardTitle>Bone <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_3 }}>mineral kg</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
               <ChartContainer config={boneConfig} className="h-[200px] w-full">
@@ -215,10 +221,10 @@ export function BodyDashboard() {
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS}
                     tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="bone_mineral_kg" stroke="hsl(33,60%,50%)"
+                  <Line type="monotone" dataKey="bone_mineral_kg" stroke="var(--color-bone_mineral_kg)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke="#94a3b8" strokeOpacity={0.45} />
+                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
                   ))}
                 </LineChart>
               </ChartContainer>
@@ -229,7 +235,7 @@ export function BodyDashboard() {
         {withingsWithVascular.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Vascular Age <span className="text-xs font-normal" style={{ color: "hsl(200,60%,50%)" }}></span></CardTitle>
+              <CardTitle>Vascular Age</CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
               <ChartContainer config={vascularConfig} className="h-[200px] w-full">
@@ -238,10 +244,10 @@ export function BodyDashboard() {
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS}
                     tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="vascular_age" stroke="hsl(200,60%,50%)"
+                  <Line type="monotone" dataKey="vascular_age" stroke="var(--color-vascular_age)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke="#94a3b8" strokeOpacity={0.45} />
+                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
                   ))}
                 </LineChart>
               </ChartContainer>
@@ -252,7 +258,7 @@ export function BodyDashboard() {
         {withingsWithSpo2.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>SpO2 <span className="text-xs font-normal" style={{ color: "hsl(200,70%,50%)" }}></span></CardTitle>
+              <CardTitle>SpO2</CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
               <ChartContainer config={spo2Config} className="h-[200px] w-full">
@@ -261,10 +267,10 @@ export function BodyDashboard() {
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS}
                     tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="spo2_pct" stroke="hsl(200,70%,50%)"
+                  <Line type="monotone" dataKey="spo2_pct" stroke="var(--color-spo2_pct)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke="#94a3b8" strokeOpacity={0.45} />
+                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
                   ))}
                 </LineChart>
               </ChartContainer>
@@ -275,7 +281,7 @@ export function BodyDashboard() {
         {withingsWithPulse.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Pulse Wave <span className="text-xs font-normal" style={{ color: "hsl(270,60%,50%)" }}>m/s</span></CardTitle>
+              <CardTitle>Pulse Wave <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_STRONG }}>m/s</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
               <ChartContainer config={pulseConfig} className="h-[200px] w-full">
@@ -284,10 +290,10 @@ export function BodyDashboard() {
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS}
                     tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="pulse_wave_mps" stroke="hsl(270,60%,50%)"
+                  <Line type="monotone" dataKey="pulse_wave_mps" stroke="var(--color-pulse_wave_mps)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke="#94a3b8" strokeOpacity={0.45} />
+                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
                   ))}
                 </LineChart>
               </ChartContainer>
@@ -298,7 +304,7 @@ export function BodyDashboard() {
         {withingsWithFatRatio.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Fat Ratio <span className="text-xs font-normal" style={{ color: "hsl(142,55%,40%)" }}></span></CardTitle>
+              <CardTitle>Fat Ratio</CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
               <ChartContainer config={fatRatioConfig} className="h-[200px] w-full">
@@ -307,10 +313,10 @@ export function BodyDashboard() {
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS}
                     tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="fat_ratio_pct" stroke="hsl(142,55%,40%)"
+                  <Line type="monotone" dataKey="fat_ratio_pct" stroke="var(--color-fat_ratio_pct)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke="#94a3b8" strokeOpacity={0.45} />
+                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
                   ))}
                 </LineChart>
               </ChartContainer>

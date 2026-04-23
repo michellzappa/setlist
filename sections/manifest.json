@@ -1,11 +1,11 @@
 {
-  "exercise": {
-    "key": "exercise",
+  "training": {
+    "key": "training",
     "label": "Training",
     "path": "/septena/training",
-    "apiBase": "/api",
-    "dataDir": "Exercise/Log",
-    "folderName": "Exercise",
+    "apiBase": "/api/training",
+    "dataDir": "Training/Log",
+    "folderName": "Training",
     "color": "hsl(25,95%,53%)",
     "tagline": "Sessions, progressions & PRs",
     "emoji": "\ud83c\udfcb\ufe0f"

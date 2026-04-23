@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/** Polls /api/stats (same-origin, through the Next.js proxy) and renders
+/** Polls /api/training/stats (same-origin, through the Next.js proxy) and renders
  *  a fixed top banner whenever the FastAPI backend is unreachable. Recovery
  *  is detected automatically — the banner disappears as soon as a poll
  *  succeeds.
@@ -10,11 +10,11 @@ import { useEffect, useState } from "react";
  *  Probing through the proxy is the only thing that works on phones:
  *  hitting 127.0.0.1:4445 from a mobile browser would point at the phone,
  *  not the dev machine. The proxy turns a refused upstream into a 500, so
- *  we treat ANY non-2xx as down. /api/stats is simple enough that real 500s
+ *  we treat ANY non-2xx as down. /api/training/stats is simple enough that real 500s
  *  are unlikely — false positives here are acceptable.
  *
  *  Polls every 5s while down, every 30s while up. Pauses on hidden tabs. */
-const HEALTH_URL = "/api/stats";
+const HEALTH_URL = "/api/training/stats";
 
 export function BackendStatusBanner() {
   const [down, setDown] = useState(false);

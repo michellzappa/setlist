@@ -380,7 +380,7 @@ function InsightChart({ title, xLabel, yLabel, data, color, xUnit, yUnit, yDomai
 export function InsightsDashboard() {
   // Live color from /api/sections, not the static SECTIONS fallback —
   // honors user customisation in settings.yaml.
-  const exerciseColor = useSectionColor("exercise");
+  const trainingColor = useSectionColor("training");
   const cannabisColor = useSectionColor("cannabis");
   const sleepColor = useSectionColor("sleep");
   const nutritionColor = useSectionColor("nutrition");
@@ -705,7 +705,7 @@ export function InsightsDashboard() {
 
   // 9. Apple exercise minutes → resting HR (next day). Zone-2/cardio
   // adaptation shows up as lower morning RHR.
-  const rhrVsExercise = useMemo(() => {
+  const rhrVsTraining = useMemo(() => {
     const points: { x: number; y: number; date: string }[] = [];
     for (const [date, oura] of ouraByDate) {
       if (oura.resting_hr == null) continue;
@@ -916,33 +916,33 @@ export function InsightsDashboard() {
   // to-clipboard report so the two stay in sync. `expected` encodes the
   // physiological prior; classifySpec flags r-values that contradict it.
   const chartSpecs = useMemo<ChartSpec[]>(() => [
-    { title: "Training volume → Sleep score", xLabel: "Volume", yLabel: "Sleep", xUnit: "k", data: sleepVsTraining, color: exerciseColor, yDomain: [50, 100], expected: "+" },
+    { title: "Training volume → Sleep score", xLabel: "Volume", yLabel: "Sleep", xUnit: "k", data: sleepVsTraining, color: trainingColor, yDomain: [50, 100], expected: "+" },
     { title: "Cannabis sessions → Sleep score", xLabel: "Sessions", yLabel: "Sleep", data: sleepVsCannabis, color: cannabisColor, yDomain: [50, 100], expected: "-" },
     { title: "Sleep hours → HRV", xLabel: "Sleep", yLabel: "HRV", xUnit: "hrs", yUnit: "ms", data: hrvVsSleep, color: sleepColor, expected: "+" },
     { title: "Cannabis sessions → HRV", xLabel: "Sessions", yLabel: "HRV", yUnit: "ms", data: hrvVsCannabis, color: cannabisColor, expected: "-" },
     { title: "Protein → Readiness", xLabel: "Protein", yLabel: "Readiness", xUnit: "g", data: readinessVsProtein, color: nutritionColor, yDomain: [50, 100], expected: "+" },
-    { title: "Sleep score → Next-day training", xLabel: "Sleep", yLabel: "Volume", yUnit: "k", data: trainingVsSleep, color: exerciseColor, expected: "+" },
+    { title: "Sleep score → Next-day training", xLabel: "Sleep", yLabel: "Volume", yUnit: "k", data: trainingVsSleep, color: trainingColor, expected: "+" },
     { title: "Last caffeine (hr) → Sleep score", xLabel: "Last caffeine", yLabel: "Sleep", xUnit: "h", data: sleepVsCaffeineHour, color: caffeineColor, yDomain: [50, 100], expected: "-" },
     { title: "Fasting window → Readiness", xLabel: "Fasting", yLabel: "Readiness", xUnit: "h", data: readinessVsFasting, color: nutritionColor, yDomain: [50, 100] },
-    { title: "Training minutes → Resting HR", xLabel: "Training", yLabel: "RHR", xUnit: "min", yUnit: "bpm", data: rhrVsExercise, color: exerciseColor, expected: "-" },
+    { title: "Training minutes → Resting HR", xLabel: "Training", yLabel: "RHR", xUnit: "min", yUnit: "bpm", data: rhrVsTraining, color: trainingColor, expected: "-" },
     { title: "Last meal (hr) → Sleep score", xLabel: "Last meal", yLabel: "Sleep", xUnit: "h", data: sleepVsLastMeal, color: nutritionColor, yDomain: [50, 100], expected: "-" },
     { title: "Overnight CO₂ → Sleep score", xLabel: "CO₂", yLabel: "Sleep", xUnit: "ppm", data: sleepVsCo2, color: airColor, yDomain: [50, 100], expected: "-" },
     { title: "Overnight CO₂ peak → HRV", xLabel: "CO₂ peak", yLabel: "HRV", xUnit: "ppm", yUnit: "ms", data: hrvVsCo2Peak, color: airColor, expected: "-" },
     { title: "Bedroom temp → Sleep score", xLabel: "Temp", yLabel: "Sleep", xUnit: "°C", data: sleepVsTemp, color: airColor, yDomain: [50, 100] },
     { title: "Habit completion → Readiness", xLabel: "Habits", yLabel: "Readiness", xUnit: "%", data: readinessVsHabits, color: habitsColor, yDomain: [50, 100], expected: "+" },
-    { title: "Strength volume → Sleep score", xLabel: "Strength", yLabel: "Sleep", xUnit: "k", data: sleepVsStrength, color: exerciseColor, yDomain: [50, 100], expected: "+" },
-    { title: "Cardio minutes → Sleep score", xLabel: "Cardio", yLabel: "Sleep", xUnit: "min", data: sleepVsCardio, color: exerciseColor, yDomain: [50, 100], expected: "+" },
-    { title: "Mobility minutes → Sleep score", xLabel: "Mobility", yLabel: "Sleep", xUnit: "min", data: sleepVsMobility, color: exerciseColor, yDomain: [50, 100], expected: "+" },
+    { title: "Strength volume → Sleep score", xLabel: "Strength", yLabel: "Sleep", xUnit: "k", data: sleepVsStrength, color: trainingColor, yDomain: [50, 100], expected: "+" },
+    { title: "Cardio minutes → Sleep score", xLabel: "Cardio", yLabel: "Sleep", xUnit: "min", data: sleepVsCardio, color: trainingColor, yDomain: [50, 100], expected: "+" },
+    { title: "Mobility minutes → Sleep score", xLabel: "Mobility", yLabel: "Sleep", xUnit: "min", data: sleepVsMobility, color: trainingColor, yDomain: [50, 100], expected: "+" },
     { title: "Caffeine total (g) → Sleep score", xLabel: "Caffeine", yLabel: "Sleep", xUnit: "g", data: sleepVsCaffeineGrams, color: caffeineColor, yDomain: [50, 100], expected: "-" },
     { title: "Fiber (prev day) → Bristol", xLabel: "Fiber", yLabel: "Bristol", xUnit: "g", data: bristolVsFiber, color: gutColor, yDomain: [1, 7], expected: "+" },
     { title: "Fiber 3-day avg → Bristol", xLabel: "Fiber", yLabel: "Bristol", xUnit: "g/d", data: bristolVsFiber3d, color: gutColor, yDomain: [1, 7], expected: "+" },
   ], [
     sleepVsTraining, sleepVsCannabis, hrvVsSleep, hrvVsCannabis, readinessVsProtein,
-    trainingVsSleep, sleepVsCaffeineHour, readinessVsFasting, rhrVsExercise,
+    trainingVsSleep, sleepVsCaffeineHour, readinessVsFasting, rhrVsTraining,
     sleepVsLastMeal, sleepVsCo2, hrvVsCo2Peak, sleepVsTemp, readinessVsHabits,
     sleepVsStrength, sleepVsCardio, sleepVsMobility, sleepVsCaffeineGrams,
     bristolVsFiber, bristolVsFiber3d,
-    exerciseColor, cannabisColor, sleepColor, nutritionColor, caffeineColor,
+    trainingColor, cannabisColor, sleepColor, nutritionColor, caffeineColor,
     habitsColor, airColor, gutColor,
   ]);
 

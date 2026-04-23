@@ -69,11 +69,11 @@ export function TimelineDashboard() {
   const nutritionColor = useSectionColor("nutrition");
   const cannabisColor = useSectionColor("cannabis");
   const caffeineColor = useSectionColor("caffeine");
-  const exerciseColor = useSectionColor("exercise");
+  const trainingColor = useSectionColor("training");
   const habitsColor = useSectionColor("habits");
   const supplementsColor = useSectionColor("supplements");
-  const sleepColor = "hsl(220,60%,60%)";
-  const bodyColor = "hsl(33,60%,50%)";
+  const sleepColor = useSectionColor("sleep");
+  const bodyColor = useSectionColor("body");
   const choresColor = useSectionColor("chores");
   const calendarColor = useSectionColor("calendar");
   const gutColor = useSectionColor("gut");
@@ -101,7 +101,7 @@ export function TimelineDashboard() {
         nutritionEvents: results[0].status === "fulfilled" ? (results[0].value as { events: SectionEvent[] }).events : [],
         cannabis: results[1].status === "fulfilled" ? results[1].value : { entries: [] },
         caffeine: results[2].status === "fulfilled" ? results[2].value : { entries: [] },
-        exercise: results[3].status === "fulfilled" ? results[3].value : [],
+        training: results[3].status === "fulfilled" ? results[3].value : [],
         health: results[4].status === "fulfilled" ? results[4].value : { oura: [], apple: [], withings: [] },
         habits: results[5].status === "fulfilled" ? results[5].value : null,
         chores: results[6].status === "fulfilled" ? results[6].value : null,
@@ -137,15 +137,15 @@ export function TimelineDashboard() {
     events.push({ hour: h, timeStr: c.time ?? "—", color: caffeineColor, label: c.method ?? "caffeine", source: "caffeine" });
   }
 
-  // Exercise
+  // Training
   const seenExerciseTimes = new Set<string>();
-  for (const e of Array.isArray(data?.exercise) ? data!.exercise : []) {
+  for (const e of Array.isArray(data?.training) ? data!.training : []) {
     if (e.date !== today || !e.concluded_at) continue;
     const hhmm = e.concluded_at.slice(11, 16);
     if (seenExerciseTimes.has(hhmm)) continue;
     seenExerciseTimes.add(hhmm);
     const h = parseHHMM(hhmm);
-    events.push({ hour: h, timeStr: hhmm, color: exerciseColor, label: e.session || e.exercise || "exercise", source: "exercise" });
+    events.push({ hour: h, timeStr: hhmm, color: trainingColor, label: e.session || e.exercise || "training", source: "training" });
   }
 
   // Habits

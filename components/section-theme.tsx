@@ -32,7 +32,7 @@ export function SectionThemeRoot({ children }: { children: ReactNode }) {
   const style: CSSProperties | undefined = color ? sectionAccentVars(color) : undefined;
 
   return (
-    <div style={style} className="contents">
+    <div style={style}>
       {children}
     </div>
   );

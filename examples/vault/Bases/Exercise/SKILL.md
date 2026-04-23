@@ -9,7 +9,7 @@ Track training sessions, exercise progression, and cardio zones.
 
 ## Where it lives
 
-- **Log folder:** `$VAULT/Exercise/Log/`
+- **Log folder:** `$VAULT/Training/Log/`
 - **One file per exercise entry** — a "session" is all entries sharing the same date + `concluded_at`
 
 ## Filename
@@ -54,7 +54,7 @@ level: 7              # machine resistance (integer, machine-specific)
 
 **Session templates:** pre-filled exercise lists for upper / lower / cardio / yoga days live in `lib/session-templates.ts` (TypeScript, not in the vault yet — edit there if you change gym routine).
 
-**Reading progression:** glob `$VAULT/Exercise/Log/*--{exercise-slug}--*.md`, parse frontmatter, order by date. The backend exposes `/api/progression/{exercise}` with this logic baked in.
+**Reading progression:** glob `$VAULT/Training/Log/*--{exercise-slug}--*.md`, parse frontmatter, order by date. The backend exposes `/api/training/progression/{exercise}` with this logic baked in.
 
 ## Example interactions
 

@@ -772,8 +772,8 @@ function ChoreEditRow({
 // ── Exercises ────────────────────────────────────────────────────────────────
 
 export function ManageExercisesCard() {
-  const accent = useSectionColor("exercise");
-  const { data, mutate, isLoading } = useSWR("exercise-config", getExerciseConfig);
+  const accent = useSectionColor("training");
+  const { data, mutate, isLoading } = useSWR("training-config", getExerciseConfig);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function refresh() {
@@ -1315,4 +1315,3 @@ function CategoryPicker({
     </select>
   );
 }
-
