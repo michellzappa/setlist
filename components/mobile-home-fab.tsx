@@ -24,6 +24,7 @@ export function MobileHomeFab() {
   const visibleSections = useNavSections();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const longPressFired = useRef(false);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -140,10 +141,10 @@ export function MobileHomeFab() {
         type="button"
         aria-label={menuOpen ? "Close section menu" : "Home · long-press for sections"}
         title="Tap: Home · Hold: section menu"
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerLeave}
-        onPointerLeave={handlePointerLeave}
+        onPointerDown={(e) => { setPressed(true); handlePointerDown(e); }}
+        onPointerUp={() => { setPressed(false); handlePointerUp(); }}
+        onPointerCancel={() => { setPressed(false); clearPressTimer(); }}
+        onPointerLeave={() => setPressed(false)}
         onContextMenu={handleContextMenu}
         className="fixed right-4 z-50 flex h-14 w-14 touch-manipulation items-center justify-center rounded-full border border-border bg-background/90 text-foreground shadow-lg backdrop-blur transition-transform active:scale-95 sm:hidden"
         style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
@@ -161,7 +162,7 @@ export function MobileHomeFab() {
             <path d="M12 5v14M5 12h14" />
           </svg>
         ) : (
-          <SeptenaMark className="h-6 w-6 transition-transform" variant="currentColor" />
+          <SeptenaMark className="h-8 w-8 transition-transform" variant={pressed || menuOpen ? "spectrum" : "currentColor"} />
         )}
       </button>
     </>

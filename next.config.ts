@@ -25,32 +25,28 @@ const nextConfig: NextConfig = {
   // server gets its own build output dir (and thus its own `dev/lock`).
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   async redirects() {
+    const onVercel = !!process.env.VERCEL;
+    const base = [
+      // Legacy /exercise and /training URLs always land on the new /septena/training path.
+      { source: "/exercise", destination: "/septena/training", permanent: false },
+      { source: "/exercise/:path*", destination: "/septena/training/:path*", permanent: false },
+      { source: "/training", destination: "/septena/training", permanent: false },
+      { source: "/training/:path*", destination: "/septena/training/:path*", permanent: false },
+      { source: "/demo/exercise", destination: "/demo/training", permanent: false },
+    ];
+    if (onVercel) {
+      // Vercel has no Python backend / YAML vault — /septena/* can't render
+      // real data there, so bounce to the demo.
+      return [
+        ...base,
+        { source: "/septena", destination: "/demo", permanent: false },
+        { source: "/septena/:path*", destination: "/demo/:path*", permanent: false },
+      ];
+    }
+    // Local / self-hosted: owner wants to land directly in the app.
     return [
-      {
-        source: "/exercise",
-        destination: "/septena/training",
-        permanent: false,
-      },
-      {
-        source: "/exercise/:path*",
-        destination: "/septena/training/:path*",
-        permanent: false,
-      },
-      {
-        source: "/training",
-        destination: "/septena/training",
-        permanent: false,
-      },
-      {
-        source: "/training/:path*",
-        destination: "/septena/training/:path*",
-        permanent: false,
-      },
-      {
-        source: "/demo/exercise",
-        destination: "/demo/training",
-        permanent: false,
-      },
+      ...base,
+      { source: "/", destination: "/septena", permanent: false },
     ];
   },
   async rewrites() {

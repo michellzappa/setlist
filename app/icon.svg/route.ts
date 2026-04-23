@@ -40,14 +40,14 @@ export async function GET() {
     }
   </style>
   <rect class="bg" width="512" height="512" rx="108"/>
-  <g fill="${color}">
-    <circle cx="256" cy="141" r="34"/>
-    <circle cx="346" cy="184" r="34"/>
-    <circle cx="368" cy="282" r="34"/>
-    <circle cx="306" cy="360" r="34"/>
-    <circle cx="206" cy="360" r="34"/>
-    <circle cx="144" cy="282" r="34"/>
-    <circle cx="166" cy="184" r="34"/>
+  <g>
+    <circle cx="256" cy="107" r="49" fill="#f26a5b"/>
+    <circle cx="373" cy="162" r="49" fill="#f3a33c"/>
+    <circle cx="402" cy="290" r="49" fill="#d4c94e"/>
+    <circle cx="321" cy="391" r="49" fill="#54b887"/>
+    <circle cx="191" cy="391" r="49" fill="#39a7c7"/>
+    <circle cx="110" cy="290" r="49" fill="#5b6df2"/>
+    <circle cx="139" cy="162" r="49" fill="#9f5cf4"/>
   </g>
 </svg>`;
   return new Response(svg, {
