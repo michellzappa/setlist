@@ -42,6 +42,35 @@ const FIXTURES: Array<{ pattern: RegExp; handler: FixtureHandler }> = [
   { pattern: /^\/api\/habits\/config$/, handler: habitsConfig },
   { pattern: /^\/api\/habits\/day\//, handler: habitsDay },
   { pattern: /^\/api\/habits\/history$/, handler: habitsHistory },
+  // ── Supplements ──────────────────────────────────────────────────────
+  { pattern: /^\/api\/supplements\/day\//, handler: supplementsDay },
+  { pattern: /^\/api\/supplements\/history$/, handler: supplementsHistory },
+  { pattern: /^\/api\/supplements\/history-by-id$/, handler: supplementsHistoryById },
+  { pattern: /^\/api\/supplements\/config$/, handler: supplementsConfig },
+  // ── Chores ───────────────────────────────────────────────────────────
+  { pattern: /^\/api\/chores\/list$/, handler: choresList },
+  { pattern: /^\/api\/chores\/history$/, handler: choresHistory },
+  // ── Caffeine ─────────────────────────────────────────────────────────
+  { pattern: /^\/api\/caffeine\/config$/, handler: caffeineConfig },
+  { pattern: /^\/api\/caffeine\/day\//, handler: caffeineDay },
+  { pattern: /^\/api\/caffeine\/history$/, handler: caffeineHistory },
+  { pattern: /^\/api\/caffeine\/sessions$/, handler: caffeineSessions },
+  // ── Groceries ────────────────────────────────────────────────────────
+  { pattern: /^\/api\/groceries$/, handler: groceries },
+  { pattern: /^\/api\/groceries\/history$/, handler: groceriesHistory },
+  // ── Health / Sleep / Body ────────────────────────────────────────────
+  { pattern: /^\/api\/health\/summary$/, handler: healthSummary },
+  { pattern: /^\/api\/health\/oura$/, handler: healthOura },
+  { pattern: /^\/api\/health\/withings$/, handler: healthWithings },
+  { pattern: /^\/api\/health\/apple$/, handler: healthApple },
+  { pattern: /^\/api\/health\/combined$/, handler: healthCombined },
+  { pattern: /^\/api\/health\/cache$/, handler: healthCombined },
+  // ── Weather / Calendar ───────────────────────────────────────────────
+  { pattern: /^\/api\/weather$/, handler: weather },
+  { pattern: /^\/api\/calendar$/, handler: calendar },
+  // ── Settings / Meta ──────────────────────────────────────────────────
+  { pattern: /^\/api\/settings$/, handler: settings },
+  { pattern: /^\/api\/meta$/, handler: meta },
 ];
 
 export function matchDemoFixture(path: string, init?: RequestInit): unknown {
@@ -391,31 +420,32 @@ const MEAL_TEMPLATES: Array<{
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  fiber_g: number;
   kcal: number;
 }> = [
   {
     time: "08:30",
     emoji: "🍳",
     foods: ["Breakfast", "2 eggs scrambled", "Sourdough toast", "Coffee with milk"],
-    protein_g: 22, fat_g: 16, carbs_g: 32, kcal: 370,
+    protein_g: 22, fat_g: 16, carbs_g: 32, fiber_g: 5, kcal: 370,
   },
   {
     time: "13:00",
     emoji: "🥗",
     foods: ["Lunch", "Chicken bowl", "Brown rice", "Tahini sauce"],
-    protein_g: 42, fat_g: 18, carbs_g: 58, kcal: 580,
+    protein_g: 42, fat_g: 18, carbs_g: 58, fiber_g: 9, kcal: 580,
   },
   {
     time: "16:30",
     emoji: "🥜",
     foods: ["Snack", "Greek yoghurt", "Walnuts", "Honey"],
-    protein_g: 18, fat_g: 14, carbs_g: 20, kcal: 280,
+    protein_g: 18, fat_g: 14, carbs_g: 20, fiber_g: 2, kcal: 280,
   },
   {
     time: "20:00",
     emoji: "🍝",
     foods: ["Dinner", "Pasta bolognese", "Parmesan", "Side salad"],
-    protein_g: 38, fat_g: 22, carbs_g: 72, kcal: 660,
+    protein_g: 38, fat_g: 22, carbs_g: 72, fiber_g: 11, kcal: 660,
   },
 ];
 
@@ -426,6 +456,7 @@ type NutritionEntryFixture = {
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  fiber_g: number;
   kcal: number;
   foods: string[];
   file: string;
@@ -450,6 +481,7 @@ function buildNutritionEntries(): NutritionEntryFixture[] {
         protein_g: Math.round(m.protein_g * mul),
         fat_g: Math.round(m.fat_g * mul),
         carbs_g: Math.round(m.carbs_g * mul),
+        fiber_g: Math.round(m.fiber_g * mul),
         kcal: Math.round(m.kcal * mul),
         foods: m.foods,
         file: `${date}--${m.time.replace(":", "")}--01.md`,
@@ -481,7 +513,7 @@ function nutritionStats(url: URL) {
   const days = Number(url.searchParams.get("days") ?? "30");
   const end = url.searchParams.get("end") ?? DEMO_TODAY;
   const startISO = addDays(end, -(days - 1));
-  const daily: Array<{ date: string; protein_g: number; fat_g: number; carbs_g: number; kcal: number }> = [];
+  const daily: Array<{ date: string; protein_g: number; fat_g: number; carbs_g: number; fiber_g: number; kcal: number }> = [];
   for (let i = 0; i < days; i++) {
     const date = addDays(startISO, i);
     const meals = NUTRITION_ENTRIES.filter((e) => e.date === date);
@@ -490,6 +522,7 @@ function nutritionStats(url: URL) {
       protein_g: meals.reduce((a, m) => a + m.protein_g, 0),
       fat_g: meals.reduce((a, m) => a + m.fat_g, 0),
       carbs_g: meals.reduce((a, m) => a + m.carbs_g, 0),
+      fiber_g: meals.reduce((a, m) => a + m.fiber_g, 0),
       kcal: meals.reduce((a, m) => a + m.kcal, 0),
     });
   }
@@ -635,4 +668,510 @@ function cardioHistory(url: URL) {
     daily[i].rolling_7d = daily.slice(start, i + 1).reduce((a, d) => a + d.minutes, 0);
   }
   return { daily, target_weekly_min: 150 };
+}
+
+// ─── Supplements fixtures ──────────────────────────────────────────────────
+
+type SupplementDef = { id: string; name: string; emoji: string };
+
+const SUPPLEMENTS: SupplementDef[] = [
+  { id: "vitamin-d", name: "Vitamin D 2000 IU", emoji: "☀️" },
+  { id: "omega-3", name: "Omega-3 1g", emoji: "🐟" },
+  { id: "magnesium", name: "Magnesium 400mg", emoji: "🧂" },
+  { id: "creatine", name: "Creatine 5g", emoji: "💪" },
+  { id: "b-complex", name: "B-complex", emoji: "💊" },
+];
+
+function supplementDone(id: string, daysAgo: number): boolean {
+  if (daysAgo === 0) return id !== "magnesium"; // today: magnesium pending
+  const hash = id.charCodeAt(0) + id.charCodeAt(3);
+  if ((daysAgo + hash) % 9 === 0) return false;
+  return true;
+}
+
+function supplementsConfig() {
+  return { items: SUPPLEMENTS, total: SUPPLEMENTS.length };
+}
+
+function supplementsDay(url: URL) {
+  const day = url.pathname.replace("/api/supplements/day/", "");
+  const daysAgo = diffDays(DEMO_TODAY, day);
+  const items = SUPPLEMENTS.map((s) => {
+    const done = supplementDone(s.id, daysAgo);
+    return {
+      ...s,
+      done,
+      time: done && daysAgo === 0 ? "08:15" : null,
+    };
+  });
+  const doneCount = items.filter((i) => i.done).length;
+  return {
+    date: day,
+    items,
+    done_count: doneCount,
+    total: SUPPLEMENTS.length,
+    percent: Math.round((doneCount / SUPPLEMENTS.length) * 100),
+  };
+}
+
+function supplementsHistory(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  const daily = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    let done = 0;
+    for (const s of SUPPLEMENTS) if (supplementDone(s.id, i)) done++;
+    daily.push({
+      date,
+      done,
+      total: SUPPLEMENTS.length,
+      percent: Math.round((done / SUPPLEMENTS.length) * 100),
+    });
+  }
+  return { daily, total: SUPPLEMENTS.length };
+}
+
+function supplementsHistoryById(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  const daily: Array<{ date: string; taken: string[] }> = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    const taken = SUPPLEMENTS.filter((s) => supplementDone(s.id, i)).map((s) => s.id);
+    daily.push({ date, taken });
+  }
+  return { daily, supplements: SUPPLEMENTS };
+}
+
+// ─── Chores fixtures ───────────────────────────────────────────────────────
+
+type ChoreDef = { id: string; name: string; cadence_days: number; emoji: string; lastCompletedDaysAgo: number };
+
+const CHORES: ChoreDef[] = [
+  { id: "water-plants", name: "Water plants", cadence_days: 3, emoji: "🪴", lastCompletedDaysAgo: 2 },
+  { id: "sheets", name: "Change sheets", cadence_days: 14, emoji: "🛏️", lastCompletedDaysAgo: 10 },
+  { id: "coffee-machine", name: "Clean coffee machine", cadence_days: 30, emoji: "☕", lastCompletedDaysAgo: 31 }, // overdue
+  { id: "vacuum", name: "Vacuum apartment", cadence_days: 7, emoji: "🧹", lastCompletedDaysAgo: 5 },
+  { id: "laundry", name: "Laundry", cadence_days: 7, emoji: "🧺", lastCompletedDaysAgo: 7 }, // due today
+  { id: "groceries-run", name: "Groceries run", cadence_days: 4, emoji: "🛒", lastCompletedDaysAgo: 1 },
+];
+
+function choresList() {
+  const chores = CHORES.map((c) => {
+    const last_completed = addDays(DEMO_TODAY, -c.lastCompletedDaysAgo);
+    const due_date = addDays(last_completed, c.cadence_days);
+    const days_overdue = diffDays(DEMO_TODAY, due_date);
+    return {
+      id: c.id,
+      name: c.name,
+      cadence_days: c.cadence_days,
+      emoji: c.emoji,
+      due_date,
+      last_completed,
+      last_completed_time: null,
+      days_overdue,
+    };
+  });
+  return { chores, total: chores.length, today: DEMO_TODAY };
+}
+
+function choresHistory(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  const daily = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    const completed = ((i * 3) % 4 === 0 ? 1 : 0) + ((i + 1) % 5 === 0 ? 1 : 0);
+    daily.push({ date, completed, total: CHORES.length });
+  }
+  return { daily, total: CHORES.length };
+}
+
+// ─── Caffeine fixtures ─────────────────────────────────────────────────────
+
+const BEANS = [
+  { id: "la-cabra-espresso", name: "La Cabra Espresso" },
+  { id: "koppi-filter", name: "Koppi Filter" },
+  { id: "drop-houseblend", name: "Drop House Blend" },
+];
+
+function caffeineConfig() {
+  return { beans: BEANS };
+}
+
+type CaffeineEntryFixture = {
+  id: string;
+  time: string;
+  method: "v60" | "matcha" | "other";
+  beans: string | null;
+  grams: number | null;
+  note: null;
+};
+
+function caffeineDayFor(date: string, daysAgo: number): CaffeineEntryFixture[] {
+  // 1–2 cups a day, morning + sometimes afternoon. No cups on Sundays.
+  const d = new Date(date + "T00:00:00Z");
+  if (d.getUTCDay() === 0 && daysAgo !== 0) return [];
+  const morning: CaffeineEntryFixture = {
+    id: `${date}-am`,
+    time: "08:45",
+    method: "v60",
+    beans: BEANS[daysAgo % BEANS.length].name,
+    grams: 15,
+    note: null,
+  };
+  const entries = [morning];
+  if (daysAgo % 3 !== 0) {
+    entries.push({
+      id: `${date}-pm`,
+      time: "14:15",
+      method: "v60",
+      beans: BEANS[(daysAgo + 1) % BEANS.length].name,
+      grams: 14,
+      note: null,
+    });
+  }
+  return entries;
+}
+
+function caffeineDay(url: URL) {
+  const day = url.pathname.replace("/api/caffeine/day/", "");
+  const daysAgo = diffDays(DEMO_TODAY, day);
+  const entries = caffeineDayFor(day, daysAgo);
+  const total_g = entries.reduce((a, e) => a + (e.grams ?? 0), 0);
+  return {
+    date: day,
+    entries,
+    session_count: entries.length,
+    methods: { v60: entries.filter((e) => e.method === "v60").length, matcha: 0, other: 0 },
+    total_g: total_g || null,
+  };
+}
+
+function caffeineHistory(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  const daily = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    const entries = caffeineDayFor(date, i);
+    const total_g = entries.reduce((a, e) => a + (e.grams ?? 0), 0);
+    daily.push({ date, sessions: entries.length, total_g: total_g || null });
+  }
+  return { daily };
+}
+
+function caffeineSessions(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  const sessions = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    for (const e of caffeineDayFor(date, i)) {
+      const hour = Number(e.time.slice(0, 2));
+      sessions.push({
+        date,
+        time: e.time,
+        hour,
+        method: e.method,
+        beans: e.beans,
+        grams: e.grams,
+      });
+    }
+  }
+  return { sessions };
+}
+
+// ─── Groceries fixtures ────────────────────────────────────────────────────
+
+const GROCERY_ITEMS = [
+  { id: "milk", name: "Oat milk", category: "dairy", emoji: "🥛", low: true, last_bought: addDays(DEMO_TODAY, -9) },
+  { id: "eggs", name: "Eggs", category: "dairy", emoji: "🥚", low: false, last_bought: addDays(DEMO_TODAY, -3) },
+  { id: "bread", name: "Sourdough", category: "bakery", emoji: "🍞", low: true, last_bought: addDays(DEMO_TODAY, -5) },
+  { id: "bananas", name: "Bananas", category: "produce", emoji: "🍌", low: false, last_bought: addDays(DEMO_TODAY, -2) },
+  { id: "coffee", name: "Coffee beans", category: "pantry", emoji: "☕", low: false, last_bought: addDays(DEMO_TODAY, -10) },
+  { id: "olive-oil", name: "Olive oil", category: "pantry", emoji: "🫒", low: false, last_bought: addDays(DEMO_TODAY, -21) },
+];
+
+function groceries() {
+  return { items: GROCERY_ITEMS };
+}
+
+function groceriesHistory(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  const daily = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    const bought = i % 5 === 0 ? 3 : i % 3 === 0 ? 1 : 0;
+    const needed = GROCERY_ITEMS.filter((g) => g.low).length;
+    daily.push({ date, bought, needed });
+  }
+  return { daily };
+}
+
+// ─── Health fixtures (Oura + Withings + Apple) ─────────────────────────────
+
+type OuraRowF = {
+  date: string; sleep_score: number | null; total_h: number | null; deep_h: number | null;
+  rem_h: number | null; light_h: number | null; awake_h: number | null; efficiency: number | null;
+  hrv: number | null; resting_hr: number | null; bedtime: string | null; wake_time: string | null;
+  readiness_score: number | null; activity_score: number | null; steps: number | null; active_cal: number | null;
+};
+
+function buildOura(days: number): OuraRowF[] {
+  const rows: OuraRowF[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    const jitter = ((i * 13) % 7) - 3;
+    const total_h = Math.round((7.2 + jitter * 0.1) * 10) / 10;
+    rows.push({
+      date,
+      sleep_score: 82 + jitter,
+      total_h,
+      deep_h: Math.round((1.2 + jitter * 0.03) * 10) / 10,
+      rem_h: Math.round((1.8 + jitter * 0.04) * 10) / 10,
+      light_h: Math.round((total_h - 3.0 - jitter * 0.05) * 10) / 10,
+      awake_h: 0.3,
+      efficiency: 92 + ((i * 3) % 5),
+      hrv: 48 + jitter,
+      resting_hr: 56 - jitter,
+      bedtime: `${date}T23:${10 + (i % 40)}:00`,
+      wake_time: `${addDays(date, 1)}T07:${(i * 7) % 55}:00`,
+      readiness_score: 80 + jitter,
+      activity_score: 78 + ((i * 5) % 10),
+      steps: 8200 + ((i * 97) % 3500),
+      active_cal: 420 + ((i * 31) % 200),
+    });
+  }
+  return rows;
+}
+
+type WithingsRowF = {
+  date: string; weight_kg: number | null; fat_pct: number | null; fat_ratio_pct: number | null;
+  bone_mineral_kg: number | null; pulse_wave_mps: number | null; vascular_age: number | null; spo2_pct: number | null;
+};
+
+function buildWithings(days: number): WithingsRowF[] {
+  const rows: WithingsRowF[] = [];
+  const baseWeight = 78.2;
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    // Rough trend: slight weight loss over time (~1 kg / month).
+    const w = baseWeight + (i / days) * 1.0 + (((i * 17) % 7) - 3) * 0.08;
+    rows.push({
+      date,
+      weight_kg: Math.round(w * 10) / 10,
+      fat_pct: Math.round((18 + ((i * 11) % 5) * 0.1) * 10) / 10,
+      fat_ratio_pct: null,
+      bone_mineral_kg: 3.3,
+      pulse_wave_mps: 6.8,
+      vascular_age: 34,
+      spo2_pct: 97,
+    });
+  }
+  return rows;
+}
+
+type AppleRowF = {
+  date: string; steps: number | null; active_cal: number | null; vo2_max: number | null;
+  hrv: number | null; resting_heart_rate: number | null; respiratory_rate: number | null; spo2: number | null;
+  cardio_recovery: number | null; flights_climbed: number | null; distance_km: number | null; exercise_min: number | null;
+  apple_total_h: number | null; apple_deep_h: number | null; apple_rem_h: number | null;
+  apple_core_h: number | null; apple_awake_h: number | null; apple_bedtime: string | null; apple_wake_time: string | null;
+};
+
+function buildApple(days: number): AppleRowF[] {
+  const rows: AppleRowF[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    rows.push({
+      date,
+      steps: 8000 + ((i * 211) % 4500),
+      active_cal: 430 + ((i * 29) % 180),
+      vo2_max: 44 + ((i * 7) % 3) * 0.1,
+      hrv: 47 + ((i * 13) % 10) - 5,
+      resting_heart_rate: 57 + ((i * 3) % 4),
+      respiratory_rate: 14.5,
+      spo2: 97,
+      cardio_recovery: 28,
+      flights_climbed: 8 + ((i * 5) % 6),
+      distance_km: Math.round((6 + ((i * 17) % 30) / 10) * 10) / 10,
+      exercise_min: 24 + ((i * 13) % 20),
+      apple_total_h: 7.0,
+      apple_deep_h: 1.1,
+      apple_rem_h: 1.7,
+      apple_core_h: 3.9,
+      apple_awake_h: 0.3,
+      apple_bedtime: `${date}T23:20:00`,
+      apple_wake_time: `${addDays(date, 1)}T07:00:00`,
+    });
+  }
+  return rows;
+}
+
+function healthSummary() {
+  const oura = buildOura(1)[0];
+  const withings = buildWithings(1)[0];
+  return {
+    oura: {
+      sleep_score: oura.sleep_score,
+      readiness_score: oura.readiness_score,
+      total_h: oura.total_h,
+      deep_h: oura.deep_h,
+      rem_h: oura.rem_h,
+      hrv: oura.hrv,
+      resting_hr: oura.resting_hr,
+      bedtime: oura.bedtime,
+      wake_time: oura.wake_time,
+      steps: oura.steps,
+    },
+    withings: {
+      weight_kg: withings.weight_kg,
+      fat_pct: withings.fat_pct,
+    },
+  };
+}
+
+function healthOura(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  return { oura: buildOura(days) };
+}
+
+function healthWithings(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  return { withings: buildWithings(days) };
+}
+
+function healthApple(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  return { apple: buildApple(days) };
+}
+
+function healthCombined(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "7");
+  return {
+    oura: buildOura(days),
+    withings: buildWithings(days),
+    apple: buildApple(days),
+  };
+}
+
+// ─── Weather / Calendar fixtures ───────────────────────────────────────────
+
+function weather() {
+  const icons = ["sun", "partly", "cloud", "partly", "rain", "partly", "sun"] as const;
+  const highs = [18, 19, 17, 16, 14, 17, 20];
+  const lows = [9, 10, 9, 8, 7, 9, 11];
+  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const daily = [];
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(DEMO_TODAY, i);
+    const wd = new Date(date + "T00:00:00Z").getUTCDay();
+    daily.push({
+      date,
+      weekday: weekdays[wd],
+      high: highs[i],
+      low: lows[i],
+      label: ["Sunny", "Partly cloudy", "Cloudy", "Partly cloudy", "Rain", "Partly cloudy", "Sunny"][i],
+      icon: icons[i],
+      precip_pct: i === 4 ? 70 : 10,
+    });
+  }
+  return {
+    location: "Copenhagen",
+    units: "metric",
+    temp_unit: "°C",
+    current: {
+      temperature: 16,
+      humidity: 58,
+      wind_kmh: 12,
+      code: 1,
+      label: "Partly cloudy",
+      icon: "partly",
+    },
+    daily,
+  };
+}
+
+function calendar() {
+  // Two events today, one tomorrow. All-day and time-bound.
+  const events = [
+    {
+      title: "Team standup",
+      start: `${DEMO_TODAY}T09:30:00`,
+      end: `${DEMO_TODAY}T09:45:00`,
+      calendar: "Work",
+      all_day: false,
+      location: "",
+    },
+    {
+      title: "Lunch with J.",
+      start: `${DEMO_TODAY}T13:00:00`,
+      end: `${DEMO_TODAY}T14:00:00`,
+      calendar: "Personal",
+      all_day: false,
+      location: "Café Perch",
+    },
+    {
+      title: "Physio",
+      start: `${addDays(DEMO_TODAY, 1)}T17:00:00`,
+      end: `${addDays(DEMO_TODAY, 1)}T17:45:00`,
+      calendar: "Personal",
+      all_day: false,
+      location: "",
+    },
+  ];
+  return {
+    today: DEMO_TODAY,
+    today_count: 2,
+    events,
+    calendars: [
+      { title: "Work", source: "demo" },
+      { title: "Personal", source: "demo" },
+    ],
+    error: null,
+  };
+}
+
+// ─── Settings / Meta fixtures ──────────────────────────────────────────────
+
+function settings() {
+  return {
+    section_order: Object.keys(sectionManifest),
+    targets: {
+      protein: { min: 120, max: 180 },
+      fat: { min: 60, max: 100 },
+      carbs: { min: 150, max: 300 },
+      kcal: { min: 1800, max: 2400 },
+      fiber: { min: 25, max: 40 },
+      fasting: { min: 14, max: 18 },
+      eating_window: { min: 6, max: 10 },
+      sleep: { min: 7, max: 9 },
+      z2_weekly_min: 150,
+    },
+    units: { weight: "kg", distance: "km" },
+    theme: "system",
+    mini_stats: {},
+    animations: {
+      exercise_complete: true,
+      first_meal: true,
+      histograms_raise: true,
+    },
+    sections: {},
+    icon_color: "#ff6600",
+  };
+}
+
+function meta() {
+  const sections: Record<string, { count: number; last_logged_at: string | null }> = {};
+  const today = DEMO_TODAY;
+  for (const k of Object.keys(sectionManifest)) {
+    sections[k] = { count: 30, last_logged_at: `${today}T18:30:00` };
+  }
+  return { sections };
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function diffDays(a: string, b: string): number {
+  return Math.round(
+    (new Date(a + "T00:00:00Z").getTime() - new Date(b + "T00:00:00Z").getTime()) /
+      (24 * 3600_000),
+  );
 }
