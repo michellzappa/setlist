@@ -387,7 +387,7 @@ export function InsightsDashboard() {
   const caffeineColor = useSectionColor("caffeine");
   const habitsColor = useSectionColor("habits");
   const airColor = useSectionColor("air");
-  const gutColor = "hsl(28,35%,40%)"; // matches components/gut-dashboard.tsx
+  const gutColor = useSectionColor("gut");
   const { data, isLoading } = useSWR("insights", async () => {
     const [health, entries, cannabis, nutrition, caffeine, habits, air, suppsById, gut] = await Promise.all([
       getHealthCombined(30),

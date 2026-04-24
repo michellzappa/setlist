@@ -22,12 +22,15 @@ function buildSectionsFromSettings(
   return orderedKeys.map((key, idx) => {
     const base = SECTIONS[key];
     const o = overrides[key] ?? {};
+    // Pre-API: only surface user-set metadata. Anything unset renders neutral
+    // / empty until /api/sections resolves, so defaults can't flash in and
+    // then get replaced by the user's real override.
     return {
       key,
       label: o.label ?? base.label,
-      emoji: o.emoji ?? base.emoji,
-      color: o.color ?? base.color,
-      tagline: o.tagline ?? base.tagline,
+      emoji: o.emoji ?? "",
+      color: o.color ?? "hsl(var(--muted-foreground))",
+      tagline: o.tagline ?? "",
       enabled: o.enabled ?? true,
       show_in_nav: o.show_in_nav ?? o.enabled ?? true,
       show_on_dashboard: o.show_on_dashboard ?? o.enabled ?? true,
@@ -69,7 +72,9 @@ export function useSection(key: SectionKey): SectionMeta | undefined {
 }
 
 /** Accent color for a section, honoring settings.yaml overrides. Falls back
- *  to the static registry value for first paint / SSR. */
+ *  to a neutral token when the section's color hasn't been resolved yet —
+ *  never a colorful default, so unresolved state can't be mistaken for a
+ *  real accent. */
 export function useSectionColor(key: SectionKey): string {
-  return useSection(key)?.color ?? SECTIONS[key].color;
+  return useSection(key)?.color ?? "hsl(var(--muted-foreground))";
 }
