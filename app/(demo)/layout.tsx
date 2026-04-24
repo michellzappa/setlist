@@ -19,6 +19,11 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
       <Script id="septena-demo-boot" strategy="beforeInteractive">
         {`window.__SEPTENA_DEMO__=true;`}
       </Script>
+      <Script
+        defer
+        data-domain="septena.app"
+        src="https://plausible.io/js/script.js"
+      />
       <SectionThemeRoot>
         <DemoBanner />
         <SectionTabs />
