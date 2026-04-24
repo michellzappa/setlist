@@ -5,16 +5,22 @@ import useSWR, { mutate as globalMutate } from "swr";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  addCaffeineBean,
+  addCannabisStrain,
   addExercise,
   addGroceryItem,
   addHabit,
   addSupplement,
   createChoreDefinition,
+  deleteCaffeineBean,
+  deleteCannabisStrain,
   deleteChoreDefinition,
   deleteExercise,
   deleteGroceryItem,
   deleteHabit,
   deleteSupplement,
+  getCaffeineConfig,
+  getCannabisConfig,
   getChores,
   getExerciseConfig,
   getGroceries,
@@ -22,6 +28,8 @@ import {
   getSettings,
   getSupplementConfig,
   patchGroceryItem,
+  updateCaffeineBean,
+  updateCannabisStrain,
   updateChoreDefinition,
   updateExercise,
   updateHabit,
@@ -1313,5 +1321,233 @@ function CategoryPicker({
         </option>
       ))}
     </select>
+  );
+}
+
+// ── Named-preset CRUD (caffeine beans, cannabis strains) ────────────────────
+
+function NamedPresetRow({
+  id,
+  name,
+  accent,
+  onUpdate,
+  onDelete,
+  labelSingular,
+}: {
+  id: string;
+  name: string;
+  accent: string;
+  onUpdate: (id: string, name: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  labelSingular: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  const [saving, setSaving] = useState(false);
+
+  async function onSave() {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === name) {
+      setEditing(false);
+      setDraft(name);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onUpdate(id, trimmed);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onRemove() {
+    if (!confirm(`Delete "${name}"? Past entries that reference it stay as-is.`)) return;
+    setSaving(true);
+    try {
+      await onDelete(id);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5">
+        <TextInput value={draft} onChange={setDraft} autoFocus onEnter={onSave} className="flex-1" />
+        <SaveCancel
+          onSave={onSave}
+          onCancel={() => {
+            setEditing(false);
+            setDraft(name);
+          }}
+          saving={saving}
+          accent={accent}
+          disabled={!draft.trim()}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5">
+      <span className="min-w-0 flex-1 truncate text-sm">{name}</span>
+      <IconButton onClick={() => setEditing(true)} title={`Edit ${labelSingular}`}>
+        Edit
+      </IconButton>
+      <IconButton onClick={onRemove} title={`Delete ${labelSingular}`} tone="danger" disabled={saving}>
+        Delete
+      </IconButton>
+    </div>
+  );
+}
+
+function NamedPresetAddRow({
+  accent,
+  placeholder,
+  onAdd,
+}: {
+  accent: string;
+  placeholder: string;
+  onAdd: (name: string) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setSaving(true);
+    try {
+      await onAdd(trimmed);
+      setName("");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <TextInput value={name} onChange={setName} placeholder={placeholder} onEnter={submit} className="flex-1" />
+      <button
+        type="button"
+        onClick={submit}
+        disabled={!name.trim() || saving}
+        className="rounded-md px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+        style={{ backgroundColor: accent }}
+      >
+        {saving ? "Adding…" : "Add"}
+      </button>
+    </div>
+  );
+}
+
+// ── Caffeine beans ───────────────────────────────────────────────────────────
+
+export function ManageCaffeineBeansCard() {
+  const accent = useSectionColor("caffeine");
+  const { data, mutate, isLoading } = useSWR("caffeine-config", getCaffeineConfig);
+
+  async function refresh() {
+    await mutate();
+  }
+
+  const beans = data?.beans ?? [];
+
+  return (
+    <ShellCard title="Manage beans">
+      {isLoading && !data ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <div className="space-y-1">
+          {beans.length === 0 && (
+            <p className="px-1 text-xs text-muted-foreground">No beans yet.</p>
+          )}
+          {beans.map((b) => (
+            <NamedPresetRow
+              key={b.id}
+              id={b.id}
+              name={b.name}
+              accent={accent}
+              labelSingular="bean"
+              onUpdate={async (id, name) => {
+                await updateCaffeineBean(id, name);
+                await refresh();
+              }}
+              onDelete={async (id) => {
+                await deleteCaffeineBean(id);
+                await refresh();
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="border-t border-border pt-3">
+        <NamedPresetAddRow
+          accent={accent}
+          placeholder="New bean…"
+          onAdd={async (name) => {
+            await addCaffeineBean(name);
+            await refresh();
+          }}
+        />
+      </div>
+    </ShellCard>
+  );
+}
+
+// ── Cannabis strains ─────────────────────────────────────────────────────────
+
+export function ManageCannabisStrainsCard() {
+  const accent = useSectionColor("cannabis");
+  const { data, mutate, isLoading } = useSWR("cannabis-config", getCannabisConfig);
+
+  async function refresh() {
+    await mutate();
+  }
+
+  const strains = data?.strains ?? [];
+
+  return (
+    <ShellCard title="Manage strains">
+      {isLoading && !data ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : (
+        <div className="space-y-1">
+          {strains.length === 0 && (
+            <p className="px-1 text-xs text-muted-foreground">No strains yet.</p>
+          )}
+          {strains.map((s) => (
+            <NamedPresetRow
+              key={s.id}
+              id={s.id}
+              name={s.name}
+              accent={accent}
+              labelSingular="strain"
+              onUpdate={async (id, name) => {
+                await updateCannabisStrain(id, name);
+                await refresh();
+              }}
+              onDelete={async (id) => {
+                await deleteCannabisStrain(id);
+                await refresh();
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="border-t border-border pt-3">
+        <NamedPresetAddRow
+          accent={accent}
+          placeholder="New strain…"
+          onAdd={async (name) => {
+            await addCannabisStrain(name);
+            await refresh();
+          }}
+        />
+      </div>
+    </ShellCard>
   );
 }

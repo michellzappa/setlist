@@ -25,7 +25,7 @@ import { showToast, showError } from "@/lib/toast";
 import { todayLocalISO, daysAgoLocalISO, addDaysISO, nowHHMM, shortDate, formatWeekdayTick } from "@/lib/date-utils";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { computeFastingState, isBreakingFast, useFastingConfig } from "@/lib/fasting";
-import { useMacroTargets, useFastingTarget, useFiberTarget, progressTowardRange, type MacroKey, type MacroTarget } from "@/lib/macro-targets";
+import { useMacroTargets, useMacroColors, useFastingTarget, useFiberTarget, progressTowardRange, type MacroKey, type MacroTarget } from "@/lib/macro-targets";
 import { StatCard } from "@/components/stat-card";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
 
@@ -790,7 +790,8 @@ function FastingCard({ stats }: { stats: NutritionStats | null }) {
   const barAnim = useBarAnimation();
   const fastingTarget = useFastingTarget();
   const fastingConfig = useFastingConfig();
-  const nutritionColor = "var(--section-accent)";
+  const macroColors = useMacroColors();
+  const nutritionColor = macroColors.fasting;
   const today = todayLocalISO();
 
   // Build chart data from historical fasting windows, tagging today's entry.

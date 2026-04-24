@@ -4,17 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import { useSections } from "@/hooks/use-sections";
-import { getSettings, saveSettings } from "@/lib/api";
+import { getSettings, saveSettings, type AppSettings, type SectionMeta } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
-import { SaveRow } from "@/components/save-row";
 import {
+  ManageCaffeineBeansCard,
+  ManageCannabisStrainsCard,
   ManageChoresCard,
   ManageExercisesCard,
   ManageGroceriesCard,
   ManageHabitsCard,
   ManageSupplementsCard,
 } from "@/components/manage-items";
+import { PaletteSwatchGrid } from "@/components/palette-swatch-grid";
+import { ManageMacroColorsCard } from "@/components/manage-macro-colors";
 
 // Per-section settings editor. Writes to Bases/Settings/settings.yaml under
 // sections.{key} via PUT /api/settings — the backend deep-merges partial
@@ -34,8 +37,7 @@ export default function SectionSettingsPage() {
   const [tagline, setTagline] = useState("");
   const [showInNav, setShowInNav] = useState(true);
   const [showOnDashboard, setShowOnDashboard] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const dirtyRef = useRef(false);
 
   // Seed the form once per section key. `section` is a fresh object on every
   // render (useSections rebuilds from SWR), so depending on it would wipe the
@@ -51,17 +53,13 @@ export default function SectionSettingsPage() {
     setTagline(section.tagline);
     setShowInNav(section.show_in_nav);
     setShowOnDashboard(section.show_on_dashboard);
+    dirtyRef.current = false;
   }, [section]);
 
-  if (!sectionKey) return null;
-  if (sections.length > 0 && !section) return notFound();
-  if (!section) return null;
-
-  async function onSave() {
-    if (saving) return;
-    setSaving(true);
-    setSaved(false);
-    try {
+  useEffect(() => {
+    if (!sectionKey || !dirtyRef.current) return;
+    const handle = setTimeout(async () => {
+      dirtyRef.current = false;
       await saveSettings({
         sections: {
           ...(settings?.sections ?? {}),
@@ -75,14 +73,60 @@ export default function SectionSettingsPage() {
           },
         },
       });
-      await globalMutate("settings");
-      await globalMutate("/api/sections");
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
-    } finally {
-      setSaving(false);
-    }
+      touchedRef.current = false;
+      globalMutate("settings");
+      globalMutate("sections-registry");
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [sectionKey, label, emoji, color, tagline, showInNav, showOnDashboard, settings]);
+
+  // Live-preview: optimistically push the picked color into the `settings`
+  // and `sections-registry` SWR caches so the top nav, headers and chrome
+  // repaint immediately — without persisting to disk until Save. Reverted
+  // on unmount so an abandoned edit doesn't leak into other routes.
+  const touchedRef = useRef(false);
+  function previewColor(next: string) {
+    setColor(next);
+    if (!sectionKey) return;
+    touchedRef.current = true;
+    globalMutate(
+      "settings",
+      (current: AppSettings | undefined) => {
+        if (!current) return current;
+        const prev = current.sections?.[sectionKey] ?? { label: "", emoji: "", color: "", tagline: "" };
+        return {
+          ...current,
+          sections: { ...current.sections, [sectionKey]: { ...prev, color: next } },
+        };
+      },
+      { revalidate: false },
+    );
+    globalMutate(
+      "sections-registry",
+      (current: SectionMeta[] | undefined) => {
+        if (!current) return current;
+        return current.map((s) => (s.key === sectionKey ? { ...s, color: next } : s));
+      },
+      { revalidate: false },
+    );
   }
+
+  // If the user navigates away without saving, drop the optimistic tint.
+  useEffect(() => {
+    return () => {
+      if (!touchedRef.current) return;
+      globalMutate("settings");
+      globalMutate("sections-registry");
+    };
+  }, []);
+
+  const markDirty = () => {
+    dirtyRef.current = true;
+  };
+
+  if (!sectionKey) return null;
+  if (sections.length > 0 && !section) return notFound();
+  if (!section) return null;
 
   return (
     <>
@@ -105,7 +149,7 @@ export default function SectionSettingsPage() {
               <input
                 type="text"
                 value={label}
-                onChange={(e) => setLabel(e.target.value)}
+                onChange={(e) => { markDirty(); setLabel(e.target.value); }}
                 className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm"
               />
             </Field>
@@ -114,19 +158,19 @@ export default function SectionSettingsPage() {
               <input
                 type="text"
                 value={emoji}
-                onChange={(e) => setEmoji(e.target.value)}
+                onChange={(e) => { markDirty(); setEmoji(e.target.value); }}
                 maxLength={4}
                 className="w-20 rounded-lg border border-input bg-background px-3 py-1.5 text-center text-lg"
               />
             </Field>
 
             <Field label="Color">
-              <ColorPicker
+              <PaletteSwatchGrid
                 value={color}
-                onChange={setColor}
+                onChange={(v) => { markDirty(); previewColor(v); }}
                 others={sections
                   .filter((s) => s.key !== sectionKey)
-                  .map((s) => ({ key: s.key, label: s.label, color: s.color }))}
+                  .map((s) => ({ label: s.label, value: s.color }))}
               />
             </Field>
 
@@ -134,7 +178,7 @@ export default function SectionSettingsPage() {
               <input
                 type="text"
                 value={tagline}
-                onChange={(e) => setTagline(e.target.value)}
+                onChange={(e) => { markDirty(); setTagline(e.target.value); }}
                 className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm"
               />
             </Field>
@@ -145,7 +189,7 @@ export default function SectionSettingsPage() {
                   <input
                     type="checkbox"
                     checked={showInNav}
-                    onChange={(e) => setShowInNav(e.target.checked)}
+                    onChange={(e) => { markDirty(); setShowInNav(e.target.checked); }}
                     className="h-4 w-4"
                   />
                   <span className="text-muted-foreground">Show in top nav</span>
@@ -154,7 +198,7 @@ export default function SectionSettingsPage() {
                   <input
                     type="checkbox"
                     checked={showOnDashboard}
-                    onChange={(e) => setShowOnDashboard(e.target.checked)}
+                    onChange={(e) => { markDirty(); setShowOnDashboard(e.target.checked); }}
                     className="h-4 w-4"
                   />
                   <span className="text-muted-foreground">Show on homepage</span>
@@ -171,12 +215,13 @@ export default function SectionSettingsPage() {
         </Card>
 
         {sectionKey === "training" && <ManageExercisesCard />}
+        {sectionKey === "nutrition" && <ManageMacroColorsCard />}
         {sectionKey === "groceries" && <ManageGroceriesCard />}
         {sectionKey === "habits" && <ManageHabitsCard />}
         {sectionKey === "supplements" && <ManageSupplementsCard />}
         {sectionKey === "chores" && <ManageChoresCard />}
-
-        <SaveRow saving={saving} saved={saved} color={color || undefined} onSave={onSave} />
+        {sectionKey === "cannabis" && <ManageCannabisStrainsCard />}
+        {sectionKey === "caffeine" && <ManageCaffeineBeansCard />}
       </div>
     </>
   );
@@ -191,167 +236,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// ── Color picker ───────────────────────────────────────────────────────────
-
-type HSL = { h: number; s: number; l: number };
-
-function parseHsl(raw: string): HSL | null {
-  const m = raw.match(/hsl\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*\)/i);
-  if (!m) return null;
-  return { h: +m[1], s: +m[2], l: +m[3] };
-}
-
-function formatHsl(hsl: HSL): string {
-  return `hsl(${Math.round(hsl.h)},${Math.round(hsl.s)}%,${Math.round(hsl.l)}%)`;
-}
-
-type OtherSection = { key: string; label: string; color: string };
-
-/** Inline HSL picker with a rainbow hue slider that shows tick marks for
- *  every other section's hue — so the user can see the palette at a glance
- *  and avoid clashing with a neighbour when adjusting this section's color.
- *  Swatch + text input collapse the picker; the picker opens below when the
- *  swatch is clicked. */
-function ColorPicker({
-  value,
-  onChange,
-  others,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  others: OtherSection[];
-}) {
-  const [open, setOpen] = useState(false);
-  const parsed = parseHsl(value) ?? { h: 0, s: 0, l: 50 };
-
-  const update = (patch: Partial<HSL>) => {
-    onChange(formatHsl({ ...parsed, ...patch }));
-  };
-
-  // Pull hues of other sections for tick marks. Skip ones we can't parse.
-  const otherTicks = others
-    .map((o) => {
-      const p = parseHsl(o.color);
-      return p ? { hue: p.h, color: o.color, label: o.label } : null;
-    })
-    .filter((t): t is { hue: number; color: string; label: string } => t !== null);
-
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Toggle color picker"
-          className="h-8 w-8 shrink-0 rounded-full border border-border shadow-sm transition-transform hover:scale-105"
-          style={{ backgroundColor: value }}
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="hsl(25,95%,53%)"
-          className="flex-1 rounded-lg border border-input bg-background px-3 py-1.5 font-mono text-xs"
-        />
-      </div>
-
-      {open && (
-        <div className="mt-3 space-y-4 rounded-xl border border-border bg-background p-3">
-          {/* Hue slider with rainbow gradient + other-section tick marks */}
-          <div>
-            <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
-              <span>Hue</span>
-              <span className="font-mono">{Math.round(parsed.h)}°</span>
-            </div>
-            <div className="relative">
-              {/* Tick marks for other sections */}
-              <div className="pointer-events-none absolute inset-x-0 -top-1 h-2">
-                {otherTicks.map((t, i) => (
-                  <span
-                    key={`${t.label}-${i}`}
-                    title={`${t.label} — ${Math.round(t.hue)}°`}
-                    className="pointer-events-auto absolute -translate-x-1/2"
-                    style={{ left: `${(t.hue / 360) * 100}%` }}
-                  >
-                    <span
-                      className="block h-2 w-1 rounded-sm border border-background"
-                      style={{ backgroundColor: t.color }}
-                    />
-                  </span>
-                ))}
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={360}
-                step={1}
-                value={parsed.h}
-                onChange={(e) => update({ h: +e.target.value })}
-                className="w-full accent-foreground"
-                style={{
-                  background:
-                    "linear-gradient(to right, hsl(0,90%,50%), hsl(60,90%,50%), hsl(120,90%,50%), hsl(180,90%,50%), hsl(240,90%,50%), hsl(300,90%,50%), hsl(360,90%,50%))",
-                  borderRadius: "9999px",
-                  height: "8px",
-                  appearance: "none",
-                  WebkitAppearance: "none",
-                }}
-              />
-            </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Ticks above show where other sections sit on the hue wheel.
-            </p>
-          </div>
-
-          {/* Saturation slider */}
-          <div>
-            <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
-              <span>Saturation</span>
-              <span className="font-mono">{Math.round(parsed.s)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={parsed.s}
-              onChange={(e) => update({ s: +e.target.value })}
-              className="w-full accent-foreground"
-              style={{
-                background: `linear-gradient(to right, hsl(${parsed.h},0%,${parsed.l}%), hsl(${parsed.h},100%,${parsed.l}%))`,
-                borderRadius: "9999px",
-                height: "8px",
-                appearance: "none",
-                WebkitAppearance: "none",
-              }}
-            />
-          </div>
-
-          {/* Lightness slider */}
-          <div>
-            <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-muted-foreground">
-              <span>Lightness</span>
-              <span className="font-mono">{Math.round(parsed.l)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={parsed.l}
-              onChange={(e) => update({ l: +e.target.value })}
-              className="w-full accent-foreground"
-              style={{
-                background: `linear-gradient(to right, #000, hsl(${parsed.h},${parsed.s}%,50%), #fff)`,
-                borderRadius: "9999px",
-                height: "8px",
-                appearance: "none",
-                WebkitAppearance: "none",
-              }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

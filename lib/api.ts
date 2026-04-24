@@ -616,6 +616,21 @@ export async function getCannabisConfig() {
   }>("/api/cannabis/config");
 }
 
+export async function addCannabisStrain(name: string) {
+  return postJSON<{ ok: boolean; id: string; name: string }>("/api/cannabis/strains", { name });
+}
+
+export async function updateCannabisStrain(id: string, name: string) {
+  return putJSON<{ ok: boolean; id: string; name: string }>(
+    `/api/cannabis/strains/${encodeURIComponent(id)}`,
+    { name },
+  );
+}
+
+export async function deleteCannabisStrain(id: string) {
+  return del<{ ok: boolean }>(`/api/cannabis/strains/${encodeURIComponent(id)}`);
+}
+
 export async function getCannabisDay(day: string) {
   return request<CannabisDay>(`/api/cannabis/day/${day}`);
 }
@@ -760,6 +775,21 @@ export type CaffeineSessions = { sessions: CaffeineSession[] };
 
 export async function getCaffeineConfig() {
   return request<{ beans: { id: string; name: string }[] }>("/api/caffeine/config");
+}
+
+export async function addCaffeineBean(name: string) {
+  return postJSON<{ ok: boolean; id: string; name: string }>("/api/caffeine/beans", { name });
+}
+
+export async function updateCaffeineBean(id: string, name: string) {
+  return putJSON<{ ok: boolean; id: string; name: string }>(
+    `/api/caffeine/beans/${encodeURIComponent(id)}`,
+    { name },
+  );
+}
+
+export async function deleteCaffeineBean(id: string) {
+  return del<{ ok: boolean }>(`/api/caffeine/beans/${encodeURIComponent(id)}`);
 }
 
 export async function getCaffeineDay(day: string) {
@@ -1171,6 +1201,14 @@ export type CalendarSettings = {
   enabled_calendars: string[] | null;
 };
 
+export type MacroColorKey = "protein" | "fat" | "carbs" | "fiber" | "kcal" | "fasting";
+
+export type MacroColors = Record<MacroColorKey, string>;
+
+export type NutritionSettings = {
+  macro_colors: MacroColors;
+};
+
 export type PhaseMessage = {
   greeting: string;
   subtitle: string;
@@ -1198,6 +1236,7 @@ export type AppSettings = {
   animations: AppAnimations;
   weather: WeatherSettings;
   calendar: CalendarSettings;
+  nutrition: NutritionSettings;
   day_phases: DayPhase[];
 };
 

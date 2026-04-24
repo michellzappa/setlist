@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { LayoutGrid, PanelTop } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
@@ -10,8 +10,12 @@ import {
   type AppSettings,
   type AppTheme,
   type DayPhase,
+  getCaffeineConfig,
   getCalendar,
+  getCannabisConfig,
   getChores,
+  getExerciseConfig,
+  getGroceries,
   getHabitConfig,
   getSettings,
   getSupplementConfig,
@@ -21,7 +25,6 @@ import { SECTIONS, type SectionKey } from "@/lib/sections";
 import { DEFAULT_DAY_PHASES } from "@/lib/day-phases";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
-import { SaveRow } from "@/components/save-row";
 import { cn } from "@/lib/utils";
 
 // Shared input styling — consistent width so value columns align across rows.
@@ -295,14 +298,21 @@ export function SettingsDashboard() {
   const { data: habitsCfg } = useSWR("habits-config", getHabitConfig);
   const { data: supplCfg } = useSWR("supplements-config", getSupplementConfig);
   const { data: choresList } = useSWR("chores-list", getChores);
+  const { data: exerciseCfg } = useSWR("training-config", getExerciseConfig);
+  const { data: cannabisCfg } = useSWR("cannabis-config", getCannabisConfig);
+  const { data: caffeineCfg } = useSWR("caffeine-config", getCaffeineConfig);
+  const { data: groceriesData } = useSWR("groceries", getGroceries);
   const counts: Partial<Record<SectionKey, number>> = {
     habits: habitsCfg?.total,
     supplements: supplCfg?.total,
     chores: choresList?.total,
+    training: exerciseCfg?.exercises.length,
+    cannabis: cannabisCfg?.strains.length,
+    caffeine: caffeineCfg?.beans.length,
+    groceries: groceriesData?.items.length,
   };
   const [draft, setDraft] = useState<AppSettings | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
     if (!data || sectionsMeta.length === 0) return;
@@ -342,27 +352,27 @@ export function SettingsDashboard() {
 
   const patch = useCallback((p: Partial<AppSettings>) => {
     setDraft((d) => (d ? { ...d, ...p } : d));
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
   const patchTargets = useCallback((p: Partial<AppSettings["targets"]>) => {
     setDraft((d) => (d ? { ...d, targets: { ...d.targets, ...p } } : d));
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
   const patchAnimations = useCallback((p: Partial<AppSettings["animations"]>) => {
     setDraft((d) => (d ? { ...d, animations: { ...d.animations, ...p } } : d));
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
   const patchCalendar = useCallback((p: Partial<AppSettings["calendar"]>) => {
     setDraft((d) => (d ? { ...d, calendar: { ...d.calendar, ...p } } : d));
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
   const patchWeather = useCallback((p: Partial<AppSettings["weather"]>) => {
     setDraft((d) => (d ? { ...d, weather: { ...d.weather, ...p } } : d));
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
   const patchPhase = useCallback((idx: number, p: Partial<DayPhase>) => {
@@ -373,7 +383,7 @@ export function SettingsDashboard() {
       phases[idx] = { ...phases[idx], ...p };
       return { ...d, day_phases: phases };
     });
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
   const addPhase = useCallback(() => {
@@ -394,7 +404,7 @@ export function SettingsDashboard() {
       });
       return { ...d, day_phases: phases };
     });
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
   const removePhase = useCallback((idx: number) => {
@@ -404,7 +414,7 @@ export function SettingsDashboard() {
       phases.splice(idx, 1);
       return { ...d, day_phases: phases };
     });
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
   const setSectionVisibility = useCallback(
@@ -434,7 +444,7 @@ export function SettingsDashboard() {
           },
         };
       });
-      setSaved(false);
+      dirtyRef.current = true;
     },
     [],
   );
@@ -450,23 +460,19 @@ export function SettingsDashboard() {
       [order[i], order[j]] = [order[j], order[i]];
       return { ...d, section_order: order };
     });
-    setSaved(false);
+    dirtyRef.current = true;
   }, []);
 
-  const handleSave = useCallback(async () => {
-    if (!draft || saving) return;
-    setSaving(true);
-    try {
+  useEffect(() => {
+    if (!draft || !dirtyRef.current) return;
+    const handle = setTimeout(async () => {
+      dirtyRef.current = false;
       const fresh = await saveSettings(draft);
-      setDraft(fresh);
       mutate(fresh, false);
       globalMutate("settings");
-      setSaved(true);
-      setTheme(fresh.theme);
-    } finally {
-      setSaving(false);
-    }
-  }, [draft, saving, mutate, setTheme]);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [draft, mutate]);
 
   if (isLoading || !draft) {
     return (
@@ -816,8 +822,7 @@ export function SettingsDashboard() {
                 { value: "eink", label: "Eink" },
               ]}
               value={draft.theme}
-              // Apply instantly so the user can see the effect; the final
-              // choice still persists to disk on Save.
+              // Apply instantly so the user can see the effect.
               onChange={(v) => {
                 patch({ theme: v });
                 setTheme(v);
@@ -929,8 +934,6 @@ export function SettingsDashboard() {
             </div>
           </CardContent>
         </Card>
-
-        <SaveRow saving={saving} saved={saved} onSave={handleSave} />
 
         <footer className="pt-6 pb-2 text-center text-xs text-muted-foreground">
           <a

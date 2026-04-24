@@ -19,6 +19,35 @@ def caffeine_config() -> Dict[str, Any]:
     return caffeine_service.load_caffeine_config()
 
 
+@router.post("/beans")
+async def caffeine_add_bean(request: Request) -> Dict[str, Any]:
+    payload = await request.json()
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    return caffeine_service.add_bean(name=name)
+
+
+@router.put("/beans/{bean_id}")
+async def caffeine_update_bean(request: Request, bean_id: str) -> Dict[str, Any]:
+    payload = await request.json()
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    try:
+        return caffeine_service.update_bean(bean_id=bean_id, name=name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"bean not found: {bean_id}") from None
+
+
+@router.delete("/beans/{bean_id}")
+def caffeine_delete_bean(bean_id: str) -> Dict[str, Any]:
+    try:
+        return caffeine_service.delete_bean(bean_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"bean not found: {bean_id}") from None
+
+
 @router.get("/day/{day}")
 def caffeine_day(day: str) -> Dict[str, Any]:
     return caffeine_service.day_summary(day)

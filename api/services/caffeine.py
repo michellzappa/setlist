@@ -5,12 +5,17 @@ from datetime import date, timedelta
 from typing import Any, Dict, List
 
 from api import logger
+from api.parsing import _slugify
 import api.paths as paths
-from api.storage.plain_yaml import read_yaml_document
+from api.storage.plain_yaml import PlainYamlDocument, read_yaml_document, write_yaml_document
 from api.storage.repository import SectionRepository
 from api.storage.schemas import CaffeineEventSchema
 
 CAFFEINE_METHODS = {"v60", "matcha", "other"}
+
+CAFFEINE_CONFIG_HEADER = (
+    "# Caffeine bean presets. Edit here or via Settings → Caffeine.\n"
+)
 
 
 def _events() -> SectionRepository[Dict[str, Any]]:
@@ -36,6 +41,69 @@ def load_caffeine_config() -> Dict[str, Any]:
         if isinstance(bean, dict) and bean.get("id")
     ]
     return out
+
+
+def _write_caffeine_config(data: Dict[str, Any], header: str) -> None:
+    paths.CAFFEINE_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    write_yaml_document(
+        paths.CAFFEINE_CONFIG_PATH,
+        PlainYamlDocument(data=data, header=header or CAFFEINE_CONFIG_HEADER),
+    )
+
+
+def _read_caffeine_config_doc():
+    return read_yaml_document(paths.CAFFEINE_CONFIG_PATH, default={})
+
+
+def add_bean(name: str) -> Dict[str, Any]:
+    document = _read_caffeine_config_doc()
+    data = document.data if isinstance(document.data, dict) else {}
+    beans: List[Dict[str, Any]] = list(data.get("beans") or [])
+    for bean in beans:
+        if isinstance(bean, dict) and str(bean.get("name", "")).strip() == name:
+            return {"ok": True, "id": bean.get("id"), "name": name, "skipped": True}
+    new_id = _slugify(name)
+    existing_ids = {str(b.get("id")) for b in beans if isinstance(b, dict)}
+    unique_id = new_id
+    n = 2
+    while unique_id in existing_ids:
+        unique_id = f"{new_id}-{n}"
+        n += 1
+    beans.append({"id": unique_id, "name": name})
+    data["beans"] = beans
+    _write_caffeine_config(data, document.header)
+    return {"ok": True, "id": unique_id, "name": name}
+
+
+def update_bean(bean_id: str, name: str) -> Dict[str, Any]:
+    document = _read_caffeine_config_doc()
+    data = document.data if isinstance(document.data, dict) else {}
+    beans: List[Dict[str, Any]] = list(data.get("beans") or [])
+    found = False
+    for bean in beans:
+        if isinstance(bean, dict) and str(bean.get("id", "")) == bean_id:
+            if name:
+                bean["name"] = name
+            found = True
+            break
+    if not found:
+        raise KeyError(bean_id)
+    data["beans"] = beans
+    _write_caffeine_config(data, document.header)
+    return {"ok": True, "id": bean_id, "name": name}
+
+
+def delete_bean(bean_id: str) -> Dict[str, Any]:
+    document = _read_caffeine_config_doc()
+    data = document.data if isinstance(document.data, dict) else {}
+    beans: List[Dict[str, Any]] = list(data.get("beans") or [])
+    before = len(beans)
+    beans = [b for b in beans if not (isinstance(b, dict) and str(b.get("id", "")) == bean_id)]
+    if len(beans) == before:
+        raise KeyError(bean_id)
+    data["beans"] = beans
+    _write_caffeine_config(data, document.header)
+    return {"ok": True, "id": bean_id}
 
 
 def load_day(day: str) -> List[Dict[str, Any]]:

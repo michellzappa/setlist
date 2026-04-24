@@ -4,7 +4,8 @@
 // brand accent when no override is set.
 
 const BACKEND = process.env.SEPTENA_BACKEND_URL ?? "http://127.0.0.1:7000";
-const FALLBACK = "#5b6df2";
+// Keep this in sync with `--brand-accent` in app/globals.css.
+const FALLBACK = "#3b82f6";
 
 export const dynamic = "force-dynamic";
 

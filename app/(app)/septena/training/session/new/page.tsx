@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 import { getLastSession, postSession, type ExerciseEntry, type SessionWritePayload } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -164,9 +164,7 @@ function NewSessionInner() {
     <div className="min-h-screen bg-muted/30">
       <>
         <div className="mb-4">
-          <Link href="/septena/training" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Back to dashboard
-          </Link>
+          <BackLink href="/septena/training" label="Dashboard" />
         </div>
 
         <Card>

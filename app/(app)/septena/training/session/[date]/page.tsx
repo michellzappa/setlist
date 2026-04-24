@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { BackLink } from "@/components/back-link";
 import { getSession } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -22,9 +21,7 @@ export default async function SessionPage({ params }: { params: Promise<{ date: 
   return (
     <>
       <div className="mb-6">
-        <Link href="/septena/training" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Back to dashboard
-        </Link>
+        <BackLink href="/septena/training" label="Dashboard" />
       </div>
 
       <Card>

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { BackLink } from "@/components/back-link";
 
 type TitleProps = {
   title: string;
@@ -17,15 +17,7 @@ type TitleProps = {
 export function PageHeaderTitle({ title, subtitle, emoji, color, back, refreshing }: TitleProps) {
   return (
     <>
-      {back && (
-        <Link
-          href={back.href}
-          className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-foreground/30 hover:bg-muted"
-        >
-          <span aria-hidden>←</span>
-          <span>{back.label}</span>
-        </Link>
-      )}
+      {back && <BackLink href={back.href} label={back.label} className="mb-4" />}
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <div className="flex items-baseline gap-3">
           {emoji && (

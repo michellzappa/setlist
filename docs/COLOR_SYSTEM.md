@@ -17,14 +17,16 @@ Current fixed spectrum:
 
 | Token | Value | Role |
 |---|---|---|
-| `--brand-1` | `#f26a5b` | coral |
-| `--brand-2` | `#f3a33c` | amber |
-| `--brand-3` | `#d4c94e` | citron |
-| `--brand-4` | `#54b887` | green |
-| `--brand-5` | `#39a7c7` | cyan |
-| `--brand-6` | `#5b6df2` | indigo |
-| `--brand-7` | `#9f5cf4` | violet |
-| `--brand-accent` | `#5b6df2` | generic non-section accent |
+| `--brand-1` | `#ef4444` | red |
+| `--brand-2` | `#f97316` | orange |
+| `--brand-3` | `#eab308` | yellow |
+| `--brand-4` | `#22c55e` | green |
+| `--brand-5` | `#06b6d4` | cyan |
+| `--brand-6` | `#3b82f6` | blue |
+| `--brand-7` | `#8b5cf6` | violet |
+| `--brand-accent` | `#3b82f6` | generic non-section accent |
+
+Brand values come from the curated palette in `lib/palette.ts` — seven hues spaced across the spectrum. Update both lists together.
 
 Where it belongs:
 

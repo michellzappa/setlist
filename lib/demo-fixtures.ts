@@ -1224,7 +1224,7 @@ function settings() {
       histograms_raise: true,
     },
     sections: {},
-    icon_color: "#5b6df2",
+    icon_color: "#3b82f6",
   };
 }
 

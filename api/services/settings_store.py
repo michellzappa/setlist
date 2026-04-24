@@ -72,29 +72,31 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "distance": "km",
     },
     "theme": "system",
-    "icon_color": "#5b6df2",
+    "icon_color": "#3b82f6",  # palette blue — matches --brand-accent
     "animations": {
         "training_complete": True,
         "first_meal": True,
         "histograms_raise": True,
     },
     "sections": {
-        "training":     {"label": "Training",     "emoji": "🏋️", "color": "hsl(25,95%,53%)",   "tagline": "Sessions, progressions & PRs"},
-        "nutrition":    {"label": "Nutrition",    "emoji": "🍱", "color": "hsl(45,90%,48%)",   "tagline": "Meals, macros & fasting"},
-        "habits":       {"label": "Habits",       "emoji": "✅", "color": "hsl(220,60%,55%)",  "tagline": "Morning, afternoon & evening routines"},
-        "chores":       {"label": "Chores",       "emoji": "🧹", "color": "hsl(200,45%,50%)",  "tagline": "Recurring tasks, deferrable"},
-        "groceries":    {"label": "Groceries",    "emoji": "🛒", "color": "hsl(142,55%,38%)",  "tagline": "Smart grocery checklist"},
-        "supplements":  {"label": "Supplements",  "emoji": "💊", "color": "hsl(340,70%,50%)",  "tagline": "Daily stack & streaks"},
-        "cannabis":     {"label": "Cannabis",     "emoji": "🌿", "color": "hsl(145,55%,38%)",  "tagline": "Log sessions, strains & usage"},
-        "caffeine":     {"label": "Caffeine",     "emoji": "☕", "color": "hsl(22,55%,32%)",   "tagline": "V60s, matcha & time of day"},
-        "gut":          {"label": "Gut",          "emoji": "🌀", "color": "hsl(28,35%,40%)",   "tagline": "Bristol, blood & discomfort"},
-        "health":       {"label": "Health",       "emoji": "💓", "color": "hsl(270,60%,55%)",  "tagline": "HRV, weight & vitals"},
-        "sleep":        {"label": "Sleep",        "emoji": "🌙", "color": "hsl(230,55%,55%)",  "tagline": "Score, stages & trends"},
-        "body":         {"label": "Body",         "emoji": "⚖️", "color": "hsl(170,50%,42%)",  "tagline": "Weight, body fat & trends"},
-        "weather":      {"label": "Weather",      "emoji": "☀️", "color": "hsl(205,75%,50%)",  "tagline": "Today's conditions & forecast", "show_in_nav": False, "show_on_dashboard": False},
-        "calendar":     {"label": "Calendar",     "emoji": "📅", "color": "hsl(290,55%,55%)",  "tagline": "Today's events at a glance",   "show_in_nav": False, "show_on_dashboard": False},
-        "air":          {"label": "Air",          "emoji": "🌬️", "color": "hsl(190,70%,45%)",  "tagline": "CO₂, temperature & humidity"},
-        "correlations": {"label": "Insights",     "emoji": "🔗", "color": "hsl(220,8%,55%)",   "tagline": "Cross-section patterns"},
+        # Color values come from the curated Tailwind-500 palette in
+        # `lib/palette.ts`; update both lists together if you add a swatch.
+        "training":     {"label": "Training",     "emoji": "🏋️", "color": "#f97316",  "tagline": "Sessions, progressions & PRs"},
+        "nutrition":    {"label": "Nutrition",    "emoji": "🍱", "color": "#f59e0b",  "tagline": "Meals, macros & fasting"},
+        "habits":       {"label": "Habits",       "emoji": "✅", "color": "#3b82f6",  "tagline": "Morning, afternoon & evening routines"},
+        "chores":       {"label": "Chores",       "emoji": "🧹", "color": "#0ea5e9",  "tagline": "Recurring tasks, deferrable"},
+        "groceries":    {"label": "Groceries",    "emoji": "🛒", "color": "#10b981",  "tagline": "Smart grocery checklist"},
+        "supplements":  {"label": "Supplements",  "emoji": "💊", "color": "#ec4899",  "tagline": "Daily stack & streaks"},
+        "cannabis":     {"label": "Cannabis",     "emoji": "🌿", "color": "#22c55e",  "tagline": "Log sessions, strains & usage"},
+        "caffeine":     {"label": "Caffeine",     "emoji": "☕", "color": "#f43f5e",  "tagline": "V60s, matcha & time of day"},
+        "gut":          {"label": "Gut",          "emoji": "🌀", "color": "#eab308",  "tagline": "Bristol, blood & discomfort"},
+        "health":       {"label": "Health",       "emoji": "💓", "color": "#a855f7",  "tagline": "HRV, weight & vitals"},
+        "sleep":        {"label": "Sleep",        "emoji": "🌙", "color": "#6366f1",  "tagline": "Score, stages & trends"},
+        "body":         {"label": "Body",         "emoji": "⚖️", "color": "#14b8a6",  "tagline": "Weight, body fat & trends"},
+        "weather":      {"label": "Weather",      "emoji": "☀️", "color": "#06b6d4",  "tagline": "Today's conditions & forecast", "show_in_nav": False, "show_on_dashboard": False},
+        "calendar":     {"label": "Calendar",     "emoji": "📅", "color": "#8b5cf6",  "tagline": "Today's events at a glance",   "show_in_nav": False, "show_on_dashboard": False},
+        "air":          {"label": "Air",          "emoji": "🌬️", "color": "#84cc16",  "tagline": "CO₂, temperature & humidity"},
+        "correlations": {"label": "Insights",     "emoji": "🔗", "color": "#ef4444",  "tagline": "Cross-section patterns"},
     },
     "weather": {
         "location": "",
@@ -103,6 +105,19 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "calendar": {
         "show_all_day": True,
         "enabled_calendars": None,
+    },
+    "nutrition": {
+        # Macro colors, picked from the curated palette in `lib/palette.ts`.
+        # Independent of the Nutrition section accent so each macro reads as
+        # its own thing on charts and stat tiles.
+        "macro_colors": {
+            "protein": "#ef4444",  # red
+            "fat":     "#f59e0b",  # amber
+            "carbs":   "#3b82f6",  # blue
+            "fiber":   "#10b981",  # emerald
+            "kcal":    "#eab308",  # yellow
+            "fasting": "#8b5cf6",  # violet
+        },
     },
 }
 

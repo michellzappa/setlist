@@ -4,7 +4,8 @@
 // brand accent when no override is set.
 
 const BACKEND = process.env.SEPTENA_BACKEND_URL ?? "http://127.0.0.1:7000";
-const FALLBACK = "#5b6df2";
+// Keep this in sync with `--brand-accent` in app/globals.css.
+const FALLBACK = "#3b82f6";
 
 export const dynamic = "force-dynamic";
 
@@ -38,13 +39,13 @@ export async function GET() {
   </style>
   <rect class="bg" width="512" height="512" rx="108"/>
   <g>
-    <circle cx="256" cy="107" r="49" fill="#f26a5b"/>
-    <circle cx="373" cy="162" r="49" fill="#f3a33c"/>
-    <circle cx="402" cy="290" r="49" fill="#d4c94e"/>
-    <circle cx="321" cy="391" r="49" fill="#54b887"/>
-    <circle cx="191" cy="391" r="49" fill="#39a7c7"/>
-    <circle cx="110" cy="290" r="49" fill="#5b6df2"/>
-    <circle cx="139" cy="162" r="49" fill="#9f5cf4"/>
+    <circle cx="256" cy="107" r="49" fill="#ef4444"/>
+    <circle cx="373" cy="162" r="49" fill="#f97316"/>
+    <circle cx="402" cy="290" r="49" fill="#eab308"/>
+    <circle cx="321" cy="391" r="49" fill="#22c55e"/>
+    <circle cx="191" cy="391" r="49" fill="#06b6d4"/>
+    <circle cx="110" cy="290" r="49" fill="#3b82f6"/>
+    <circle cx="139" cy="162" r="49" fill="#8b5cf6"/>
   </g>
 </svg>`;
   return new Response(svg, {

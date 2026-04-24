@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 
 import { getNextWorkout, getLastEntries, type NextWorkoutResponse } from "@/lib/api";
 import {
@@ -119,9 +119,7 @@ export default function StartSessionPage() {
     <div className="min-h-screen bg-muted/30">
       <>
         <div className="mb-4">
-          <Link href="/septena/training" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Back to dashboard
-          </Link>
+          <BackLink href="/septena/training" label="Dashboard" />
         </div>
 
         <div className="rounded-3xl border bg-background p-6 shadow-sm">

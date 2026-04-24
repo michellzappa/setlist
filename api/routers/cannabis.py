@@ -19,7 +19,7 @@ from starlette.requests import Request
 from api import logger
 from api.cache import parse_dir_cached
 from api.io import atomic_write_text
-from api.parsing import _extract_frontmatter, _normalize_date, _normalize_number
+from api.parsing import _extract_frontmatter, _normalize_date, _normalize_number, _slugify
 from api.paths import (
     CANNABIS_CAPSULE_STATE_PATH,
     CANNABIS_CONFIG_PATH,
@@ -89,6 +89,24 @@ def _save_capsule_state(state: Dict[str, Any]) -> None:
     CANNABIS_DIR.mkdir(parents=True, exist_ok=True)
     body = yaml.safe_dump(state, sort_keys=False, allow_unicode=True)
     atomic_write_text(CANNABIS_CAPSULE_STATE_PATH, body)
+
+
+def _save_cannabis_config(data: Dict[str, Any]) -> None:
+    CANNABIS_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    atomic_write_text(CANNABIS_CONFIG_PATH, body)
+
+
+def _read_cannabis_config_raw() -> Dict[str, Any]:
+    if not CANNABIS_CONFIG_PATH.exists():
+        return {}
+    try:
+        raw = CANNABIS_CONFIG_PATH.read_text(encoding="utf-8")
+        data = yaml.safe_load(raw) or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("cannabis-config.yaml failed to parse: %s", exc)
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _cannabis_event_file(day: str, method: str, nn: int) -> Path:
@@ -182,6 +200,64 @@ def _total_grams(entries: List[Dict[str, Any]]) -> float:
 @router.get("/config")
 def cannabis_config() -> Dict[str, Any]:
     return _load_cannabis_config()
+
+
+@router.post("/strains")
+async def cannabis_add_strain(request: Request) -> Dict[str, Any]:
+    payload = await request.json()
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    data = _read_cannabis_config_raw()
+    strains: List[Dict[str, Any]] = list(data.get("strains") or [])
+    for s in strains:
+        if isinstance(s, dict) and str(s.get("name", "")).strip() == name:
+            return {"ok": True, "id": s.get("id"), "name": name, "skipped": True}
+    base_id = _slugify(name)
+    existing = {str(s.get("id")) for s in strains if isinstance(s, dict)}
+    new_id = base_id
+    n = 2
+    while new_id in existing:
+        new_id = f"{base_id}-{n}"
+        n += 1
+    strains.append({"id": new_id, "name": name})
+    data["strains"] = strains
+    _save_cannabis_config(data)
+    return {"ok": True, "id": new_id, "name": name}
+
+
+@router.put("/strains/{strain_id}")
+async def cannabis_update_strain(request: Request, strain_id: str) -> Dict[str, Any]:
+    payload = await request.json()
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    data = _read_cannabis_config_raw()
+    strains: List[Dict[str, Any]] = list(data.get("strains") or [])
+    found = False
+    for s in strains:
+        if isinstance(s, dict) and str(s.get("id", "")) == strain_id:
+            s["name"] = name
+            found = True
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail=f"strain not found: {strain_id}")
+    data["strains"] = strains
+    _save_cannabis_config(data)
+    return {"ok": True, "id": strain_id, "name": name}
+
+
+@router.delete("/strains/{strain_id}")
+def cannabis_delete_strain(strain_id: str) -> Dict[str, Any]:
+    data = _read_cannabis_config_raw()
+    strains: List[Dict[str, Any]] = list(data.get("strains") or [])
+    before = len(strains)
+    strains = [s for s in strains if not (isinstance(s, dict) and str(s.get("id", "")) == strain_id)]
+    if len(strains) == before:
+        raise HTTPException(status_code=404, detail=f"strain not found: {strain_id}")
+    data["strains"] = strains
+    _save_cannabis_config(data)
+    return {"ok": True, "id": strain_id}
 
 
 @router.get("/day/{day}")

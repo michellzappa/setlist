@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { BackLink } from "@/components/back-link";
 
 import { draft, type ActiveSession, type ActiveEntry } from "@/lib/session-draft";
 import {
@@ -264,9 +264,7 @@ export default function ActiveSessionPage() {
     <div className="min-h-screen bg-muted/30 pb-24">
       <>
         <div className="mb-4 flex items-center justify-between">
-          <Link href="/septena/training" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Dashboard
-          </Link>
+          <BackLink href="/septena/training" label="Dashboard" />
           <span className="text-sm font-medium">
             {progress.done} / {progress.total} exercises
           </span>
