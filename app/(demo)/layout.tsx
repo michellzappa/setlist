@@ -10,6 +10,7 @@ import { SectionStatusBarAuto } from "@/components/section-status-bar";
 import { ShellMain } from "@/components/shell-main";
 import { PageHeaderContextProvider } from "@/components/page-header-context";
 import { DemoBanner } from "@/components/demo-banner";
+import { CommandPalette } from "@/components/command-palette";
 
 /** Demo route group. lib/api.ts detects demo from the URL pathname and
  *  short-circuits into fixture data; this layout re-uses the real app
@@ -35,6 +36,7 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
           <SectionStatusBarAuto />
         </PageHeaderContextProvider>
       </SectionThemeRoot>
+      <CommandPalette />
     </>
   );
 }

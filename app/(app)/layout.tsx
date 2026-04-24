@@ -8,6 +8,7 @@ import { MobileHomeFab } from "@/components/mobile-home-fab";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { PageHeaderContextProvider } from "@/components/page-header-context";
 import { OnboardingGate } from "@/components/onboarding-gate";
+import { CommandPalette } from "@/components/command-palette";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -24,6 +25,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </PageHeaderContextProvider>
         </SectionThemeRoot>
         <MobileHomeFab />
+        <CommandPalette />
       </OnboardingGate>
     </>
   );
