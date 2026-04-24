@@ -934,12 +934,12 @@ export function SettingsDashboard() {
 
         <footer className="pt-6 pb-2 text-center text-xs text-muted-foreground">
           <a
-            href="https://septena.app"
+            href="https://www.septena.app"
             target="_blank"
             rel="noreferrer"
             className="hover:text-foreground transition-colors"
           >
-            Septena · septena.app
+            Septena · www.septena.app
           </a>
         </footer>
       </div>
