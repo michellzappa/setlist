@@ -51,12 +51,6 @@ export function shortDate(iso: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** Title-case 3-letter weekday like "Sun" — used for chart tick labels. */
-export function weekdayShort(iso: string) {
-  const [y, m, d] = iso.split("-").map(Number);
-  const date = new Date(y, (m ?? 1) - 1, d ?? 1);
-  return date.toLocaleDateString("en-US", { weekday: "short" });
-}
 
 /** Format ISO date like "01 Jan 2025". */
 export function formatDateLong(value: string | null | undefined) {
@@ -113,11 +107,17 @@ export function formatWeekdayTick(iso: string): string {
   return WD[new Date(y, m - 1, d).getDay()];
 }
 
-/** Single-letter weekday for dense/narrow chart ticks: "S M T W T F S". */
-export function formatWeekdayTickNarrow(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  return "SMTWTFS"[new Date(y, m - 1, d).getDay()] ?? iso;
+/** Past 7 days ending today, oldest first. Each entry has the ISO date,
+ *  the standard Title Case 3-letter weekday tick, and a today flag. Used
+ *  by every 7-day strip on the home overview + week-streak rail. */
+export function lastSevenDaysISO(): { iso: string; weekday: string; isToday: boolean }[] {
+  const out: { iso: string; weekday: string; isToday: boolean }[] = [];
+  const today = todayLocalISO();
+  for (let i = 6; i >= 0; i--) {
+    const iso = addDaysISO(today, -i);
+    out.push({ iso, weekday: formatWeekdayTick(iso), isToday: i === 0 });
+  }
+  return out;
 }
 
 /** Options for computeStreak. */

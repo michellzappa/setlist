@@ -11,6 +11,7 @@ import {
   SECTION_ACCENT_SHADE_3,
 } from "@/lib/section-colors";
 import { cn } from "@/lib/utils";
+import { lastSevenDaysISO } from "@/lib/date-utils";
 import { CardTitle, CardDescription, CardHeader, CardContent } from "@/components/ui/card";
 
 /** Last-7-days streak strip. Today is the rightmost dot, six days ago the
@@ -36,24 +37,6 @@ function classify(exercises: string[], classifyKind: (name: string | undefined |
   if (groups.has("cardio")) return "cardio";
   if (groups.has("mobility")) return "mobility";
   return "rest";
-}
-
-function lastSevenDays(): { iso: string; weekday: string; dayNum: number; isToday: boolean }[] {
-  const out: { iso: string; weekday: string; dayNum: number; isToday: boolean }[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    out.push({
-      iso,
-      weekday: d.toLocaleDateString("en-GB", { weekday: "narrow" }),
-      dayNum: d.getDate(),
-      isToday: i === 0,
-    });
-  }
-  return out;
 }
 
 // Background + border colors come from --section-accent-shade-{1,2,3} so
@@ -100,7 +83,7 @@ export function WeekStreak() {
   }, []);
 
   const { days, kinds, perfect, z2Minutes } = useMemo(() => {
-    const days = lastSevenDays();
+    const days = lastSevenDaysISO();
     if (!entries) {
       return {
         days,
@@ -197,7 +180,7 @@ export function WeekStreak() {
                     style={KIND_DOT_STYLE[kind]}
                   />
                   <span className={cn("text-[10px] tabular-nums", day.isToday ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                    {day.dayNum}
+                    {Number(day.iso.slice(8, 10))}
                   </span>
                 </div>
               );

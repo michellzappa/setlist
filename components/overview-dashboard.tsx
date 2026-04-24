@@ -43,7 +43,7 @@ import {
   getSettings,
 } from "@/lib/api";
 import { DEFAULT_DAY_PHASES, activePhaseId } from "@/lib/day-phases";
-import { weekdayShort, computeStreak } from "@/lib/date-utils";
+import { formatWeekdayTick, computeStreak, lastSevenDaysISO } from "@/lib/date-utils";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { computeFastingState, useFastingConfig } from "@/lib/fasting";
 import { useMacroTargets, useFastingTarget } from "@/lib/macro-targets";
@@ -73,10 +73,28 @@ import {
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const CHART_HEIGHT = "h-[80px]";
-// Cardio uses the lighter shade of the exercise accent. Resolved via the
-// section-accent CSS vars so it auto-derives from `--section-accent` inside
-// any `<SectionTheme sectionKey="training">` subtree.
+// Every tile inherits its color from the active SectionTheme via this CSS
+// var, so tiles never hardcode a hex. Cardio gets the lighter shade.
+export const ACCENT = "var(--section-accent)";
 const CARDIO_COLOR = "var(--section-accent-shade-2)";
+
+/** Standard single-series chart config — every mini bar chart uses this. */
+function simpleChartConfig(label: string): ChartConfig {
+  return { v: { label, color: ACCENT } };
+}
+
+/** Map a 7-day daily history into `{ date, v }` chart rows using the
+ *  shared Title Case 3-letter weekday tick. `field` picks which numeric
+ *  property of the daily row becomes `v`. */
+function weekChartData<T extends { date: string }>(
+  daily: T[] | undefined,
+  field: keyof T,
+): { date: string; v: number }[] {
+  return (daily ?? []).slice(-7).map((d) => ({
+    date: formatWeekdayTick(d.date),
+    v: Number(d[field] ?? 0),
+  }));
+}
 
 // ── Week streak helpers ─────────────────────────────────────────────────────
 
@@ -98,23 +116,6 @@ function classifyDay(exercises: string[]): DayKind {
   if (groups.has("cardio")) return "cardio";
   if (groups.has("mobility")) return "mobility";
   return "rest";
-}
-
-function lastSevenDays() {
-  const out: { iso: string; weekday: string; isToday: boolean }[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    out.push({
-      iso,
-      weekday: d.toLocaleDateString("en-GB", { weekday: "narrow" }),
-      isToday: i === 0,
-    });
-  }
-  return out;
 }
 
 // ── Time-aware greeting ─────────────────────────────────────────────────────
@@ -244,13 +245,13 @@ function ExerciseMini() {
     return { cardio, entries };
   }, { refreshInterval: 60_000 });
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const cardio = data?.cardio;
   const latestRolling = cardio?.daily?.at(-1)?.rolling_7d ?? 0;
   const target = cardio?.target_weekly_min ?? 150;
 
   const { kinds, volumeData } = useMemo(() => {
-    const days = lastSevenDays();
+    const days = lastSevenDaysISO();
     if (!data?.entries) return { kinds: days.map(() => "rest" as DayKind), volumeData: [] };
     const byDate = new Map<string, string[]>();
     const strengthByDate = new Map<string, number>();
@@ -281,7 +282,7 @@ function ExerciseMini() {
     // strength + peak cardio day fills the chart and a half-sized bar reads
     // as ~half the week's effort.
     const volumeData = days.map(({ iso }) => ({
-      date: weekdayShort(iso),
+      date: formatWeekdayTick(iso),
       strength: ((strengthByDate.get(iso) ?? 0) / maxStrength) * 50,
       cardio: ((cardioByDate.get(iso) ?? 0) / maxCardio) * 50,
     }));
@@ -335,7 +336,7 @@ function NutritionMini() {
     return () => clearInterval(id);
   }, []);
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const stats = data;
   const daily = stats?.daily ?? [];
   const todayRow = daily.find((d) => d.date === selectedDate);
@@ -349,16 +350,16 @@ function NutritionMini() {
 
   const isFasting = fastingState.state === "fasting";
   const proteinChartData = useMemo(
-    () => daily.slice(-7).map((d) => ({ date: weekdayShort(d.date), v: d.protein_g })),
+    () => daily.slice(-7).map((d) => ({ date: formatWeekdayTick(d.date), v: d.protein_g })),
     [daily],
   );
+  const liveFastHours = fastingState.state === "fasting" ? fastingState.totalMin / 60 : 0;
   const fastingChartData = useMemo(
     () =>
       (stats?.fasting ?? [])
-        .filter((f) => f.hours != null)
         .slice(-7)
-        .map((f) => ({ date: weekdayShort(f.date), v: f.hours ?? 0 })),
-    [stats],
+        .map((f) => ({ date: formatWeekdayTick(f.date), v: f.hours ?? (f.date === selectedDate ? liveFastHours : 0) })),
+    [stats, selectedDate, liveFastHours],
   );
   const chartData = isFasting ? fastingChartData : proteinChartData;
   const chartConfig = {
@@ -426,16 +427,13 @@ function HabitsMini() {
     return { day, history };
   }, { refreshInterval: 60_000 });
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const day = data?.day;
   const history = data?.history;
   const streak = useMemo(() => computeStreak(history?.daily), [history]);
 
-  const chartData = useMemo(
-    () => (history?.daily ?? []).slice(-7).map((d) => ({ date: weekdayShort(d.date), v: d.percent })),
-    [history],
-  );
-  const chartConfig = { v: { label: "%", color } } satisfies ChartConfig;
+  const chartData = useMemo(() => weekChartData(history?.daily, "percent"), [history]);
+  const chartConfig = simpleChartConfig("%");
 
   return (
     <SectionCard section="habits" loading={isLoading}>
@@ -470,7 +468,7 @@ function ChoresMini() {
     return { list, history };
   }, { refreshInterval: 60_000 });
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const chores = data?.list.chores ?? [];
   const today = data?.list.today ?? "";
   const overdue = chores.filter((c) => c.days_overdue > 0 && c.last_completed !== today).length;
@@ -480,11 +478,8 @@ function ChoresMini() {
   const actionable = chores.filter((c) => c.days_overdue >= 0 || c.last_completed === today);
   const doneToday = actionable.filter((c) => c.last_completed === today).length;
 
-  const chartData = useMemo(
-    () => (data?.history.daily ?? []).slice(-7).map((d) => ({ date: weekdayShort(d.date), v: d.completed })),
-    [data],
-  );
-  const chartConfig = { v: { label: "done", color } } satisfies ChartConfig;
+  const chartData = useMemo(() => weekChartData(data?.history.daily, "completed"), [data]);
+  const chartConfig = simpleChartConfig("done");
 
   return (
     <SectionCard section="chores" loading={isLoading}>
@@ -522,14 +517,14 @@ function GroceriesMini() {
   const { data: history } = useSWR("overview-groceries-history", () => getGroceryHistory(7), {
     refreshInterval: 60_000,
   });
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const items = data?.items ?? [];
   const lowCount = items.filter((i) => i.low).length;
 
   const chartData = useMemo(
     () =>
       (history?.daily ?? []).slice(-7).map((d) => ({
-        date: weekdayShort(d.date),
+        date: formatWeekdayTick(d.date),
         bought: d.bought,
         needed: d.needed,
       })),
@@ -550,6 +545,15 @@ function GroceriesMini() {
         <MiniStat label="7-day marks" value={weekTotal > 0 ? weekTotal : "—"} />
       </div>
 
+      {items.length > 0 && (
+        <ProgressRow
+          label="Stocked"
+          current={String(items.length - lowCount)}
+          total={String(items.length)}
+          color={color}
+        />
+      )}
+
       {weekTotal > 0 && (
         <MiniBarChart label="Needed vs Bought (7d)" data={chartData} chartConfig={chartConfig}>
           <Bar dataKey="needed" stackId="g" fill={color} radius={[0, 0, 0, 0]} />
@@ -569,16 +573,13 @@ function SupplementsMini() {
     return { day, history };
   }, { refreshInterval: 60_000 });
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const day = data?.day;
   const history = data?.history;
   const streak = useMemo(() => computeStreak(history?.daily), [history]);
 
-  const chartData = useMemo(
-    () => (history?.daily ?? []).slice(-7).map((d) => ({ date: weekdayShort(d.date), v: d.percent })),
-    [history],
-  );
-  const chartConfig = { v: { label: "%", color } } satisfies ChartConfig;
+  const chartData = useMemo(() => weekChartData(history?.daily, "percent"), [history]);
+  const chartConfig = simpleChartConfig("%");
 
   return (
     <SectionCard section="supplements" loading={isLoading}>
@@ -625,7 +626,7 @@ function CannabisMini() {
     return () => clearInterval(id);
   }, []);
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const day = data?.day;
   const history = data?.history;
   const sessions = data?.sessions?.sessions ?? [];
@@ -644,11 +645,8 @@ function CannabisMini() {
     return `${diffD}d`;
   }, [sessions]);
 
-  const chartData = useMemo(
-    () => (history?.daily ?? []).slice(-7).map((d) => ({ date: weekdayShort(d.date), v: d.total_g })),
-    [history],
-  );
-  const chartConfig = { v: { label: "g", color } } satisfies ChartConfig;
+  const chartData = useMemo(() => weekChartData(history?.daily, "total_g"), [history]);
+  const chartConfig = simpleChartConfig("g");
 
   // "Today vs 7d avg" — bar reads as today's consumption relative to a
   // typical day. Empty = abstained; full = hit your average; overflow
@@ -697,18 +695,12 @@ function CaffeineMini() {
     { refreshInterval: 60_000 },
   );
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const day = data?.day;
   const history = data?.history;
 
-  const chartData = useMemo(
-    () =>
-      (history?.daily ?? [])
-        .slice(-7)
-        .map((d) => ({ date: weekdayShort(d.date), v: d.total_g ?? 0 })),
-    [history],
-  );
-  const chartConfig = { v: { label: "g", color } } satisfies ChartConfig;
+  const chartData = useMemo(() => weekChartData(history?.daily, "total_g"), [history]);
+  const chartConfig = simpleChartConfig("g");
 
   // Average only over days that actually have a grams log — null means the
   // day wasn't tracked, not that it was zero. 0g is legitimate (abstained).
@@ -760,7 +752,7 @@ function HealthMini() {
     refreshInterval: 60_000,
   });
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const oura = data?.oura ?? [];
   const apple = data?.apple ?? [];
 
@@ -771,12 +763,12 @@ function HealthMini() {
     const byDate = new Map(oura.filter((r) => r.hrv != null).map((r) => [r.date, r.hrv as number]));
     const present = [...byDate.values()];
     const placeholder = present.length ? Math.max(...present) : 0;
-    return lastSevenDays().map(({ iso, weekday }) => {
+    return lastSevenDaysISO().map(({ iso, weekday }) => {
       const v = byDate.get(iso);
       return { date: weekday, v: v ?? placeholder, missing: v == null };
     });
   }, [oura]);
-  const chartConfig = { v: { label: "HRV", color } } satisfies ChartConfig;
+  const chartConfig = simpleChartConfig("HRV");
 
   const readinessScore = latestReadiness?.readiness_score ?? null;
 
@@ -820,7 +812,7 @@ function SleepMini() {
     refreshInterval: 60_000,
   });
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const oura = data?.oura ?? [];
 
   const latestSleep = [...oura].reverse().find((r) => r.sleep_score != null || r.efficiency != null);
@@ -829,12 +821,12 @@ function SleepMini() {
 
   const chartData = useMemo(() => {
     const byDate = new Map(oura.filter((r) => r.total_h != null).map((r) => [r.date, r.total_h as number]));
-    return lastSevenDays().map(({ iso, weekday }) => {
+    return lastSevenDaysISO().map(({ iso, weekday }) => {
       const v = byDate.get(iso);
       return { date: weekday, v: v ?? 8, missing: v == null };
     });
   }, [oura]);
-  const chartConfig = { v: { label: "Hours", color } } satisfies ChartConfig;
+  const chartConfig = simpleChartConfig("Hours");
 
   return (
     <SectionCard section="sleep" loading={isLoading && !cached}>
@@ -879,7 +871,7 @@ function BodyMini() {
     refreshInterval: 60_000,
   });
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const withings = data?.withings ?? [];
 
   const latestWeight = [...withings].reverse().find((r) => r.weight_kg != null);
@@ -889,7 +881,7 @@ function BodyMini() {
     const byDate = new Map(
       withings.filter((r) => r.weight_kg != null).map((r) => [r.date, r.weight_kg as number]),
     );
-    const days = lastSevenDays();
+    const days = lastSevenDaysISO();
     const present = days.map(({ iso }) => byDate.get(iso)).filter((v): v is number => v != null);
     if (present.length === 0) return [];
     const avg = present.reduce((s, v) => s + v, 0) / present.length;
@@ -900,7 +892,7 @@ function BodyMini() {
       return { date: weekday, v: Number((w - avg).toFixed(2)), missing: false };
     });
   }, [withings]);
-  const chartConfig = { v: { label: "kg", color } } satisfies ChartConfig;
+  const chartConfig = simpleChartConfig("kg");
   const LOSS_COLOR = SECTION_ACCENT_SHADE_3;
   const GAIN_COLOR = SECTION_ACCENT_STRONG;
 
@@ -994,7 +986,7 @@ function WeatherMini() {
     { refreshInterval: 600_000, shouldRetryOnError: false },
   );
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
 
   if (error || (!isLoading && !data)) {
     return (
@@ -1077,7 +1069,7 @@ function CalendarMini() {
     { refreshInterval: 300_000, shouldRetryOnError: false },
   );
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const today = data?.today ?? "";
   const now = new Date();
   const events = data?.events ?? [];
@@ -1136,14 +1128,14 @@ function CalendarMini() {
 function AirMini() {
   const { data: summary, isLoading: sumLoading } = useSWR("overview-air-summary", getAirSummary, { refreshInterval: 60_000 });
   const { data: history, isLoading: hLoading } = useSWR("overview-air-history", () => getAirHistory(7), { refreshInterval: 60_000 });
-  const color = "var(--section-accent)";
+  const color = ACCENT;
 
   const latest = summary?.latest ?? null;
 
   const chartData = useMemo(() => {
     const daily = history?.daily ?? [];
     const byDate = new Map(daily.map((d) => [d.date, d.co2_max]));
-    return lastSevenDays().map(({ iso, weekday }) => {
+    return lastSevenDaysISO().map(({ iso, weekday }) => {
       const v = byDate.get(iso);
       return {
         date: weekday,
@@ -1153,7 +1145,7 @@ function AirMini() {
     });
   }, [history]);
   const hasData = chartData.some((d) => !d.missing);
-  const chartConfig = { v: { label: "ppm", color } } satisfies ChartConfig;
+  const chartConfig = simpleChartConfig("ppm");
 
   return (
     <SectionCard section="air" loading={sumLoading || hLoading}>
@@ -1316,7 +1308,7 @@ export function SectionCard({ section, loading, children }: {
   children: React.ReactNode;
 }) {
   const s = SECTIONS[section as keyof typeof SECTIONS];
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const toHref = useDemoHref();
   const openQuickLog = useContext(QuickLogContext);
   const quickLog = QUICK_LOG[s.key];

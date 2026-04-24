@@ -22,7 +22,7 @@ import { TimeInput } from "@/components/time-input";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { CHART_GRID } from "@/lib/chart-defaults";
 import { showToast, showError } from "@/lib/toast";
-import { todayLocalISO, daysAgoLocalISO, addDaysISO, nowHHMM, shortDate, formatWeekdayTickNarrow } from "@/lib/date-utils";
+import { todayLocalISO, daysAgoLocalISO, addDaysISO, nowHHMM, shortDate, formatWeekdayTick } from "@/lib/date-utils";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { computeFastingState, isBreakingFast, useFastingConfig } from "@/lib/fasting";
 import { useMacroTargets, useFastingTarget, useFiberTarget, progressTowardRange, type MacroKey, type MacroTarget } from "@/lib/macro-targets";
@@ -642,7 +642,7 @@ function MacroChartCard({
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid {...CHART_GRID} />
             <XAxis dataKey="date" tickLine={false} axisLine={false} interval={0} fontSize={11}
-              tickFormatter={(v: string) => formatWeekdayTickNarrow(v)} />
+              tickFormatter={(v: string) => formatWeekdayTick(v)} />
             <YAxis
               tickLine={false}
               axisLine={false}
@@ -747,7 +747,7 @@ function FiberChartCard({
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid {...CHART_GRID} />
             <XAxis dataKey="date" tickLine={false} axisLine={false} interval={0} fontSize={11}
-              tickFormatter={(v: string) => formatWeekdayTickNarrow(v)} />
+              tickFormatter={(v: string) => formatWeekdayTick(v)} />
             <YAxis
               tickLine={false}
               axisLine={false}
@@ -851,7 +851,7 @@ function FastingCard({ stats }: { stats: NutritionStats | null }) {
           <BarChart data={chartData.slice(-7)} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid {...CHART_GRID} />
             <XAxis dataKey="date" tickLine={false} axisLine={false} interval={0} fontSize={11}
-              tickFormatter={(v: string) => formatWeekdayTickNarrow(v)} />
+              tickFormatter={(v: string) => formatWeekdayTick(v)} />
             <YAxis tickLine={false} axisLine={false} domain={[0, Math.ceil(fastingTarget.max / 0.85)]} width={36} fontSize={11} tickFormatter={(v: number) => `${v}h`} />
             <ReferenceArea y1={fastingTarget.min} y2={fastingTarget.max} fill={nutritionColor} fillOpacity={0.12} stroke="none" />
             <ReferenceLine y={fastingTarget.min} stroke={nutritionColor} strokeDasharray="4 4" strokeOpacity={0.6} />

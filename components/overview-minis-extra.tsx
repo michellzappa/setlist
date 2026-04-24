@@ -4,14 +4,9 @@ import useSWR from "swr";
 import React, { useMemo } from "react";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { SectionCard } from "@/components/overview-dashboard";
+import { SectionCard, ACCENT } from "@/components/overview-dashboard";
 import { getGutDay, getGutHistory } from "@/lib/api-gut";
-
-const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-function weekdayShort(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return WEEKDAY_SHORT[d.getDay()];
-}
+import { formatWeekdayTick } from "@/lib/date-utils";
 
 function GutMini() {
   const today = new Date().toISOString().slice(0, 10);
@@ -24,18 +19,17 @@ function GutMini() {
     { refreshInterval: 60_000 },
   );
 
-  const color = "var(--section-accent)";
+  const color = ACCENT;
   const day = data?.day;
   const history = data?.history;
   const movements = day?.movement_count ?? 0;
   const openDiscomfort = day?.open_discomfort ?? 0;
   const totalDiscomfort = day?.total_discomfort_h ?? 0;
-  const maxBlood = day?.max_blood ?? 0;
 
   const week = (history?.daily ?? []).slice(-7);
   const weekMovements = week.reduce((s, d) => s + (d.movements ?? 0), 0);
   const chartData = useMemo(
-    () => week.map((d) => ({ date: weekdayShort(d.date), v: d.movements ?? 0 })),
+    () => week.map((d) => ({ date: formatWeekdayTick(d.date), v: d.movements ?? 0 })),
     [week],
   );
   const chartConfig = { v: { label: "movements", color } } satisfies ChartConfig;
@@ -76,7 +70,7 @@ function GutMini() {
           </BarChart>
         </ChartContainer>
       </div>
-      {(openDiscomfort > 0 || totalDiscomfort > 0 || maxBlood > 0) && (
+      {(openDiscomfort > 0 || totalDiscomfort > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
           {openDiscomfort > 0 && (
             <span
@@ -89,11 +83,6 @@ function GutMini() {
           {totalDiscomfort > 0 && (
             <span className="rounded-full border border-border px-2 py-0.5 tabular-nums text-muted-foreground">
               {totalDiscomfort}h discomfort
-            </span>
-          )}
-          {maxBlood > 0 && (
-            <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-red-600">
-              blood {maxBlood}
             </span>
           )}
         </div>
