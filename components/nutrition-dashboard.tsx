@@ -619,7 +619,11 @@ function MacroChartCard({
   const yMax = Math.ceil(target.max * 1.2);
   const data = chartData.slice(-7);
   const barAnim = useBarAnimation();
-  const avg = data.length > 0 ? Math.round(data.reduce((s, d) => s + (d[dataKey] as number), 0) / data.length) : 0;
+  // Exclude today from the average — the day is incomplete (user may still
+  // be fasting or mid-eating-window), so including it skews the mean low.
+  const today = todayLocalISO();
+  const avgData = data.filter((d) => d.date !== today);
+  const avg = avgData.length > 0 ? Math.round(avgData.reduce((s, d) => s + (d[dataKey] as number), 0) / avgData.length) : 0;
 
   return (
     <Card>
@@ -724,7 +728,9 @@ function FiberChartCard({
   const yMax = Math.ceil(target.max * 1.2);
   const data = chartData.slice(-7);
   const barAnim = useBarAnimation();
-  const avg = data.length > 0 ? Math.round(data.reduce((s, d) => s + (d[dataKey] as number), 0) / data.length) : 0;
+  const today = todayLocalISO();
+  const avgData = data.filter((d) => d.date !== today);
+  const avg = avgData.length > 0 ? Math.round(avgData.reduce((s, d) => s + (d[dataKey] as number), 0) / avgData.length) : 0;
 
   return (
     <Card>
