@@ -17,18 +17,9 @@ import {
 import { getGutDay } from "@/lib/api-gut";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { relativeDayLabel } from "@/lib/date-utils";
+import { parseHHMM, idealBedtimeFromOura, formatHour } from "@/lib/sleep";
 
 type Dot = { hour: number; color: string; label: string };
-
-function parseHHMM(t: string | null | undefined): number | null {
-  if (!t) return null;
-  const m = /^(\d{1,2}):(\d{2})/.exec(t);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const mm = Number(m[2]);
-  if (Number.isNaN(h) || Number.isNaN(mm)) return null;
-  return h + mm / 60;
-}
 
 export function TodayTimeline() {
   const { date: today, isToday } = useSelectedDate();
@@ -168,13 +159,11 @@ export function TodayTimeline() {
   const ouraRows = data?.health?.oura ?? [];
   const todayOura = [...ouraRows].reverse().find((r) => r.date === today && r.wake_time);
   const wakeHour = todayOura ? parseHHMM(todayOura.wake_time) : null;
-  // Target bedtime = 16h awake window. Only render if it lands today.
-  const moonHour = wakeHour != null ? wakeHour + 16 : null;
+  // Ideal bedtime = median of the last 14 Oura bedtimes (excluding today).
+  // Only render if it falls before midnight on the same calendar day.
+  const moonHour = idealBedtimeFromOura(ouraRows, { days: 14, before: today });
   const moonInRange = moonHour != null && moonHour < 24;
-  const moonHHMM =
-    moonHour != null
-      ? `${String(Math.floor(moonHour) % 24).padStart(2, "0")}:${String(Math.round((moonHour % 1) * 60)).padStart(2, "0")}`
-      : null;
+  const moonHHMM = moonHour != null ? formatHour(moonHour) : null;
 
   const now = new Date();
   const nowHour = now.getHours() + now.getMinutes() / 60;
@@ -215,15 +204,22 @@ export function TodayTimeline() {
             </div>
           </>
         )}
-        {/* Target bedtime — 16h after wake */}
+        {/* Ideal bedtime — shaded band from bedtime to midnight, plus a moon emoji at the bedtime point */}
         {moonInRange && moonHour != null && (
-          <div
-            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] leading-none opacity-70"
-            style={{ left: `${pct(moonHour)}%` }}
-            title={`Target bedtime ${moonHHMM} (16h after wake)`}
-          >
-            {"\u{1F319}"}
-          </div>
+          <>
+            <div
+              className="absolute top-1 bottom-1 rounded-r-full bg-muted-foreground/10"
+              style={{ left: `${pct(moonHour)}%`, right: "4px" }}
+              title={`Asleep from ${moonHHMM}`}
+            />
+            <div
+              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] leading-none opacity-70"
+              style={{ left: `${pct(moonHour)}%` }}
+              title={`Ideal bedtime ${moonHHMM} (median of last 14 nights)`}
+            >
+              {"\u{1F319}"}
+            </div>
+          </>
         )}
         {/* Now marker — only meaningful when viewing today */}
         {isToday && (

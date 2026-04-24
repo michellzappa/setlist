@@ -4,6 +4,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { useSectionColor } from "@/hooks/use-sections";
+import { useDemoHref } from "@/hooks/use-demo-href";
 import {
   getSectionEvents,
   getCannabisDay,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/api";
 import type { CalendarEvent, OuraRow, SectionEvent, WithingsRow } from "@/lib/api";
 import { getGutDay } from "@/lib/api-gut";
+import { idealBedtimeFromOura, formatHour } from "@/lib/sleep";
 
 type Event = {
   hour: number | null;
@@ -47,7 +49,7 @@ function parseHHMM(t: string | null | undefined): number | null {
 function sourceToPath(source: string): string {
   if (source === "withings") return "/septena/body";
   if (source === "sleep") return "/septena/sleep";
-  return `/${source}`;
+  return `/septena/${source}`;
 }
 
 function localDay(iso: string): string {
@@ -67,6 +69,7 @@ function localTime(iso: string): string {
 
 export function TimelineDashboard() {
   const { date: today } = useSelectedDate();
+  const toHref = useDemoHref();
   const nutritionColor = useSectionColor("nutrition");
   const cannabisColor = useSectionColor("cannabis");
   const caffeineColor = useSectionColor("caffeine");
@@ -224,24 +227,20 @@ export function TimelineDashboard() {
     events.push({ hour: h, timeStr, color: calendarColor, label: ev.title, source: "calendar" });
   }
 
-  // Sleep (Oura) — matches today-timeline widget: use latest Oura row with
-  // wake_time for `today` as "woke up", and compute target bedtime as wake+16h.
-  // Read from /api/health/cache (merged sources) — the live /oura endpoint
-  // returns nulls for wake_time on recent days.
+  // Sleep (Oura) — "woke up" comes from the latest row's wake_time; the ideal
+  // bedtime is the median of the last 14 observed bedtimes (excluding today),
+  // so it reflects the user's actual circadian rhythm rather than a fixed
+  // awake-window assumption. Read from /api/health/cache since the live /oura
+  // endpoint returns nulls for wake_time on recent days.
   const ouraRows = (data?.health as { oura?: OuraRow[] } | null)?.oura ?? [];
   const todayOura = [...ouraRows].reverse().find((r) => r.date === today && r.wake_time);
   if (todayOura?.wake_time) {
     const wakeHour = parseHHMM(todayOura.wake_time);
     events.push({ hour: wakeHour, timeStr: todayOura.wake_time, color: sleepColor, label: "woke up ☀️", source: "sleep" });
-    if (wakeHour != null) {
-      const moonHour = wakeHour + 16;
-      if (moonHour < 24) {
-        const hh = Math.floor(moonHour) % 24;
-        const mm = Math.round((moonHour % 1) * 60);
-        const bedStr = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-        events.push({ hour: moonHour, timeStr: bedStr, color: sleepColor, label: "target bed 🌙", source: "sleep", future: true });
-      }
-    }
+  }
+  const moonHour = idealBedtimeFromOura(ouraRows, { days: 14, before: today });
+  if (moonHour != null && moonHour < 24) {
+    events.push({ hour: moonHour, timeStr: formatHour(moonHour), color: sleepColor, label: "ideal bed 🌙", source: "sleep", future: true });
   }
 
   // Gut — one event per bowel movement (matches widget)
@@ -289,7 +288,7 @@ export function TimelineDashboard() {
         {events.map((ev, i) => {
           const prev = events[i - 1];
           const showFutureGap = ev.future && !prev?.future;
-          const href = `${sourceToPath(ev.source)}?date=${today}`;
+          const href = toHref(`${sourceToPath(ev.source)}?date=${today}`);
           return (
             <div key={i}>
               {showFutureGap && (
