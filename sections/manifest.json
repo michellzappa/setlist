@@ -1,4 +1,14 @@
 {
+  "next": {
+    "key": "next",
+    "label": "Next",
+    "path": "/septena/next",
+    "apiBase": "",
+    "dataDir": "",
+    "color": "hsl(187,70%,38%)",
+    "tagline": "Timely actions for today",
+    "emoji": "⏭️"
+  },
   "training": {
     "key": "training",
     "label": "Training",

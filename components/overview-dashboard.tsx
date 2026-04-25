@@ -52,6 +52,7 @@ import { useMacroTargets, useFastingTarget } from "@/lib/macro-targets";
 import { cn } from "@/lib/utils";
 import { QuickLogModal } from "@/components/quick-log-modal";
 import { TodayTimeline } from "@/components/today-timeline";
+import { NextWidget } from "@/components/next-widget";
 import { LoadTimer } from "@/components/load-timer";
 import {
   ExerciseQuickLog,
@@ -1268,6 +1269,17 @@ function MetaActionBar() {
   const toHref = useDemoHref();
   const ACTIONS: { href: string; label: string; icon: React.ReactNode }[] = [
     {
+      href: "/septena/next",
+      label: "Next",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 5v14" />
+          <path d="m10 7 6 5-6 5V7Z" />
+          <path d="m17 7 3 5-3 5V7Z" />
+        </svg>
+      ),
+    },
+    {
       href: "/septena/insights",
       label: "Insights",
       icon: (
@@ -1474,6 +1486,8 @@ export function OverviewDashboard() {
         </div>
 
         <Link href={toHref("/septena/timeline")}><TodayTimeline /></Link>
+
+        <NextWidget />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleSections.map((s) => {

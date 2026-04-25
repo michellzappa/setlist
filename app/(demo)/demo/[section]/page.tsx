@@ -17,6 +17,7 @@ const BodyDashboard        = dynamic(() => import("@/components/body-dashboard")
 const WeatherDashboard     = dynamic(() => import("@/components/weather-dashboard").then((m) => m.WeatherDashboard));
 const CalendarDashboard    = dynamic(() => import("@/components/calendar-dashboard").then((m) => m.CalendarDashboard));
 const TimelineDashboard    = dynamic(() => import("@/components/timeline-dashboard").then((m) => m.TimelineDashboard));
+const NextDashboard        = dynamic(() => import("@/components/next-dashboard").then((m) => m.NextDashboard));
 const InsightsDashboard    = dynamic(() => import("@/components/insights-dashboard").then((m) => m.InsightsDashboard));
 const SettingsDashboard    = dynamic(() => import("@/components/settings-dashboard").then((m) => m.SettingsDashboard));
 
@@ -38,6 +39,7 @@ const WIRED: Record<string, React.ComponentType> = {
   weather:     WeatherDashboard,
   calendar:    CalendarDashboard,
   timeline:    TimelineDashboard,
+  next:        NextDashboard,
   insights:    InsightsDashboard,
   settings:    SettingsDashboard,
 };
