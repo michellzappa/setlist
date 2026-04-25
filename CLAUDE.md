@@ -78,7 +78,7 @@ Two halves: the wiring (stable, code) and the metadata (user-editable, settings)
 
 `GET /api/sections` merges both halves, ordered by `settings.section_order`, with `enabled` defaulting to data-folder-presence + integration reachability (see `api/paths.py:available_sections`) and user-explicit overrides winning when present.
 
-Registered keys: `exercise, nutrition, habits, chores, supplements, cannabis, caffeine, health, sleep, body, correlations` (correlations path is `/insights`).
+Registered keys: `next, training, nutrition, habits, chores, tasks, groceries, supplements, cannabis, caffeine, gut, health, sleep, body, weather, calendar, air`. Two of these are **derived views** rather than data-bearing sections — they have empty `apiBase`/`dataDir` and synthesize from existing endpoints: `next` (time-aware "what to do now") and `correlations` (path `/insights`, the cross-section correlations WIP).
 
 ## Backend routes
 
