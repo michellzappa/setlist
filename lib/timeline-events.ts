@@ -30,7 +30,7 @@ export type TimelineDayData = {
   caffeine: { entries?: { time: string; method?: string }[] } | null;
   training: { date: string; concluded_at?: string | null; exercise?: string }[];
   health: { oura?: OuraRow[] } | null;
-  habits: { buckets?: string[]; grouped?: Record<string, { done?: boolean; time?: string; name?: string }[]> } | null;
+  habits: { buckets?: readonly string[]; grouped?: Record<string, { done?: boolean; time?: string; name?: string }[]> } | null;
   chores: { chores?: { last_completed?: string; last_completed_time?: string; name?: string }[] } | null;
   supplements: { items?: { done?: boolean; time?: string; name?: string }[] } | null;
   withings: WithingsRow[];
