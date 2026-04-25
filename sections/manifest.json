@@ -43,6 +43,17 @@
     "tagline": "Recurring tasks, deferrable",
     "emoji": "\ud83e\uddf9"
   },
+  "tasks": {
+    "key": "tasks",
+    "label": "Tasks",
+    "path": "/septena/tasks",
+    "apiBase": "/api/tasks",
+    "dataDir": "Tasks/Items",
+    "folderName": "Tasks",
+    "color": "hsl(260,55%,55%)",
+    "tagline": "Inbox, projects & today",
+    "emoji": "\u2728"
+  },
   "groceries": {
     "key": "groceries",
     "label": "Groceries",

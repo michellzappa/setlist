@@ -25,6 +25,7 @@ from api.routers import (
     sections,
     settings,
     supplements,
+    tasks,
     weather,
 )
 
@@ -56,6 +57,7 @@ app.include_router(cannabis.router)
 app.include_router(caffeine.router)
 app.include_router(health.router)
 app.include_router(chores.router)
+app.include_router(tasks.router)
 app.include_router(groceries.router)
 app.include_router(weather.router)
 app.include_router(calendar.router)

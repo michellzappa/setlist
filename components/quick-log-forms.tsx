@@ -9,6 +9,7 @@ import {
   addCaffeineEntry,
   addCannabisEntry,
   completeChore,
+  createTask,
   getCaffeineConfig,
   getCaffeineSessions,
   getCannabisActiveCapsule,
@@ -20,6 +21,7 @@ import {
   getNutritionEntries,
   getSettings,
   getSupplementDay,
+  getTaskAreas,
   saveNutritionEntry,
   startCannabisCapsule,
   toggleHabit,
@@ -862,6 +864,81 @@ export function GutQuickLog({ onDone }: { onDone: () => void }) {
       </div>
 
       <SaveBar onCancel={onDone} onSave={handleSave} saving={saving} accent={accent} />
+    </div>
+  );
+}
+
+// ── Tasks ────────────────────────────────────────────────────────────────────
+
+export function TasksQuickLog({ onDone }: { onDone: () => void }) {
+  const accent = useSectionColor("tasks");
+  const { data: areas } = useSWR("quicklog-tasks-areas", () => getTaskAreas());
+  const [title, setTitle] = useState("");
+  const [area, setArea] = useState<string>("");
+  const [today, setToday] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    const t = title.trim();
+    if (!t || saving) return;
+    setSaving(true);
+    HAPTIC();
+    try {
+      await createTask({
+        title: t,
+        area: area || null,
+        today,
+      });
+      revalidateAfterLog("tasks");
+      showToast("Task added", { description: t });
+      onDone();
+    } finally {
+      setSaving(false);
+    }
+  }, [title, area, today, saving, onDone]);
+
+  return (
+    <div className="space-y-3">
+      <input
+        autoFocus
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && title.trim()) {
+            e.preventDefault();
+            handleSave();
+          }
+        }}
+        placeholder="What needs doing?"
+        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none focus:border-[color:var(--accent)]"
+        style={{ ["--accent" as string]: accent } as React.CSSProperties}
+      />
+
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">Area</span>
+          <select
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+          >
+            <option value="">—</option>
+            {(areas?.areas ?? []).map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.emoji ? `${a.emoji} ` : ""}
+                {a.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 self-end pb-1.5 text-sm">
+          <input type="checkbox" checked={today} onChange={(e) => setToday(e.target.checked)} />
+          <span>Move to Today</span>
+        </label>
+      </div>
+
+      <SaveBar onCancel={onDone} onSave={handleSave} saving={saving} accent={accent} disabled={!title.trim()} />
     </div>
   );
 }

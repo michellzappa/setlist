@@ -77,6 +77,12 @@ CAFFEINE_DIR = DATA_ROOT / "Caffeine/Log"
 
 CHORES_DEFS_DIR = DATA_ROOT / "Chores/Definitions"
 CHORES_LOG_DIR = DATA_ROOT / "Chores/Log"
+
+TASKS_DIR = DATA_ROOT / "Tasks"
+TASKS_AREAS_PATH = DATA_ROOT / "Tasks/Areas.yaml"
+TASKS_PROJECTS_DIR = DATA_ROOT / "Tasks/Projects"
+TASKS_ITEMS_DIR = DATA_ROOT / "Tasks/Items"
+TASKS_EVENTS_DIR = DATA_ROOT / "Tasks/Events"
 GROCERIES_DIR = DATA_ROOT / "Groceries"
 GROCERIES_PATH = DATA_ROOT / "Groceries/groceries.yaml"
 GROCERIES_LOG_DIR = DATA_ROOT / "Groceries/Log"

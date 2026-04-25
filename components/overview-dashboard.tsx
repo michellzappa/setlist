@@ -36,6 +36,8 @@ import {
   getChoreHistory,
   getGroceries,
   getGroceryHistory,
+  getTaskCounts,
+  getTaskHistory,
   getWeather,
   getCalendar,
   getAirSummary,
@@ -60,6 +62,7 @@ import {
   SupplementsQuickLog,
   ChoresQuickLog,
   GutQuickLog,
+  TasksQuickLog,
 } from "@/components/quick-log-forms";
 import type { SectionKey } from "@/lib/sections";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
@@ -1180,6 +1183,61 @@ function AirMini() {
   );
 }
 
+// ── Tasks Mini ──────────────────────────────────────────────────────────────
+
+function TasksMini() {
+  const { data, isLoading } = useSWR("overview-tasks", async () => {
+    const [counts, history] = await Promise.all([getTaskCounts(), getTaskHistory(7)]);
+    return { counts, history };
+  }, { refreshInterval: 60_000 });
+
+  const color = ACCENT;
+  const counts = data?.counts;
+  const todayCount = counts?.today_count ?? 0;
+  const reviewCount = counts?.review_count ?? 0;
+  const openCount = counts?.open_count ?? 0;
+
+  // 7-day "done" counts feed the tile's bar chart so it matches the
+  // chores/habits pattern: bars climb as the user completes things.
+  const chartData = useMemo(() => weekChartData(data?.history.daily, "done"), [data]);
+  const chartConfig = simpleChartConfig("done");
+
+  const doneThisWeek = (data?.history.daily ?? []).reduce((s, d) => s + d.done, 0);
+
+  return (
+    <SectionCard section="tasks" loading={isLoading}>
+      <div className="grid grid-cols-2 gap-3">
+        <MiniStat
+          label="Today"
+          value={todayCount || "—"}
+          color={color}
+        />
+        <MiniStat
+          label="To review"
+          value={reviewCount}
+          color={reviewCount > 0 ? SECTION_ACCENT_STRONG : color}
+        />
+      </div>
+
+      {openCount > 0 && (
+        <ProgressRow
+          label={`Open (${openCount})`}
+          current={String(todayCount)}
+          total={String(openCount)}
+          color={color}
+          display={`${todayCount}/${openCount} in today`}
+        />
+      )}
+
+      {chartData.length > 0 && (
+        <MiniBarChart label={`7-day done (${doneThisWeek})`} data={chartData} chartConfig={chartConfig}>
+          <Bar dataKey="v" fill={color} radius={[3, 3, 0, 0]} />
+        </MiniBarChart>
+      )}
+    </SectionCard>
+  );
+}
+
 // ── Section card shell ──────────────────────────────────────────────────────
 
 const SECTION_MINI: Record<string, React.FC> = {
@@ -1187,6 +1245,7 @@ const SECTION_MINI: Record<string, React.FC> = {
   nutrition: NutritionMini,
   habits: HabitsMini,
   chores: ChoresMini,
+  tasks: TasksMini,
   groceries: GroceriesMini,
   supplements: SupplementsMini,
   health: HealthMini,
@@ -1297,6 +1356,7 @@ const QUICK_LOG: Partial<
   habits:      { title: "Check habits",   Component: HabitsQuickLog,      icon: "check" },
   supplements: { title: "Supplements",    Component: SupplementsQuickLog, icon: "check" },
   chores:      { title: "Chores",         Component: ChoresQuickLog,      icon: "check" },
+  tasks:       { title: "New task",       Component: TasksQuickLog,       icon: "plus"  },
   gut:         { title: "Log gut",        Component: GutQuickLog,         icon: "plus"  },
 };
 

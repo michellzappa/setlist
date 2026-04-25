@@ -41,7 +41,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         },
     ],
     "section_order": [
-        "training", "nutrition", "habits", "chores", "groceries", "supplements",
+        "next", "training", "nutrition", "habits", "chores", "tasks", "groceries", "supplements",
         "cannabis", "caffeine", "gut", "health", "sleep", "body",
         "weather", "calendar", "air",
     ],
@@ -81,10 +81,12 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "sections": {
         # Color values come from the curated Tailwind-500 palette in
         # `lib/palette.ts`; update both lists together if you add a swatch.
+        "next":         {"label": "Next",         "emoji": "⏭️", "color": "#0891b2",  "tagline": "Timely actions for today", "show_in_nav": True, "show_on_dashboard": False},
         "training":     {"label": "Training",     "emoji": "🏋️", "color": "#f97316",  "tagline": "Sessions, progressions & PRs"},
         "nutrition":    {"label": "Nutrition",    "emoji": "🍱", "color": "#f59e0b",  "tagline": "Meals, macros & fasting"},
         "habits":       {"label": "Habits",       "emoji": "✅", "color": "#3b82f6",  "tagline": "Morning, afternoon & evening routines"},
         "chores":       {"label": "Chores",       "emoji": "🧹", "color": "#0ea5e9",  "tagline": "Recurring tasks, deferrable"},
+        "tasks":        {"label": "Tasks",        "emoji": "✨", "color": "#8b5cf6",  "tagline": "Inbox, projects & today"},
         "groceries":    {"label": "Groceries",    "emoji": "🛒", "color": "#10b981",  "tagline": "Smart grocery checklist"},
         "supplements":  {"label": "Supplements",  "emoji": "💊", "color": "#ec4899",  "tagline": "Daily stack & streaks"},
         "cannabis":     {"label": "Cannabis",     "emoji": "🌿", "color": "#22c55e",  "tagline": "Log sessions, strains & usage"},

@@ -1115,6 +1115,176 @@ export async function deleteChoreDefinition(choreId: string) {
   return del<{ ok: boolean; id: string }>(`/api/chores/definitions/${encodeURIComponent(choreId)}`);
 }
 
+// ── Tasks ───────────────────────────────────────────────────────────────
+// One-off intentional work, modelled on Things 3. Recurring work stays in
+// Chores. See api/routers/tasks.py for the on-disk schema.
+
+export type TaskStatus = "open" | "done" | "cancelled" | "someday";
+
+export type Task = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  created: string | null;
+  scheduled: string | null;
+  today: boolean;
+  today_set_on: string | null;
+  completed_at: string | null;
+  area: string | null;
+  project: string | null;
+  notes: string | null;
+};
+
+export type TaskView = "today" | "inbox" | "upcoming" | "anytime" | "someday" | "logbook" | "all";
+
+export type TaskListResponse = {
+  view: TaskView;
+  today: string;
+  items: Task[];
+  /** Only present on view=today: scheduled-on-or-before-today tasks the user
+   *  hasn't yet pulled into Today. The "scheduled earlier" review block. */
+  review?: Task[];
+};
+
+export type TaskCounts = {
+  today: string;
+  today_count: number;
+  review_count: number;
+  inbox_count: number;
+  upcoming_count: number;
+  anytime_count: number;
+  someday_count: number;
+  open_count: number;
+};
+
+export type TaskArea = { id: string; title: string; emoji: string };
+export type TaskProject = {
+  id: string;
+  title: string;
+  status: "active" | "done" | "cancelled";
+  area: string | null;
+  created: string | null;
+  completed_at: string | null;
+  notes: string | null;
+};
+
+export async function getTasks(view: TaskView, opts?: { area?: string; project?: string; days?: number }) {
+  const qs = new URLSearchParams({ view });
+  if (opts?.area) qs.set("area", opts.area);
+  if (opts?.project) qs.set("project", opts.project);
+  if (opts?.days) qs.set("days", String(opts.days));
+  return request<TaskListResponse>(`/api/tasks/list?${qs.toString()}`);
+}
+
+export async function getTaskCounts() {
+  return request<TaskCounts>("/api/tasks/counts");
+}
+
+export type TaskHistoryDay = {
+  date: string;
+  made: number;
+  done: number;
+  deferred: number;
+  cancelled: number;
+};
+
+export type TaskHistoryAreaBucket = {
+  area: string;
+  made: number;
+  done: number;
+  deferred: number;
+};
+
+export type TaskHistory = {
+  daily: TaskHistoryDay[];
+  by_area: TaskHistoryAreaBucket[];
+  today: string;
+  window_days: number;
+};
+
+export async function getTaskHistory(days = 30) {
+  return request<TaskHistory>(`/api/tasks/history?days=${days}`);
+}
+
+export type CreateTaskInput = {
+  title: string;
+  area?: string | null;
+  project?: string | null;
+  scheduled?: string | null;
+  today?: boolean;
+  notes?: string | null;
+  status?: "open" | "someday";
+};
+
+export async function createTask(input: CreateTaskInput) {
+  return postJSON<{ ok: boolean } & Task>("/api/tasks/create", input);
+}
+
+export type UpdateTaskInput = {
+  id: string;
+  title?: string;
+  notes?: string | null;
+  scheduled?: string | null;
+  area?: string | null;
+  project?: string | null;
+};
+
+export async function updateTask(input: UpdateTaskInput) {
+  return postJSON<{ ok: boolean } & Task>("/api/tasks/update", input);
+}
+
+export async function completeTask(id: string) {
+  return postJSON<{ ok: boolean } & Task>("/api/tasks/complete", { id });
+}
+
+export async function uncompleteTask(id: string) {
+  return postJSON<{ ok: boolean } & Task>("/api/tasks/uncomplete", { id });
+}
+
+export async function cancelTask(id: string) {
+  return postJSON<{ ok: boolean } & Task>("/api/tasks/cancel", { id });
+}
+
+export async function moveTaskToToday(id: string, today: boolean) {
+  return postJSON<{ ok: boolean } & Task>("/api/tasks/move-to-today", { id, today });
+}
+
+export async function scheduleTask(id: string, scheduled: string | null) {
+  return postJSON<{ ok: boolean } & Task>("/api/tasks/schedule", { id, scheduled });
+}
+
+export async function moveTaskToSomeday(id: string) {
+  return postJSON<{ ok: boolean } & Task>("/api/tasks/someday", { id });
+}
+
+export async function deleteTask(id: string) {
+  return del<{ ok: boolean; id: string }>(`/api/tasks/${encodeURIComponent(id)}`);
+}
+
+export async function getTaskAreas() {
+  return request<{ areas: TaskArea[] }>("/api/tasks/areas");
+}
+
+export async function replaceTaskAreas(areas: TaskArea[]) {
+  return putJSON<{ ok: boolean; areas: TaskArea[] }>("/api/tasks/areas", { areas });
+}
+
+export async function getTaskProjects() {
+  return request<{ projects: TaskProject[] }>("/api/tasks/projects");
+}
+
+export async function createTaskProject(input: { title: string; id?: string; area?: string | null; notes?: string | null }) {
+  return postJSON<{ ok: boolean } & TaskProject>("/api/tasks/projects", input);
+}
+
+export async function updateTaskProject(id: string, patch: Partial<Omit<TaskProject, "id" | "created">>) {
+  return putJSON<{ ok: boolean } & TaskProject>(`/api/tasks/projects/${encodeURIComponent(id)}`, patch);
+}
+
+export async function deleteTaskProject(id: string) {
+  return del<{ ok: boolean; id: string }>(`/api/tasks/projects/${encodeURIComponent(id)}`);
+}
+
 export async function getSupplementConfig() {
   return request<{ supplements: Array<{ id: string; name: string; emoji: string }>; total: number }>(
     "/api/supplements/config",

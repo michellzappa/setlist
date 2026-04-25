@@ -240,6 +240,46 @@ Each active "capsule" is a dose unit (~0.15g, split across ~3 uses). Active-caps
 
 Definitions live in `Chores/Definitions/*.md` (one note per chore with `cadence_days`); events live in `Chores/Log/*.md` as either `complete` or `defer` entries. Current due date is derived by replaying events chronologically: a `complete` sets due = event.date + cadence_days; a `defer` sets due = new_due_date. No "current state" is persisted — the log is authoritative.
 
+### Tasks — one-off intentional work, weekly reflection
+
+Things-3-flavored task system. Recurring work stays in **Chores**; daily habits stay in **Habits**; Tasks owns one-off intentional work ("call the dentist", "plan trip to X"). Mutable long-lived items, NOT events — status, scheduled date, and the `today` flag flip on the same file. Filename is set at creation and never renamed.
+
+**Layout:**
+```
+Tasks/
+  Areas.yaml                         # ordered list: [{id, title, emoji?}]
+  Projects/{project-id}.md           # one file per project (finite outcome)
+  Items/{YYYY}/{MM}/{task-id}.md     # one file per task, sharded by created-month
+  Events/{YYYY-MM}.jsonl             # append-only audit log feeding /history
+```
+
+**Task frontmatter** (any agent can drop a file conforming to this and it'll surface in the right view next request):
+
+```yaml
+---
+id: 20260425-call-the-dentist        # {YYYYMMDD}-{slug}, immutable, also the filename
+title: Call the dentist
+status: open                          # open | done | cancelled | someday
+created: 2026-04-25
+scheduled: 2026-05-01                 # optional; "show up in Today on this date"
+today: false                          # optional; "I commit to doing this today" (the verb)
+today_set_on: 2026-04-25              # set when today=true; lazy cleanup on next-day load
+completed_at: 2026-04-25T14:30:00     # ISO datetime when status flipped to done
+area: home                            # optional → Areas.yaml key
+project: kitchen-reno                 # optional → Projects/{id}.md
+section: tasks
+---
+Free-form notes go here as markdown body.
+```
+
+**Project frontmatter:** `id, title, status (active|done|cancelled), area, created, completed_at`. Project completion is manual — never auto-derived from child tasks.
+
+**Views are derived per request** from the items + events corpus. `view=today` returns `today=true` items in `items` plus a `review` array of scheduled-on-or-before-today tasks that the user hasn't yet pulled into Today (the "scheduled earlier" review block — Today is a verb, not a deadline).
+
+**Event log feeds the weekly histogram:** every mutation appends one JSONL record `{ts, date, action, task_id, area, project}`. Actions: `made` · `done` · `cancelled` · `deferred` (scheduled into the future or moved to someday) · `today` (pulled into today). `GET /api/tasks/history?days=N` returns per-day counts of made/done/deferred/cancelled plus per-area weekly totals.
+
+**Inbox is implicit** — a task with no area, no project, no scheduled, and not flagged today is in the Inbox. There is no `area: inbox` sentinel.
+
 ### Health / Sleep / Body — read-only metric views
 
 Three separate frontend pages backed by the same `/api/health` router. Data sources: Health Auto Export drops `~/.config/openclaw/health_auto_export/latest.json` (`data.data.metrics[]` with `name`, `units`, `data[]` of `{date, qty, source}`); Oura API and Withings API feed sleep and body-composition series. `api/routers/health.py:APPLE_METRIC_KEYS` and `APPLE_SLEEP_KEYS` define which HAE metrics surface; `_aggregate_apple_days` buckets per-minute metrics (`step_count`, `active_energy`, `flights_climbed`, `walking_running_distance`, `apple_exercise_time`) as daily sums, episodic metrics (HRV, VO₂, resting HR, respiratory rate, SpO₂, cardio recovery) as latest-per-day, heart rate as the per-day average.
