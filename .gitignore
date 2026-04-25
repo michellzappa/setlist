@@ -16,6 +16,7 @@
 # next.js
 /.next/
 **/.next/
+/.next-codex*/
 /.next-screenshots/
 /out/
 
