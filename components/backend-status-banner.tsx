@@ -66,7 +66,8 @@ export function BackendStatusBanner() {
   return (
     <div
       role="alert"
-      className="w-full max-w-full overflow-hidden bg-zinc-800 text-zinc-100 px-4 py-2 text-sm text-center shadow-sm pt-[calc(env(safe-area-inset-top)+0.5rem)]"
+      className="w-full max-w-full overflow-hidden bg-zinc-800 text-zinc-100 px-4 py-2 text-sm text-center shadow-sm"
+      style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.5rem)" }}
     >
       <span className="font-semibold">Backend offline</span>
       <span className="hidden sm:inline"> — start it with </span>
