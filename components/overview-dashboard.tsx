@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -54,17 +55,7 @@ import { QuickLogModal } from "@/components/quick-log-modal";
 import { TodayTimeline } from "@/components/today-timeline";
 import { NextWidget } from "@/components/next-widget";
 import { LoadTimer } from "@/components/load-timer";
-import {
-  ExerciseQuickLog,
-  NutritionQuickLog,
-  CaffeineQuickLog,
-  CannabisQuickLog,
-  HabitsQuickLog,
-  SupplementsQuickLog,
-  ChoresQuickLog,
-  GutQuickLog,
-  TasksQuickLog,
-} from "@/components/quick-log-forms";
+import { QUICK_LOG, type QuickLogIcon } from "@/lib/quick-log-registry";
 import type { SectionKey } from "@/lib/sections";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
 import {
@@ -1331,8 +1322,6 @@ function MetaActionBar() {
  *  "plus" reads as "log a new entry" (meals, doses, sessions). "check" reads
  *  as "tick off the next item from a fixed list" (habits, supplements,
  *  chores) — the action there isn't creation, it's completion. */
-type QuickLogIcon = "plus" | "check" | "play";
-
 function QuickLogGlyph({ icon }: { icon: QuickLogIcon }) {
   if (icon === "check") {
     return (
@@ -1355,22 +1344,6 @@ function QuickLogGlyph({ icon }: { icon: QuickLogIcon }) {
   );
 }
 
-/** Sections that expose a quick-log affordance from the homepage tile.
- *  Each entry is (title, component, icon). Component is rendered inside the
- *  shared QuickLogModal; forms call globalMutate() on their own SWR keys. */
-const QUICK_LOG: Partial<
-  Record<SectionKey, { title: string; Component: React.FC<{ onDone: () => void }>; icon: QuickLogIcon }>
-> = {
-  training:    { title: "Start session",  Component: ExerciseQuickLog,    icon: "play"  },
-  nutrition:   { title: "Log meal",       Component: NutritionQuickLog,   icon: "plus"  },
-  caffeine:    { title: "Log caffeine",   Component: CaffeineQuickLog,    icon: "plus"  },
-  cannabis:    { title: "Log cannabis",   Component: CannabisQuickLog,    icon: "plus"  },
-  habits:      { title: "Check habits",   Component: HabitsQuickLog,      icon: "check" },
-  supplements: { title: "Supplements",    Component: SupplementsQuickLog, icon: "check" },
-  chores:      { title: "Chores",         Component: ChoresQuickLog,      icon: "check" },
-  tasks:       { title: "New task",       Component: TasksQuickLog,       icon: "plus"  },
-  gut:         { title: "Log gut",        Component: GutQuickLog,         icon: "plus"  },
-};
 
 const QuickLogContext = createContext<((key: SectionKey) => void) | null>(null);
 
@@ -1461,11 +1434,20 @@ export function OverviewDashboard() {
     const messages = phase?.messages?.length ? phase.messages : [{ greeting: phase?.label ?? "", subtitle: "" }];
     return messages[Math.floor(Math.random() * messages.length)];
   }, [phases]);
+  const router = useRouter();
   const [openKey, setOpenKey] = useState<SectionKey | null>(null);
   const active = openKey ? QUICK_LOG[openKey] : null;
   const allSections = useSections();
   const activeSection = openKey ? allSections.find((s) => s.key === openKey) ?? null : null;
   const toHref = useDemoHref();
+  const handleQuickLog = useCallback((key: SectionKey) => {
+    const entry = QUICK_LOG[key];
+    if (entry && "href" in entry) {
+      router.push(toHref(entry.href));
+      return;
+    }
+    setOpenKey(key);
+  }, [router, toHref]);
   // Home tiles respect user's section_order from settings. Correlations
   // is excluded — it's a meta view on the bottom action row, not a
   // section to log into.
@@ -1474,7 +1456,7 @@ export function OverviewDashboard() {
   );
 
   return (
-    <QuickLogContext.Provider value={setOpenKey}>
+    <QuickLogContext.Provider value={handleQuickLog}>
       <>
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
@@ -1487,9 +1469,8 @@ export function OverviewDashboard() {
 
         <Link href={toHref("/septena/timeline")}><TodayTimeline /></Link>
 
-        <NextWidget />
-
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <NextWidget />
           {visibleSections.map((s) => {
             const Mini = SECTION_MINI[s.key];
             return Mini ? <Mini key={s.key} /> : null;
@@ -1500,7 +1481,7 @@ export function OverviewDashboard() {
 
         <LoadTimer />
 
-        {active && activeSection && (
+        {active && activeSection && "Component" in active && (
           <QuickLogModal
             open
             onClose={() => setOpenKey(null)}
