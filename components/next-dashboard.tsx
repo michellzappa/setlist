@@ -33,7 +33,6 @@ import { SECTIONS, type SectionKey } from "@/lib/sections";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { useSectionColor, useSections } from "@/hooks/use-sections";
 import {
-  formatMinutes,
   useNextActions,
   type ModalKey,
   type NextAction,
@@ -254,7 +253,7 @@ export function NextDashboard() {
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [openModal, setOpenModal] = useState<ModalKey | null>(null);
 
-  const { data, isLoading, mutate, computed, nowMinutes, skips } = useNextActions(selectedDate, isToday);
+  const { data, isLoading, mutate, computed, skips } = useNextActions(selectedDate, isToday);
   const skip = (action: NextAction) => skips.skip(action.id);
 
   const colorMap = useMemo(() => {
@@ -290,25 +289,9 @@ export function NextDashboard() {
 
   const openAccent = openModal ? colorMap.get(openModal) ?? nextAccent : nextAccent;
   const OpenForm = openModal === "nutrition" ? NutritionQuickLog : openModal === "caffeine" ? CaffeineQuickLog : null;
-  const activeMeta = computed.activePhase;
 
   return (
     <SectionTheme sectionKey="next" className="space-y-6">
-      <div className="rounded-2xl border border-border bg-background p-4 shadow-sm sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {activeMeta ? `${activeMeta.emoji} ${activeMeta.label}` : "Today"}
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Next</h1>
-          </div>
-          <div className="flex items-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
-            <Clock3 className="h-3.5 w-3.5" />
-            <span>{isToday ? formatMinutes(nowMinutes) : selectedDate}</span>
-          </div>
-        </div>
-      </div>
-
       {isLoading && !data ? (
         <div className="rounded-2xl border border-border bg-background p-5 text-sm text-muted-foreground shadow-sm">
           Loading…
@@ -420,20 +403,30 @@ export function NextDashboard() {
               <p className="text-sm text-muted-foreground">Nothing checked off yet.</p>
             ) : (
               <div className="space-y-2">
-                {computed.done.map((action) => (
-                  <div key={action.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-sm">
-                    <span
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white"
-                      style={{ backgroundColor: colorMap.get(action.section) ?? nextAccent }}
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{action.title}</span>
-                      <span className="block text-xs text-muted-foreground">{action.detail}</span>
-                    </span>
-                  </div>
-                ))}
+                {computed.done.map((action) => {
+                  const accent = colorMap.get(action.section) ?? nextAccent;
+                  return (
+                    <div key={action.id} className="flex min-w-0 items-stretch gap-2">
+                      <div
+                        aria-hidden
+                        className="w-1 shrink-0 self-stretch rounded-full"
+                        style={{ backgroundColor: accent }}
+                      />
+                      <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-sm">
+                        <span
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white"
+                          style={{ backgroundColor: accent }}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{action.title}</span>
+                          <span className="block text-xs text-muted-foreground">{action.detail}</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
