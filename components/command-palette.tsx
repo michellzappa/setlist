@@ -9,16 +9,23 @@ import { useNavSections, useSections } from "@/hooks/use-sections";
 import { useDemoHref } from "@/hooks/use-demo-href";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { Emoji } from "@/components/ui/emoji";
+import { SeptenaMark } from "@/components/septena-mark";
 import { QUICK_LOG, type QuickLogEntry } from "@/lib/quick-log-registry";
 import { QuickLogModal } from "@/components/quick-log-modal";
 import { revalidateAfterLog } from "@/components/quick-log-forms";
 import {
   getHabitDay,
+  getNutritionEntries,
   getSupplementDay,
   toggleHabit,
   toggleSupplement,
+  type NutritionEntry,
 } from "@/lib/api";
+import { duplicateNutritionEntry } from "@/lib/nutrition-duplicate";
+import { daysAgoLocalISO } from "@/lib/date-utils";
+import { showToast } from "@/lib/toast";
 import type { SectionKey } from "@/lib/sections";
+import { haptic } from "@/lib/haptics";
 
 /** Global ⌘K palette. Three groups, all sourced dynamically:
  *
@@ -52,6 +59,11 @@ export function CommandPalette() {
   const suppsSWR = useSWR(
     open ? ["quicklog-supplements", date] : null,
     () => getSupplementDay(date),
+    { revalidateOnFocus: false },
+  );
+  const nutritionSWR = useSWR(
+    open ? "quicklog-nutrition" : null,
+    () => getNutritionEntries(daysAgoLocalISO(30)),
     { revalidateOnFocus: false },
   );
 
@@ -135,6 +147,52 @@ export function CommandPalette() {
       done: s.done,
     })) ?? [];
 
+  // ── Recent meals (deduped by foods[0], newest first) ──────────────────
+  const mealItems = (() => {
+    const data = nutritionSWR.data;
+    if (!data) return [] as Array<{
+      key: string;
+      entry: NutritionEntry;
+      label: string;
+      sub: string;
+      emoji: string;
+      color: string;
+      value: string;
+    }>;
+    const sorted = [...data].sort((a, b) => {
+      const ka = `${a.date} ${a.time ?? ""}`;
+      const kb = `${b.date} ${b.time ?? ""}`;
+      return kb.localeCompare(ka);
+    });
+    const seen = new Set<string>();
+    const out: Array<{
+      key: string;
+      entry: NutritionEntry;
+      label: string;
+      sub: string;
+      emoji: string;
+      color: string;
+      value: string;
+    }> = [];
+    for (const e of sorted) {
+      const key = (e.foods[0] ?? "").toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const sub = `${Math.round(e.protein_g)}P · ${Math.round(e.fat_g ?? 0)}F · ${Math.round(e.carbs_g ?? 0)}C · ${Math.round(e.kcal ?? 0)}kcal`;
+      out.push({
+        key: `meal-${e.file}`,
+        entry: e,
+        label: e.foods[0] ?? "Meal",
+        sub,
+        emoji: e.emoji?.trim() || emojiFor("nutrition"),
+        color: accentFor("nutrition"),
+        value: `meal ${e.foods.join(" ")} ${Math.round(e.kcal ?? 0)}kcal`,
+      });
+      if (out.length >= 30) break;
+    }
+    return out;
+  })();
+
   // ── Handlers ──────────────────────────────────────────────────────────
   const goPath = (path: string) => {
     router.push(toHref(path));
@@ -152,6 +210,7 @@ export function CommandPalette() {
   };
 
   const flipHabit = async (id: string, done: boolean) => {
+    haptic();
     try {
       await toggleHabit(date, id, !done);
     } finally {
@@ -159,7 +218,19 @@ export function CommandPalette() {
     }
   };
 
+  const duplicateMeal = async (entry: NutritionEntry) => {
+    haptic();
+    setOpen(false);
+    try {
+      await duplicateNutritionEntry(entry, date);
+      showToast("Logged again", { description: entry.foods[0] });
+    } catch {
+      showToast("Failed to log meal");
+    }
+  };
+
   const flipSupplement = async (id: string, done: boolean) => {
+    haptic();
     try {
       await toggleSupplement(date, id, !done);
     } finally {
@@ -208,6 +279,11 @@ export function CommandPalette() {
                       key={item.key}
                       value={`navigate ${item.label} ${item.key}`}
                       emoji={item.emoji}
+                      icon={
+                        item.key === "__home" ? (
+                          <SeptenaMark className="h-[19px] w-[19px]" variant="spectrum" />
+                        ) : undefined
+                      }
                       color={item.color}
                       label={item.label}
                       onSelect={() => goPath(item.path)}
@@ -227,6 +303,22 @@ export function CommandPalette() {
                     />
                   ))}
                 </Command.Group>
+
+                {mealItems.length > 0 && (
+                  <Command.Group heading="Recent meals">
+                    {mealItems.map((m) => (
+                      <PaletteItem
+                        key={m.key}
+                        value={m.value}
+                        emoji={m.emoji}
+                        color={m.color}
+                        label={m.label}
+                        sub={m.sub}
+                        onSelect={() => duplicateMeal(m.entry)}
+                      />
+                    ))}
+                  </Command.Group>
+                )}
 
                 {habitItems.length > 0 && (
                   <Command.Group heading="Today · habits">
@@ -288,15 +380,19 @@ export function CommandPalette() {
 function PaletteItem({
   value,
   emoji,
+  icon,
   color,
   label,
+  sub,
   check,
   onSelect,
 }: {
   value: string;
-  emoji: string;
+  emoji?: string;
+  icon?: React.ReactNode;
   color: string;
   label: string;
+  sub?: string;
   check?: boolean;
   onSelect: () => void;
 }) {
@@ -313,9 +409,16 @@ function PaletteItem({
           color,
         }}
       >
-        <Emoji>{emoji || "·"}</Emoji>
+        {icon ?? <Emoji>{emoji || "·"}</Emoji>}
       </span>
-      <span className="flex-1">{label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">{label}</span>
+        {sub && (
+          <span className="block truncate text-[11px] tabular-nums text-muted-foreground">
+            {sub}
+          </span>
+        )}
+      </span>
       {typeof check === "boolean" && (
         <span
           aria-label={check ? "done" : "not done"}

@@ -1,14 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
 import { TimeInput } from "@/components/time-input";
 import useSWR, { mutate as globalMutate } from "swr";
+import { duplicateNutritionEntry } from "@/lib/nutrition-duplicate";
 import { addGutEntry, getGutConfig } from "@/lib/api-gut";
 import {
   addCaffeineEntry,
   addCannabisEntry,
+  addHabit,
+  addSupplement,
   completeChore,
+  createChoreDefinition,
   createTask,
   getCaffeineConfig,
   getCaffeineSessions,
@@ -22,7 +27,6 @@ import {
   getSettings,
   getSupplementDay,
   getTaskAreas,
-  saveNutritionEntry,
   startCannabisCapsule,
   toggleHabit,
   toggleSupplement,
@@ -37,8 +41,11 @@ import { useSectionColor } from "@/hooks/use-sections";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import {
   DEFAULT_DAY_PHASES,
+  DEFAULT_DAY_PHASE_BOUNDARIES,
+  DEFAULT_DAY_END,
   activePhaseId,
   orderPhasesByCurrent,
+  resolvePhases,
   timeLeftInPhase,
 } from "@/lib/day-phases";
 import { SESSION_META, type SessionType } from "@/lib/session-templates";
@@ -46,6 +53,7 @@ import { daysAgoLocalISO, nowHHMM } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 import { TaskRow } from "@/components/tasks";
+import { haptic } from "@/lib/haptics";
 
 // ── Shared primitives ────────────────────────────────────────────────────────
 
@@ -114,11 +122,78 @@ function PillGroup<T extends string>({
   );
 }
 
-const HAPTIC = () => {
-  try {
-    (navigator as Navigator & { vibrate?: (pattern: number | number[]) => boolean }).vibrate?.(8);
-  } catch {}
-};
+// Collapsed "+ New …" affordance that expands to a name input + optional
+// extra controls (cadence, bucket, …) + Save/Cancel. Used inside fixed-set
+// quick-log modals (chores, habits, supplements) so a new definition can be
+// created without leaving the dialog.
+function InlineNewItem({
+  collapsedLabel,
+  placeholder = "Name",
+  accent,
+  onSubmit,
+  onClose,
+  children,
+}: {
+  collapsedLabel: string;
+  placeholder?: string;
+  accent: string;
+  onSubmit: (name: string) => Promise<void>;
+  onClose?: () => void;
+  children?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const close = () => {
+    setOpen(false);
+    setName("");
+    setSaving(false);
+    onClose?.();
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full rounded-xl border border-dashed border-border py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        {collapsedLabel}
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card p-2">
+      <input
+        autoFocus
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[var(--section-accent)]"
+      />
+      {children}
+      <SaveBar
+        accent={accent}
+        saving={saving}
+        disabled={!name.trim()}
+        onCancel={close}
+        onSave={async () => {
+          setSaving(true);
+          try {
+            await onSubmit(name.trim());
+            close();
+          } catch {
+            setSaving(false);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 
 // Revalidate every SWR cache entry whose key (or array-key head) is in the
 // given set. Homepage tiles use `["overview-<section>", date]`, day-view
@@ -137,125 +212,33 @@ export function revalidateAfterLog(section: string) {
   });
 }
 
-// ── Exercise ─────────────────────────────────────────────────────────────────
-
-const SESSION_ORDER: SessionType[] = ["upper", "lower", "cardio", "yoga"];
-
-function fmtDaysAgo(n: number | null): string {
-  if (n == null) return "never";
-  if (n === 0) return "today";
-  if (n === 1) return "yesterday";
-  return `${n}d ago`;
-}
-
-export function ExerciseQuickLog({ onDone }: { onDone: () => void }) {
-  // Live color from /api/sections, not the static SECTIONS fallback —
-  // honors user customisation in settings.yaml.
-  const accent = useSectionColor("training");
-  const router = useRouter();
-  const { data, isLoading } = useSWR("quicklog-training", () => getNextWorkout());
-  const [navigating, setNavigating] = useState<SessionType | null>(null);
-
-  const pick = useCallback(
-    (type: SessionType) => {
-      if (navigating) return;
-      setNavigating(type);
-      HAPTIC();
-      router.push(`/septena/training/session/new?type=${type}`);
-      onDone();
-    },
-    [navigating, router, onDone],
-  );
-
-  return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">
-        Pick a session type. Suggestion is based on days since your last one of each kind.
-      </p>
-      {isLoading && !data ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : (
-        <div className="space-y-1.5">
-          {SESSION_ORDER.map((type) => {
-            const meta = SESSION_META[type];
-            const daysAgo = data?.days_ago[type] ?? null;
-            const suggested = data?.suggested.type === type;
-            const busy = navigating === type;
-            return (
-              <button
-                key={type}
-                type="button"
-                disabled={!!navigating}
-                onClick={() => pick(type)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-xl border px-3 py-3 text-left transition-colors",
-                  suggested
-                    ? "border-transparent text-white"
-                    : "border-border bg-card hover:border-[color:var(--accent)]",
-                  busy && "opacity-60",
-                )}
-                style={{
-                  backgroundColor: suggested ? accent : undefined,
-                  ["--accent" as string]: accent,
-                } as React.CSSProperties}
-              >
-                <span className="flex items-center gap-3">
-                  <span className="text-2xl">{meta.emoji}</span>
-                  <span>
-                    <span className="block text-base font-semibold">{meta.label}</span>
-                    <span
-                      className={cn(
-                        "block text-xs",
-                        suggested ? "text-white/80" : "text-muted-foreground",
-                      )}
-                    >
-                      Last: {fmtDaysAgo(daysAgo)}
-                    </span>
-                  </span>
-                </span>
-                {suggested && (
-                  <span className="rounded-full bg-white/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
-                    Suggested
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Nutrition ────────────────────────────────────────────────────────────────
 
 export function NutritionQuickLog({ onDone }: { onDone: () => void }) {
   const accent = useSectionColor("nutrition");
   const { date: selectedDate } = useSelectedDate();
   const { data, isLoading } = useSWR("quicklog-nutrition", () =>
-    getNutritionEntries(daysAgoLocalISO(7)),
+    getNutritionEntries(daysAgoLocalISO(30)),
   );
   const [savingFile, setSavingFile] = useState<string | null>(null);
 
-  // Unique recent entries ranked by most-used (frequency) — deduplicate by
-  // first food name, sort by how many times each appears, keep top 8.
-  const recent = useMemo(() => {
+  // All entries from the last 30 days, newest first, deduped by foods[0] so
+  // the same meal isn't repeated. cmdk handles the type-ahead filtering on
+  // the joined foods string we pass into each item's `value`.
+  const meals = useMemo(() => {
     if (!data) return [];
-    const counts = new Map<string, number>();
-    for (const e of data) {
-      const key = e.foods[0] ?? "";
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    const unique = [...new Set(data.map((e) => e.foods[0] ?? ""))];
-    unique.sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0));
+    const sorted = [...data].sort((a, b) => {
+      const ka = `${a.date} ${a.time ?? ""}`;
+      const kb = `${b.date} ${b.time ?? ""}`;
+      return kb.localeCompare(ka);
+    });
     const seen = new Set<string>();
     const out: NutritionEntry[] = [];
-    for (const e of data) {
-      const key = e.foods[0] ?? "";
-      if (seen.has(key)) continue;
+    for (const e of sorted) {
+      const key = (e.foods[0] ?? "").toLowerCase();
+      if (!key || seen.has(key)) continue;
       seen.add(key);
       out.push(e);
-      if (out.length >= 8) break;
     }
     return out;
   }, [data]);
@@ -264,19 +247,9 @@ export function NutritionQuickLog({ onDone }: { onDone: () => void }) {
     async (entry: NutritionEntry) => {
       if (savingFile) return;
       setSavingFile(entry.file);
-      HAPTIC();
+      haptic();
       try {
-        await saveNutritionEntry({
-          date: selectedDate,
-          time: nowHHMM(),
-          emoji: entry.emoji ?? "",
-          protein_g: entry.protein_g,
-          fat_g: entry.fat_g ?? 0,
-          carbs_g: entry.carbs_g ?? 0,
-          kcal: entry.kcal ?? 0,
-          foods: entry.foods,
-        });
-        revalidateAfterLog("nutrition");
+        await duplicateNutritionEntry(entry, selectedDate);
         showToast("Logged again", { description: entry.foods[0] });
         onDone();
       } finally {
@@ -289,26 +262,36 @@ export function NutritionQuickLog({ onDone }: { onDone: () => void }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Tap a recent meal to log it again now. For custom macros, open the Nutrition page.
+        Search past meals or tap to log again now. For custom macros, open the Nutrition page.
       </p>
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading recent meals…</p>
-      ) : recent.length === 0 ? (
+      ) : meals.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No recent meals yet. Log a first entry via chat or the Nutrition page.
         </p>
       ) : (
-        <ul className="space-y-1.5">
-          {recent.map((e) => {
-            const pending = savingFile === e.file;
-            return (
-              <li key={e.file}>
-                <button
-                  type="button"
+        <Command label="Search meals" className="space-y-2">
+          <Command.Input
+            placeholder="Search meals…"
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none focus:border-[color:var(--accent)]"
+            style={{ ["--accent" as string]: accent } as React.CSSProperties}
+          />
+          <Command.List className="max-h-[50vh] overflow-y-auto">
+            <Command.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">
+              No matches.
+            </Command.Empty>
+            {meals.map((e) => {
+              const pending = savingFile === e.file;
+              const value = `${e.foods.join(" ")} ${e.emoji ?? ""} ${Math.round(e.kcal)}kcal`;
+              return (
+                <Command.Item
+                  key={e.file}
+                  value={value}
                   disabled={!!savingFile}
-                  onClick={() => duplicate(e)}
+                  onSelect={() => duplicate(e)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors hover:border-[color:var(--accent)]",
+                    "mb-1.5 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors aria-selected:border-[color:var(--accent)] hover:border-[color:var(--accent)]",
                     pending && "opacity-60",
                   )}
                   style={{ ["--accent" as string]: accent } as React.CSSProperties}
@@ -324,11 +307,11 @@ export function NutritionQuickLog({ onDone }: { onDone: () => void }) {
                   <span className="shrink-0 text-xs font-semibold" style={{ color: accent }}>
                     {pending ? "…" : "Log"}
                   </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                </Command.Item>
+              );
+            })}
+          </Command.List>
+        </Command>
       )}
     </div>
   );
@@ -388,6 +371,7 @@ export function CaffeineQuickLog({ onDone }: { onDone: () => void }) {
         grams: Number.isFinite(gramsNum as number) ? (gramsNum as number) : null,
       });
       revalidateAfterLog("caffeine");
+      haptic();
       onDone();
     } finally {
       setSaving(false);
@@ -497,6 +481,7 @@ export function CannabisQuickLog({ onDone }: { onDone: () => void }) {
       // session alongside it so use_count reflects reality.
       await addCannabisEntry({ date: selectedDate, time: nowHHMM(), method: "vape" });
       revalidateAfterLog("cannabis");
+      haptic("medium");
       await mutate();
     } finally {
       setSaving(false);
@@ -509,6 +494,7 @@ export function CannabisQuickLog({ onDone }: { onDone: () => void }) {
     try {
       await addCannabisEntry({ date: selectedDate, time, method });
       revalidateAfterLog("cannabis");
+      haptic();
       onDone();
     } finally {
       setSaving(false);
@@ -567,14 +553,19 @@ export function HabitsQuickLog() {
     getHabitDay(selectedDate),
   );
   const { data: settings } = useSWR("settings", getSettings);
-  const phases = settings?.day_phases ?? DEFAULT_DAY_PHASES;
+  const phases = resolvePhases(
+    settings?.day_phases ?? DEFAULT_DAY_PHASES,
+    settings?.day_phase_boundaries ?? DEFAULT_DAY_PHASE_BOUNDARIES,
+    settings?.day_end ?? DEFAULT_DAY_END,
+  );
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [newBucket, setNewBucket] = useState<string>(activePhaseId(phases) ?? phases[0]?.id ?? "morning");
 
   const onToggle = useCallback(
     async (habit: HabitDayItem) => {
       if (pending.has(habit.id) || !data) return;
       setPending((p) => new Set(p).add(habit.id));
-      HAPTIC();
+      haptic();
       try {
         await toggleHabit(selectedDate, habit.id, !habit.done);
         revalidateAfterLog("habits");
@@ -590,16 +581,32 @@ export function HabitsQuickLog() {
     [pending, data, selectedDate, mutate],
   );
 
+  const newItem = (
+    <InlineNewItem
+      collapsedLabel="+ New Habit"
+      placeholder="Habit name"
+      accent={accent}
+      onSubmit={async (name) => {
+        await addHabit(name, newBucket);
+        revalidateAfterLog("habits");
+        await mutate();
+      }}
+    >
+      <PillGroup
+        value={newBucket}
+        onChange={setNewBucket}
+        options={phases.map((p) => ({ value: p.id, label: p.label }))}
+        accent={accent}
+      />
+    </InlineNewItem>
+  );
+
   if (isLoading || !data) {
     return <p className="text-sm text-muted-foreground">Loading habits…</p>;
   }
 
   if (data.total === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No habits configured. Add some in Settings → Habits.
-      </p>
-    );
+    return <div className="space-y-2">{newItem}</div>;
   }
 
   const nowBucket = activePhaseId(phases);
@@ -657,6 +664,7 @@ export function HabitsQuickLog() {
           </div>
         );
       })}
+      {newItem}
     </div>
   );
 }
@@ -675,7 +683,7 @@ export function SupplementsQuickLog() {
     async (item: SupplementItem) => {
       if (pending.has(item.id) || !data) return;
       setPending((p) => new Set(p).add(item.id));
-      HAPTIC();
+      haptic();
       try {
         await toggleSupplement(selectedDate, item.id, !item.done);
         revalidateAfterLog("supplements");
@@ -691,12 +699,25 @@ export function SupplementsQuickLog() {
     [pending, data, selectedDate, mutate],
   );
 
+  const newItem = (
+    <InlineNewItem
+      collapsedLabel="+ New Supplement"
+      placeholder="Supplement name"
+      accent={accent}
+      onSubmit={async (name) => {
+        await addSupplement(name);
+        revalidateAfterLog("supplements");
+        await mutate();
+      }}
+    />
+  );
+
   if (isLoading || !data) {
     return <p className="text-sm text-muted-foreground">Loading supplements…</p>;
   }
 
   if (data.total === 0) {
-    return <p className="text-sm text-muted-foreground">No supplements configured.</p>;
+    return <div className="space-y-2">{newItem}</div>;
   }
 
   const remaining = data.items.filter((i) => !i.done);
@@ -723,23 +744,33 @@ export function SupplementsQuickLog() {
           ))}
         </div>
       )}
+      {newItem}
     </div>
   );
 }
 
 // ── Chores ───────────────────────────────────────────────────────────────────
 
+const CHORE_CADENCE_OPTIONS = [
+  { value: "1", label: "Daily" },
+  { value: "2", label: "Every Other" },
+  { value: "7", label: "Weekly" },
+  { value: "14", label: "Biweekly" },
+  { value: "30", label: "Monthly" },
+] as const;
+
 export function ChoresQuickLog() {
   const accent = useSectionColor("chores");
   const { date: selectedDate } = useSelectedDate();
   const { data, mutate, isLoading } = useSWR("quicklog-chores", () => getChores());
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [newCadence, setNewCadence] = useState<"1" | "2" | "7" | "14" | "30">("7");
 
   const onComplete = useCallback(
     async (id: string) => {
       if (pending.has(id)) return;
       setPending((p) => new Set(p).add(id));
-      HAPTIC();
+      haptic();
       try {
         await completeChore(id, { date: selectedDate });
         revalidateAfterLog("chores");
@@ -755,6 +786,26 @@ export function ChoresQuickLog() {
     [pending, mutate, selectedDate],
   );
 
+  const newItem = (
+    <InlineNewItem
+      collapsedLabel="+ New Chore"
+      placeholder="Chore name"
+      accent={accent}
+      onSubmit={async (name) => {
+        await createChoreDefinition({ name, cadence_days: Number(newCadence) });
+        revalidateAfterLog("chores");
+        await mutate();
+      }}
+    >
+      <PillGroup
+        value={newCadence}
+        onChange={setNewCadence}
+        options={[...CHORE_CADENCE_OPTIONS]}
+        accent={accent}
+      />
+    </InlineNewItem>
+  );
+
   if (isLoading || !data) {
     return <p className="text-sm text-muted-foreground">Loading chores…</p>;
   }
@@ -762,7 +813,12 @@ export function ChoresQuickLog() {
   // Show anything overdue or due today — the actionable bucket.
   const actionable = data.chores.filter((c) => c.days_overdue >= 0);
   if (actionable.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nothing due today. ✨</p>;
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">Nothing due today. ✨</p>
+        {newItem}
+      </div>
+    );
   }
 
   return (
@@ -793,6 +849,7 @@ export function ChoresQuickLog() {
           );
         })}
       </div>
+      {newItem}
     </div>
   );
 }
@@ -837,6 +894,7 @@ export function GutQuickLog({ onDone }: { onDone: () => void }) {
         blood: parseInt(blood, 10),
       });
       revalidateAfterLog("gut");
+      haptic();
       onDone();
     } finally {
       setSaving(false);
@@ -882,7 +940,6 @@ export function TasksQuickLog({ onDone }: { onDone: () => void }) {
     const t = title.trim();
     if (!t || saving) return;
     setSaving(true);
-    HAPTIC();
     try {
       await createTask({
         title: t,
