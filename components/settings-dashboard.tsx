@@ -12,6 +12,7 @@ import { indexSchema } from "@/lib/settings/search-index";
 import { SettingsSearch } from "@/components/settings-search";
 import {
   animationsSchema,
+  einkSchema,
   targetsSchema,
   themeSchema,
   toAnimationsView,
@@ -44,7 +45,7 @@ import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 
 export function SettingsDashboard() {
-  const { setTheme } = useTheme();
+  const { setTheme, setEink } = useTheme();
   const sectionsMeta = useSections();
   // Live color from /api/sections, not the static SECTIONS fallback —
   // honors user customisation in settings.yaml.
@@ -238,6 +239,7 @@ export function SettingsDashboard() {
         entries={[
           ...indexSchema("Targets", "card-targets", targetsSchema),
           ...indexSchema("Theme", "card-theme", themeSchema),
+          ...indexSchema("Theme", "card-theme", einkSchema),
           ...indexSchema("Animations", "card-animations", animationsSchema),
         ]}
       />
@@ -455,7 +457,7 @@ export function SettingsDashboard() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Theme</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <SettingsRenderer
               node={themeSchema}
               value={draft.theme}
@@ -464,6 +466,16 @@ export function SettingsDashboard() {
                 const v = next as AppTheme;
                 patch({ theme: v });
                 setTheme(v);
+              }}
+            />
+            <SettingsRenderer
+              node={einkSchema}
+              value={draft.eink ?? false}
+              color={accent}
+              onChange={(_path, next) => {
+                const v = Boolean(next);
+                patch({ eink: v });
+                setEink(v);
               }}
             />
           </CardContent>

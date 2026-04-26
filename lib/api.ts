@@ -873,6 +873,7 @@ export type AirSummary = {
   last_reading_at: string | null;
   co2_band: AirCo2Band | null;
   today: AirDayStats;
+  last_24h: AirDayStats;
 };
 
 export type AirDay = {
@@ -907,8 +908,10 @@ export async function getAirHistory(days = 7) {
   return request<AirHistory>(`/api/air/history?days=${days}`);
 }
 
-export async function getAirReadings(days = 1) {
-  return request<AirReadings>(`/api/air/readings?days=${days}`);
+export async function getAirReadings(opts: { days?: number; hours?: number } = {}) {
+  const { days, hours } = opts;
+  const qs = hours != null ? `hours=${hours}` : `days=${days ?? 1}`;
+  return request<AirReadings>(`/api/air/readings?${qs}`);
 }
 
 export type AirOvernightPoint = {
@@ -1329,7 +1332,7 @@ export async function getMeta() {
 }
 
 // ── Settings ────────────────────────────────────────────────────────────
-export type AppTheme = "system" | "light" | "dark" | "eink";
+export type AppTheme = "system" | "light" | "dark";
 export type WeightUnit = "kg" | "lb";
 export type DistanceUnit = "km" | "mi";
 
@@ -1421,6 +1424,7 @@ export type AppSettings = {
   targets: Targets;
   units: { weight: WeightUnit; distance: DistanceUnit };
   theme: AppTheme;
+  eink: boolean;
   animations: AppAnimations;
   display: AppDisplay;
   nutrition: NutritionSettings;

@@ -147,6 +147,10 @@ def _canonicalize_settings(data: Any) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return {}
     out = dict(data)
+    if out.get("theme") == "eink":
+        out["theme"] = "system"
+        if "eink" not in out:
+            out["eink"] = True
     if "section_order" in out:
         out["section_order"] = _canonicalize_section_order(out["section_order"])
     if "sections" in out:

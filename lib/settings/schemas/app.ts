@@ -15,7 +15,6 @@
 
 import type {
   AppSettings,
-  AppTheme,
   Targets,
 } from "@/lib/api";
 import {
@@ -137,10 +136,16 @@ export function targetsPatch(
 
 /* ── Theme ─────────────────────────────────────────────────────────────── */
 
-export const themeSchema = enumField(["light", "dark", "eink"] as const, {
+export const themeSchema = enumField(["system", "light", "dark"] as const, {
   label: "Theme",
-  labels: { light: "Day", dark: "Night", eink: "Eink" },
-  default: "system" as AppTheme as "light",
+  labels: { system: "Auto", light: "Day", dark: "Night" },
+  default: "system",
+});
+
+export const einkSchema = toggle({
+  label: "E-ink",
+  description: "High-contrast pass for e-ink displays. Forces pure black-and-white and strips shadows and accents.",
+  default: false,
 });
 
 /* ── Animations ────────────────────────────────────────────────────────── */

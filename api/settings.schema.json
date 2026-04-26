@@ -87,8 +87,12 @@
     },
     "theme": {
       "type": "string",
-      "enum": ["system", "light", "dark", "eink"],
+      "enum": ["system", "light", "dark"],
       "default": "system"
+    },
+    "eink": {
+      "type": "boolean",
+      "default": false
     },
     "animations": {
       "type": "object",
