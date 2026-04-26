@@ -68,14 +68,17 @@ function Hero() {
         </div>
       </div>
       <div className="overflow-hidden rounded-lg border border-border bg-muted/30">
-        <Image
-          src="/screenshots/overview.png"
-          alt="Septena overview — one tile per section showing today's state across training, nutrition, habits, sleep, and more."
-          width={1200}
-          height={800}
-          priority
-          className="h-auto w-full"
-        />
+        <picture>
+          <source srcSet="/screenshots/overview-dark.png" media="(prefers-color-scheme: dark)" />
+          <Image
+            src="/screenshots/overview.png"
+            alt="Septena overview — one tile per section showing today's state across training, nutrition, habits, sleep, and more."
+            width={1200}
+            height={800}
+            priority
+            className="h-auto w-full"
+          />
+        </picture>
       </div>
     </section>
   );
@@ -207,13 +210,19 @@ function SectionBlockView({ section }: { section: MarketingSection }) {
         className="overflow-hidden rounded-2xl border bg-muted/30 shadow-sm"
         style={{ borderColor: "var(--section-accent-soft)" }}
       >
-        <Image
-          src={section.screenshot}
-          alt={`${section.name} screenshot — ${section.tagline}`}
-          width={1200}
-          height={800}
-          className="h-auto w-full"
-        />
+        <picture>
+          <source
+            srcSet={section.screenshot.replace(/\.png$/, "-dark.png")}
+            media="(prefers-color-scheme: dark)"
+          />
+          <Image
+            src={section.screenshot}
+            alt={`${section.name} screenshot — ${section.tagline}`}
+            width={1200}
+            height={800}
+            className="h-auto w-full"
+          />
+        </picture>
       </div>
     </article>
   );

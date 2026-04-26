@@ -194,48 +194,55 @@ async function waitFor(url, timeoutMs, context) {
 async function takeScreenshots() {
   console.log(`📸  Launching browser…`);
   const browser = await chromium.launch({ headless: true });
-  const ctx = await browser.newContext({
-    viewport: VIEWPORT,
-    colorScheme: "light",
-    deviceScaleFactor: 2,
-  });
-  const page = await ctx.newPage();
-
   mkdirSync(OUT_DIR, { recursive: true });
 
-  page.on("pageerror", (err) => console.log(`      ! pageerror: ${err.message}`));
-  page.on("console", (msg) => {
-    const t = msg.text();
-    if (t.includes("webpack-hmr") || t.includes("Download the React DevTools")) return;
-    if (msg.type() === "error" || msg.type() === "warning") {
-      console.log(`      ! ${msg.type()}: ${t}`);
-    }
-  });
-  page.on("requestfailed", (req) => {
-    const url = req.url();
-    if (url.includes("_next") || url.includes("hot-update")) return;
-    console.log(`      ! requestfailed: ${url} (${req.failure()?.errorText})`);
-  });
+  // Two passes — light + dark — so the marketing page can auto-switch via
+  // <picture><source media="(prefers-color-scheme: dark)" …></picture>.
+  // Same context per scheme so emulateMedia carries across navigations.
+  for (const scheme of /** @type {const} */ (["light", "dark"])) {
+    console.log(`🎨  Color scheme: ${scheme}`);
+    const ctx = await browser.newContext({
+      viewport: VIEWPORT,
+      colorScheme: scheme,
+      deviceScaleFactor: 2,
+    });
+    const page = await ctx.newPage();
+    page.on("pageerror", (err) => console.log(`      ! pageerror: ${err.message}`));
+    page.on("console", (msg) => {
+      const t = msg.text();
+      if (t.includes("webpack-hmr") || t.includes("Download the React DevTools")) return;
+      if (msg.type() === "error" || msg.type() === "warning") {
+        console.log(`      ! ${msg.type()}: ${t}`);
+      }
+    });
+    page.on("requestfailed", (req) => {
+      const url = req.url();
+      if (url.includes("_next") || url.includes("hot-update")) return;
+      console.log(`      ! requestfailed: ${url} (${req.failure()?.errorText})`);
+    });
 
-  for (const section of SECTIONS) {
-    const url = `http://127.0.0.1:${FRONTEND_PORT}${section.path}`;
-    console.log(`    → ${section.slug}  (${url})`);
-    await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
-    try {
-      await page.waitForFunction(() => {
-        const txt = document.body?.innerText ?? "";
-        return !/Loading/i.test(txt);
-      }, null, { timeout: 10_000 });
-    } catch {}
-    await page.waitForTimeout(800);
-    // Hide Next.js dev chrome.
-    await page.addStyleTag({ content: `
-      [data-nextjs-toast], [data-next-badge], nextjs-portal,
-      #__next-route-announcer__ { display: none !important; }
-    ` });
-    const out = join(OUT_DIR, `${section.slug}.png`);
-    await page.screenshot({ path: out, fullPage: false });
-    console.log(`      saved → ${out}`);
+    for (const section of SECTIONS) {
+      const url = `http://127.0.0.1:${FRONTEND_PORT}${section.path}`;
+      console.log(`    → ${section.slug}  (${url})`);
+      await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
+      try {
+        await page.waitForFunction(() => {
+          const txt = document.body?.innerText ?? "";
+          return !/Loading/i.test(txt);
+        }, null, { timeout: 10_000 });
+      } catch {}
+      await page.waitForTimeout(800);
+      // Hide Next.js dev chrome.
+      await page.addStyleTag({ content: `
+        [data-nextjs-toast], [data-next-badge], nextjs-portal,
+        #__next-route-announcer__ { display: none !important; }
+      ` });
+      const suffix = scheme === "dark" ? "-dark" : "";
+      const out = join(OUT_DIR, `${section.slug}${suffix}.png`);
+      await page.screenshot({ path: out, fullPage: false });
+      console.log(`      saved → ${out}`);
+    }
+    await ctx.close();
   }
 
   await browser.close();
