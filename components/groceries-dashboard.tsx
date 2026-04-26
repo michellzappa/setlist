@@ -2,11 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
-import { ShoppingCart, X } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 
 import {
   getGroceries,
-  addGroceryItem,
   patchGroceryItem,
   type GroceryItem,
 } from "@/lib/api";
@@ -18,6 +17,9 @@ import {
 import { TaskGroup, TaskRow } from "@/components/tasks";
 import { StatCard } from "@/components/stat-card";
 import { revalidateAfterLog } from "@/components/quick-log-forms";
+import { QuickLogModal } from "@/components/quick-log-modal";
+import { GroceriesQuickLog } from "@/components/quick-log-forms";
+import { usePending } from "@/hooks/use-pending";
 
 const CATEGORIES = ["produce", "dairy", "grains", "meat", "frozen", "household", "other"] as const;
 type Category = typeof CATEGORIES[number];
@@ -47,12 +49,9 @@ function relativeDays(iso: string | null): string {
 export function GroceriesDashboard() {
   const GROCERIES_COLOR = "var(--section-accent)";
   const { data, isLoading, mutate } = useSWR("groceries", getGroceries);
-  const [pending, setPending] = useState<Set<string>>(new Set());
+  const { pending, withPending } = usePending<string>();
   const [shopperMode, setShopperMode] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newCategory, setNewCategory] = useState<Category>("other");
-  const [newEmoji, setNewEmoji] = useState("📦");
 
   const items = data?.items ?? [];
 
@@ -72,30 +71,13 @@ export function GroceriesDashboard() {
   const stockedCount = totalCount - lowCount;
   const stockedPct = totalCount > 0 ? (stockedCount / totalCount) * 100 : 0;
 
-  const handleAdd = useCallback(async () => {
-    if (!newName.trim()) return;
-    setPending((p) => new Set(p).add("__add__"));
-    try {
-      await addGroceryItem(newName.trim(), newCategory, newEmoji);
-      setNewName("");
-      setNewEmoji("📦");
-      setShowAdd(false);
-      await mutate();
-    } finally {
-      setPending((p) => { const n = new Set(p); n.delete("__add__"); return n; });
-    }
-  }, [newName, newCategory, newEmoji, mutate]);
-
   const toggleLow = useCallback(async (it: GroceryItem) => {
-    setPending((p) => new Set(p).add(it.id));
-    try {
+    await withPending(it.id, async () => {
       await patchGroceryItem(it.id, { low: !it.low });
       await mutate();
       revalidateAfterLog("groceries");
-    } finally {
-      setPending((p) => { const n = new Set(p); n.delete(it.id); return n; });
-    }
-  }, [mutate]);
+    });
+  }, [mutate, withPending]);
 
   return (
     <>
@@ -147,32 +129,19 @@ export function GroceriesDashboard() {
 
         </div>
         <div className="mt-6 xl:mt-0 space-y-4">
-      {!shopperMode && showAdd && (
-        <Card>
-          <CardContent className="flex flex-wrap items-end gap-3 p-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">Emoji</label>
-              <input className="w-14 rounded-md border bg-background px-2 py-1.5 text-center text-lg" value={newEmoji} onChange={(e) => setNewEmoji(e.target.value.slice(0, 2))} />
-            </div>
-            <div className="flex flex-1 flex-col gap-1">
-              <label className="text-xs text-muted-foreground">Name</label>
-              <input className="w-full rounded-md border bg-background px-3 py-1.5 text-sm" placeholder="e.g. Oats" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAdd()} autoFocus />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">Category</label>
-              <select className="rounded-md border bg-background px-2 py-1.5 text-sm" value={newCategory} onChange={(e) => setNewCategory(e.target.value as Category)}>
-                {CATEGORIES.map((c) => (<option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>))}
-              </select>
-            </div>
-            <button onClick={handleAdd} disabled={!newName.trim() || pending.has("__add__")} className="rounded-md px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50" style={{ backgroundColor: GROCERIES_COLOR }}>
-              {pending.has("__add__") ? "…" : "Add"}
-            </button>
-            <button onClick={() => { setShowAdd(false); setNewName(""); }} className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">
-              <X size={18} />
-            </button>
-          </CardContent>
-        </Card>
-      )}
+      <QuickLogModal
+        open={!shopperMode && showAdd}
+        onClose={() => setShowAdd(false)}
+        title="Add Grocery"
+        accent="var(--section-accent)"
+      >
+        <GroceriesQuickLog
+          onDone={() => {
+            setShowAdd(false);
+            mutate();
+          }}
+        />
+      </QuickLogModal>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

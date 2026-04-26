@@ -2,6 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
+import { useSections } from "@/hooks/use-sections";
+import { sectionAccentVars } from "@/lib/section-colors";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -25,6 +28,17 @@ type Props = {
  */
 export function QuickLogModal({ open, onClose, title, accent, children, footer }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const sections = useSections();
+
+  const demoMatch = pathname.startsWith("/demo/")
+    ? sections.find((s) => s.key === pathname.split("/")[2])
+    : undefined;
+  const regularMatch = sections
+    .filter((s) => s.path && (pathname === s.path || pathname.startsWith(s.path + "/")))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+  const sectionColor = (demoMatch ?? regularMatch)?.color;
+  const accentStyle = sectionColor ? sectionAccentVars(sectionColor) : undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -48,6 +62,7 @@ export function QuickLogModal({ open, onClose, title, accent, children, footer }
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      style={accentStyle}
     >
       <button
         type="button"

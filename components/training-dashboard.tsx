@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { WeekStreak } from "@/components/week-streak";
+import { TrainingConsistencyHeatmap } from "@/components/training-consistency-heatmap";
 import { SectionHeaderAction, SectionHeaderActionButton } from "@/components/section-header-action";
 import { useExerciseTaxonomy, type ExerciseKind } from "@/hooks/use-exercise-taxonomy";
 import { useSessionTypes } from "@/hooks/use-session-types";
@@ -449,72 +450,76 @@ export function TrainingDashboard() {
 
       <div className="xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start">
         <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-        <Card className="rounded-2xl">
-          <WeekStreak />
-        </Card>
-        {cardioData && cardioData.daily.length > 0 && (
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Zone 2 Cardio</CardTitle>
-                  <CardDescription>Rolling 7-day total · {cardioData.target_weekly_min}min weekly target</CardDescription>
-                </div>
-                {(() => {
-                  const latest = cardioData.daily.at(-1);
-                  if (!latest) return null;
-                  const pct = Math.round((latest.rolling_7d / cardioData.target_weekly_min) * 100);
-                  return (
-                    <span
-                      className="text-2xl font-bold tabular-nums"
-                      style={{
-                        color:
-                          pct >= 100
-                            ? "var(--section-accent-shade-1)"
-                            : pct >= 60
-                              ? "var(--section-accent-shade-2)"
-                              : "var(--destructive)",
-                      }}
-                    >
-                      {Math.round(latest.rolling_7d)}m
-                    </span>
-                  );
-                })()}
-              </div>
-            </CardHeader>
-            <CardContent className="min-w-0 px-4">
-              <ChartContainer config={{
-                z2_today: { label: "Z2 cardio", color: "var(--section-accent-shade-2)" },
-                rolling_7d: { label: "7-day sum", color: "var(--section-accent-shade-3)" },
-              }} className="h-[200px] w-full">
-                <BarChart
-                  data={cardioData.daily.slice(-7).map((d) => ({
-                    ...d,
-                    z2_today: d.minutes,
-                    rolling_7d: d.rolling_7d,
-                  }))}
-                  margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid {...CHART_GRID} />
-                  <XAxis {...WEEKDAY_X_AXIS} interval={0} />
-                  <YAxis {...Y_AXIS}
-                    domain={[0, (max: number) => Math.max(max, Math.ceil(cardioData.target_weekly_min / 0.9))]}
-                    tickFormatter={(v: number) => `${v}m`} />
-                  <ReferenceLine y={cardioData.target_weekly_min} stroke="var(--section-accent-shade-1)" strokeDasharray="6 3"
-                    label={{ value: `${cardioData.target_weekly_min}m target`, position: "right", fontSize: 10, fill: "var(--section-accent-shade-1)" }} />
-                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="z2_today" stackId="a" fill="var(--color-z2_today)" {...barAnim} />
-                  <Bar dataKey="rolling_7d" stackId="a" fill="var(--color-rolling_7d)" opacity={0.3} radius={[4, 4, 0, 0]} {...barAnim} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
+            <TrainingConsistencyHeatmap entries={state.allEntries} endDate={selectedDate} />
           </Card>
-        )}
-      </div>
 
-        <Card>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card className="rounded-2xl">
+              <WeekStreak />
+            </Card>
+            {cardioData && cardioData.daily.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">Zone 2 Cardio</CardTitle>
+                      <CardDescription>Rolling 7-day total · {cardioData.target_weekly_min}min weekly target</CardDescription>
+                    </div>
+                    {(() => {
+                      const latest = cardioData.daily.at(-1);
+                      if (!latest) return null;
+                      const pct = Math.round((latest.rolling_7d / cardioData.target_weekly_min) * 100);
+                      return (
+                        <span
+                          className="text-2xl font-bold tabular-nums"
+                          style={{
+                            color:
+                              pct >= 100
+                                ? "var(--section-accent-shade-1)"
+                                : pct >= 60
+                                  ? "var(--section-accent-shade-2)"
+                                  : "var(--destructive)",
+                          }}
+                        >
+                          {Math.round(latest.rolling_7d)}m
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </CardHeader>
+                <CardContent className="min-w-0 px-4">
+                  <ChartContainer config={{
+                    z2_today: { label: "Z2 cardio", color: "var(--section-accent-shade-2)" },
+                    rolling_7d: { label: "7-day sum", color: "var(--section-accent-shade-3)" },
+                  }} className="h-[200px] w-full">
+                    <BarChart
+                      data={cardioData.daily.slice(-7).map((d) => ({
+                        ...d,
+                        z2_today: d.minutes,
+                        rolling_7d: d.rolling_7d,
+                      }))}
+                      margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid {...CHART_GRID} />
+                      <XAxis {...WEEKDAY_X_AXIS} interval={0} />
+                      <YAxis {...Y_AXIS}
+                        domain={[0, (max: number) => Math.max(max, Math.ceil(cardioData.target_weekly_min / 0.9))]}
+                        tickFormatter={(v: number) => `${v}m`} />
+                      <ReferenceLine y={cardioData.target_weekly_min} stroke="var(--section-accent-shade-1)" strokeDasharray="6 3"
+                        label={{ value: `${cardioData.target_weekly_min}m target`, position: "right", fontSize: 10, fill: "var(--section-accent-shade-1)" }} />
+                      <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="z2_today" stackId="a" fill="var(--color-z2_today)" {...barAnim} />
+                      <Bar dataKey="rolling_7d" stackId="a" fill="var(--color-rolling_7d)" opacity={0.3} radius={[4, 4, 0, 0]} {...barAnim} />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-4">
               <div>
                 <CardTitle className="text-base">{META_LABEL[state.selectedExercise] ?? (state.selectedExercise ? titleCase(state.selectedExercise) : "Select an exercise")}</CardTitle>

@@ -1,9 +1,14 @@
 /** Demo-mode fixture dispatcher.
  *
- *  When the (demo) layout sets `window.__SEPTENA_DEMO__`, `request()` in
- *  lib/api.ts routes through `matchDemoFixture()` instead of hitting the
- *  FastAPI backend. This lets the Vercel-deployed marketing+demo site reuse
- *  every real dashboard component without a running Python backend.
+ *  lib/api.ts routes `/demo/*` requests through `matchDemoFixture()`
+ *  instead of hitting the FastAPI backend. This lets the deployed
+ *  marketing+demo site reuse the real dashboards without a Python
+ *  service behind it.
+ *
+ *  Fixtures are anchored to a rolling local "today" so relative labels
+ *  ("today", "yesterday", overdue counts, etc.) stay fresh. Append
+ *  `?demo-date=YYYY-MM-DD` to pin the demo to a fixed date for
+ *  screenshots or bug repros.
  *
  *  Sections get wired up incrementally — anything not matched here falls
  *  through to a shape-compatible empty fallback so the dashboard renders
@@ -12,9 +17,25 @@
 
 import sectionManifest from "@/sections/manifest.json";
 
-// Fixed "today" for demo mode. Every generated date/entry is anchored here
-// so the story stays self-consistent even if the deploy runs for a week.
-const DEMO_TODAY = "2026-04-23";
+const DEMO_DATE_PARAM = "demo-date";
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function localISODate(now = new Date()): string {
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function resolveDemoToday(): string {
+  if (typeof window !== "undefined") {
+    const pinned = new URLSearchParams(window.location.search).get(DEMO_DATE_PARAM);
+    if (pinned && ISO_DATE_RE.test(pinned)) return pinned;
+  }
+  return localISODate();
+}
+
+// Anchor all generated data to a single runtime-resolved "today" so each
+// page load stays internally consistent while still moving forward over time.
+const DEMO_TODAY = resolveDemoToday();
 
 type FixtureHandler = (url: URL, init?: RequestInit) => unknown;
 
@@ -61,6 +82,12 @@ const FIXTURES: Array<{ pattern: RegExp; handler: FixtureHandler }> = [
   // ── Chores ───────────────────────────────────────────────────────────
   { pattern: /^\/api\/chores\/list$/, handler: choresList },
   { pattern: /^\/api\/chores\/history$/, handler: choresHistory },
+  // ── Tasks ────────────────────────────────────────────────────────────
+  { pattern: /^\/api\/tasks\/list$/, handler: tasksList },
+  { pattern: /^\/api\/tasks\/counts$/, handler: taskCounts },
+  { pattern: /^\/api\/tasks\/history$/, handler: taskHistory },
+  { pattern: /^\/api\/tasks\/areas$/, handler: taskAreas },
+  { pattern: /^\/api\/tasks\/projects$/, handler: taskProjects },
   // ── Caffeine ─────────────────────────────────────────────────────────
   { pattern: /^\/api\/caffeine\/config$/, handler: caffeineConfig },
   { pattern: /^\/api\/caffeine\/day\//, handler: caffeineDay },
@@ -809,6 +836,502 @@ function supplementsHistoryById(url: URL) {
   return { daily, supplements: SUPPLEMENTS };
 }
 
+// ─── Tasks fixtures ────────────────────────────────────────────────────────
+
+type DemoTaskArea = { id: string; title: string; emoji: string };
+
+const TASK_AREAS: DemoTaskArea[] = [
+  { id: "health", title: "Health", emoji: "🫀" },
+  { id: "home", title: "Home", emoji: "🏠" },
+  { id: "work", title: "Work", emoji: "💼" },
+  { id: "admin", title: "Admin", emoji: "🧾" },
+];
+
+const TASK_PROJECTS = [
+  {
+    id: "strength-cycle",
+    title: "Plan next strength cycle",
+    status: "active",
+    area: "health",
+    created: addDays(DEMO_TODAY, -18),
+    completed_at: null,
+    notes: "Sketch the next four-week block and pick the primary lifts.",
+  },
+  {
+    id: "apartment-reset",
+    title: "Spring apartment reset",
+    status: "active",
+    area: "home",
+    created: addDays(DEMO_TODAY, -24),
+    completed_at: null,
+    notes: "Declutter storage, donate extras, and refresh the pantry.",
+  },
+  {
+    id: "launch-copy",
+    title: "Tighten launch copy",
+    status: "active",
+    area: "work",
+    created: addDays(DEMO_TODAY, -11),
+    completed_at: null,
+    notes: "Sharpen the hero and section intros before the next screenshot pass.",
+  },
+];
+
+type DemoTask = {
+  id: string;
+  title: string;
+  status: "open" | "done" | "cancelled" | "someday";
+  created: string | null;
+  scheduled: string | null;
+  today: boolean;
+  today_set_on: string | null;
+  completed_at: string | null;
+  area: string | null;
+  project: string | null;
+  notes: string | null;
+};
+
+const TASKS: DemoTask[] = [
+  {
+    id: "20260426-review-week-plan",
+    title: "Review week plan before lunch",
+    status: "open",
+    created: addDays(DEMO_TODAY, -2),
+    scheduled: DEMO_TODAY,
+    today: true,
+    today_set_on: DEMO_TODAY,
+    completed_at: null,
+    area: "work",
+    project: "launch-copy",
+    notes: null,
+  },
+  {
+    id: "20260426-book-physio",
+    title: "Book physio follow-up",
+    status: "open",
+    created: addDays(DEMO_TODAY, -1),
+    scheduled: DEMO_TODAY,
+    today: true,
+    today_set_on: DEMO_TODAY,
+    completed_at: null,
+    area: "health",
+    project: null,
+    notes: "Prefer an early-evening slot this week.",
+  },
+  {
+    id: "20260425-clear-kitchen-counter",
+    title: "Clear kitchen counter pile",
+    status: "open",
+    created: addDays(DEMO_TODAY, -3),
+    scheduled: null,
+    today: true,
+    today_set_on: DEMO_TODAY,
+    completed_at: null,
+    area: "home",
+    project: "apartment-reset",
+    notes: null,
+  },
+  {
+    id: "20260424-send-coach-update",
+    title: "Send coach a training update",
+    status: "open",
+    created: addDays(DEMO_TODAY, -4),
+    scheduled: addDays(DEMO_TODAY, -1),
+    today: true,
+    today_set_on: DEMO_TODAY,
+    completed_at: null,
+    area: "health",
+    project: "strength-cycle",
+    notes: null,
+  },
+  {
+    id: "20260422-renew-domain",
+    title: "Renew the domain before it lapses",
+    status: "open",
+    created: addDays(DEMO_TODAY, -6),
+    scheduled: addDays(DEMO_TODAY, -1),
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "admin",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260421-patch-pricing-copy",
+    title: "Patch pricing copy after feedback",
+    status: "open",
+    created: addDays(DEMO_TODAY, -7),
+    scheduled: DEMO_TODAY,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "work",
+    project: "launch-copy",
+    notes: null,
+  },
+  {
+    id: "20260420-sort-insurance-paperwork",
+    title: "Sort insurance paperwork",
+    status: "open",
+    created: addDays(DEMO_TODAY, -8),
+    scheduled: addDays(DEMO_TODAY, -3),
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "admin",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260426-buy-olive-oil",
+    title: "Buy olive oil",
+    status: "open",
+    created: DEMO_TODAY,
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: null,
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260425-reply-to-sam",
+    title: "Reply to Sam about Friday",
+    status: "open",
+    created: addDays(DEMO_TODAY, -1),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: null,
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260424-capture-book-note",
+    title: "Capture note from the sleep book",
+    status: "open",
+    created: addDays(DEMO_TODAY, -2),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: null,
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260426-refill-prescription",
+    title: "Refill prescription",
+    status: "open",
+    created: addDays(DEMO_TODAY, -1),
+    scheduled: addDays(DEMO_TODAY, 1),
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "health",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260425-send-invoice",
+    title: "Send April invoice",
+    status: "open",
+    created: addDays(DEMO_TODAY, -4),
+    scheduled: addDays(DEMO_TODAY, 2),
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "work",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260424-pickup-dry-cleaning",
+    title: "Pick up dry cleaning",
+    status: "open",
+    created: addDays(DEMO_TODAY, -5),
+    scheduled: addDays(DEMO_TODAY, 4),
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "home",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260423-schedule-dentist",
+    title: "Schedule dentist checkup",
+    status: "open",
+    created: addDays(DEMO_TODAY, -6),
+    scheduled: addDays(DEMO_TODAY, 8),
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "health",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260422-write-release-notes",
+    title: "Write release notes draft",
+    status: "open",
+    created: addDays(DEMO_TODAY, -7),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "work",
+    project: "launch-copy",
+    notes: null,
+  },
+  {
+    id: "20260421-plan-deload-week",
+    title: "Plan deload week",
+    status: "open",
+    created: addDays(DEMO_TODAY, -9),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "health",
+    project: "strength-cycle",
+    notes: null,
+  },
+  {
+    id: "20260420-scan-tax-letter",
+    title: "Scan tax letter",
+    status: "open",
+    created: addDays(DEMO_TODAY, -10),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "admin",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260419-drop-donation-bag",
+    title: "Drop donation bag",
+    status: "open",
+    created: addDays(DEMO_TODAY, -11),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "home",
+    project: "apartment-reset",
+    notes: null,
+  },
+  {
+    id: "20260418-collect-health-labs",
+    title: "Collect last quarter lab trends",
+    status: "someday",
+    created: addDays(DEMO_TODAY, -14),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "health",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260417-sketch-travel-list",
+    title: "Sketch summer travel list",
+    status: "someday",
+    created: addDays(DEMO_TODAY, -16),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "home",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260415-research-bookkeeping",
+    title: "Research better bookkeeping flow",
+    status: "someday",
+    created: addDays(DEMO_TODAY, -20),
+    scheduled: null,
+    today: false,
+    today_set_on: null,
+    completed_at: null,
+    area: "admin",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260414-archive-test-builds",
+    title: "Archive old test builds",
+    status: "done",
+    created: addDays(DEMO_TODAY, -12),
+    scheduled: addDays(DEMO_TODAY, -6),
+    today: false,
+    today_set_on: null,
+    completed_at: `${addDays(DEMO_TODAY, -1)}T17:20:00`,
+    area: "work",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260412-replace-bulb",
+    title: "Replace hallway bulb",
+    status: "done",
+    created: addDays(DEMO_TODAY, -14),
+    scheduled: addDays(DEMO_TODAY, -4),
+    today: false,
+    today_set_on: null,
+    completed_at: `${addDays(DEMO_TODAY, -2)}T20:05:00`,
+    area: "home",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260411-submit-receipts",
+    title: "Submit reimbursement receipts",
+    status: "done",
+    created: addDays(DEMO_TODAY, -15),
+    scheduled: addDays(DEMO_TODAY, -5),
+    today: false,
+    today_set_on: null,
+    completed_at: `${addDays(DEMO_TODAY, -4)}T15:45:00`,
+    area: "admin",
+    project: null,
+    notes: null,
+  },
+  {
+    id: "20260409-fix-old-shortcut",
+    title: "Fix old shortcut idea",
+    status: "cancelled",
+    created: addDays(DEMO_TODAY, -17),
+    scheduled: addDays(DEMO_TODAY, -8),
+    today: false,
+    today_set_on: null,
+    completed_at: `${addDays(DEMO_TODAY, -6)}T11:10:00`,
+    area: "work",
+    project: null,
+    notes: null,
+  },
+];
+
+function taskTodayView() {
+  const items = TASKS
+    .filter((task) => task.status === "open" && task.today)
+    .sort((a, b) => (a.scheduled ?? "").localeCompare(b.scheduled ?? "") || (a.created ?? "").localeCompare(b.created ?? ""));
+  const review = TASKS
+    .filter((task) => task.status === "open" && !task.today && task.scheduled && task.scheduled <= DEMO_TODAY)
+    .sort((a, b) => (a.scheduled ?? "").localeCompare(b.scheduled ?? "") || (a.created ?? "").localeCompare(b.created ?? ""));
+  return { items, review };
+}
+
+function tasksList(url: URL) {
+  const view = (url.searchParams.get("view") ?? "today") as
+    | "today"
+    | "inbox"
+    | "upcoming"
+    | "anytime"
+    | "someday"
+    | "logbook"
+    | "all";
+  const area = url.searchParams.get("area");
+  const project = url.searchParams.get("project");
+  const days = Number(url.searchParams.get("days") ?? "90");
+  const matches = (task: DemoTask) =>
+    (!area || task.area === area) && (!project || task.project === project);
+  const filtered = TASKS.filter(matches);
+
+  if (view === "today") {
+    const { items, review } = taskTodayView();
+    return {
+      view,
+      today: DEMO_TODAY,
+      items: items.filter(matches),
+      review: review.filter(matches),
+    };
+  }
+
+  let items: DemoTask[];
+  if (view === "inbox") {
+    items = filtered
+      .filter((task) => task.status === "open" && !task.area && !task.project && !task.scheduled && !task.today)
+      .sort((a, b) => (b.created ?? "").localeCompare(a.created ?? ""));
+  } else if (view === "upcoming") {
+    items = filtered
+      .filter((task) => task.status === "open" && !!task.scheduled && task.scheduled > DEMO_TODAY)
+      .sort((a, b) => (a.scheduled ?? "").localeCompare(b.scheduled ?? "") || (a.created ?? "").localeCompare(b.created ?? ""));
+  } else if (view === "anytime") {
+    items = filtered
+      .filter((task) => task.status === "open" && !task.scheduled && !task.today && !!(task.area || task.project))
+      .sort((a, b) => (a.project ?? "").localeCompare(b.project ?? "") || (a.area ?? "").localeCompare(b.area ?? "") || (a.created ?? "").localeCompare(b.created ?? ""));
+  } else if (view === "someday") {
+    items = filtered
+      .filter((task) => task.status === "someday")
+      .sort((a, b) => (b.created ?? "").localeCompare(a.created ?? ""));
+  } else if (view === "logbook") {
+    const cutoff = addDays(DEMO_TODAY, -(days - 1));
+    items = filtered
+      .filter((task) => (task.status === "done" || task.status === "cancelled") && (task.completed_at ?? "").slice(0, 10) >= cutoff)
+      .sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""));
+  } else {
+    items = [...filtered].sort((a, b) => (b.created ?? "").localeCompare(a.created ?? ""));
+  }
+
+  return { view, today: DEMO_TODAY, items };
+}
+
+function taskCounts() {
+  const { items: todayItems, review } = taskTodayView();
+  return {
+    today: DEMO_TODAY,
+    today_count: todayItems.length,
+    review_count: review.length,
+    inbox_count: TASKS.filter((task) => task.status === "open" && !task.area && !task.project && !task.scheduled && !task.today).length,
+    upcoming_count: TASKS.filter((task) => task.status === "open" && !!task.scheduled && task.scheduled > DEMO_TODAY).length,
+    anytime_count: TASKS.filter((task) => task.status === "open" && !task.scheduled && !task.today && !!(task.area || task.project)).length,
+    someday_count: TASKS.filter((task) => task.status === "someday").length,
+    open_count: TASKS.filter((task) => task.status === "open").length,
+  };
+}
+
+function taskHistory(url: URL) {
+  const days = Number(url.searchParams.get("days") ?? "30");
+  const daily = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = addDays(DEMO_TODAY, -i);
+    daily.push({
+      date,
+      made: i % 6 === 0 ? 3 : i % 3 === 0 ? 2 : 1,
+      done: i % 5 === 0 ? 2 : i % 2 === 0 ? 1 : 0,
+      deferred: i % 7 === 0 ? 2 : i % 4 === 0 ? 1 : 0,
+      cancelled: i % 11 === 0 ? 1 : 0,
+    });
+  }
+  return {
+    daily,
+    by_area: [
+      { area: "health", made: 3, done: 4, deferred: 1 },
+      { area: "home", made: 2, done: 2, deferred: 1 },
+      { area: "work", made: 4, done: 3, deferred: 2 },
+      { area: "admin", made: 2, done: 1, deferred: 2 },
+    ],
+    today: DEMO_TODAY,
+    window_days: days,
+  };
+}
+
+function taskAreas() {
+  return { areas: TASK_AREAS };
+}
+
+function taskProjects() {
+  return { projects: TASK_PROJECTS };
+}
+
 // ─── Chores fixtures ───────────────────────────────────────────────────────
 
 type ChoreDef = { id: string; name: string; cadence_days: number; emoji: string; lastCompletedDaysAgo: number };
@@ -820,6 +1343,12 @@ const CHORES: ChoreDef[] = [
   { id: "vacuum", name: "Vacuum apartment", cadence_days: 7, emoji: "🧹", lastCompletedDaysAgo: 5 },
   { id: "laundry", name: "Laundry", cadence_days: 7, emoji: "🧺", lastCompletedDaysAgo: 7 }, // due today
   { id: "groceries-run", name: "Groceries run", cadence_days: 4, emoji: "🛒", lastCompletedDaysAgo: 1 },
+  { id: "bathroom-reset", name: "Bathroom reset", cadence_days: 7, emoji: "🛁", lastCompletedDaysAgo: 9 },
+  { id: "take-recycling", name: "Take out recycling", cadence_days: 5, emoji: "♻️", lastCompletedDaysAgo: 5 },
+  { id: "fridge-audit", name: "Fridge audit", cadence_days: 6, emoji: "🧊", lastCompletedDaysAgo: 4 },
+  { id: "desk-wipe", name: "Wipe down desk", cadence_days: 10, emoji: "🧽", lastCompletedDaysAgo: 11 },
+  { id: "towels", name: "Swap towels", cadence_days: 7, emoji: "🧼", lastCompletedDaysAgo: 6 },
+  { id: "entryway", name: "Reset entryway", cadence_days: 8, emoji: "🚪", lastCompletedDaysAgo: 13 },
 ];
 
 function choresList() {

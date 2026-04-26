@@ -185,6 +185,86 @@ export function ChipSelectField({
   );
 }
 
+export function DateField({
+  label,
+  value,
+  onChange,
+}: {
+  label?: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <FieldShell label={label}>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={inputClass}
+      />
+    </FieldShell>
+  );
+}
+
+export function CheckboxField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {label}
+    </label>
+  );
+}
+
+export type SelectOption = {
+  value: string;
+  label: string;
+  emoji?: string;
+};
+
+export function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = "—",
+}: {
+  label?: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: SelectOption[];
+  placeholder?: string;
+}) {
+  return (
+    <FieldShell label={label}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={inputClass}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.emoji ? `${opt.emoji} ` : ""}
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </FieldShell>
+  );
+}
+
 export function ListField({
   label,
   value,

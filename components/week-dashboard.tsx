@@ -2,6 +2,7 @@
 
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { TodayTimeline } from "@/components/today-timeline";
+import { WeekStrip } from "@/components/week-strip";
 
 function shiftDate(iso: string, deltaDays: number): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -22,6 +23,7 @@ export function WeekDashboard() {
         <h1 className="text-2xl font-semibold text-foreground">Week</h1>
         <p className="text-sm text-muted-foreground mt-0.5">{dates[0]} — {today}</p>
       </div>
+      <WeekStrip />
       {dates.map((d) => (
         <TodayTimeline key={d} date={d} />
       ))}

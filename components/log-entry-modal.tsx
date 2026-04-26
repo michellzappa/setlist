@@ -3,13 +3,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { QuickLogModal } from "@/components/quick-log-modal";
 import {
+  CheckboxField,
   ChipSelectField,
+  DateField,
   ListField,
   NumberField,
+  SelectField,
   TextAreaField,
   TextField,
   TimeField,
   type ChipOption,
+  type SelectOption,
 } from "@/components/log-entry-fields";
 
 const ACCENT = "var(--section-accent)";
@@ -32,7 +36,16 @@ export type FieldSpec =
       options: ChipOption[];
       fill?: boolean;
     }
+  | {
+      kind: "select";
+      key: string;
+      label?: string;
+      options: SelectOption[];
+      placeholder?: string;
+    }
   | { kind: "text"; key: string; label?: string; placeholder?: string }
+  | { kind: "date"; key: string; label?: string }
+  | { kind: "checkbox"; key: string; label: string }
   | { kind: "textarea"; key: string; label?: string; placeholder?: string; rows?: number }
   | { kind: "list"; key: string; label?: string; placeholder?: string; rows?: number; hint?: string }
   | { kind: "row"; fields: FieldSpec[] }
@@ -181,6 +194,32 @@ function FieldRenderer({
           options={spec.options}
           fill={spec.fill}
           value={(values[spec.key] as string | number) ?? ""}
+          onChange={(v) => set(spec.key, v)}
+        />
+      );
+    case "select":
+      return (
+        <SelectField
+          label={spec.label}
+          options={spec.options}
+          placeholder={spec.placeholder}
+          value={(values[spec.key] as string) ?? ""}
+          onChange={(v) => set(spec.key, v)}
+        />
+      );
+    case "date":
+      return (
+        <DateField
+          label={spec.label}
+          value={(values[spec.key] as string) ?? ""}
+          onChange={(v) => set(spec.key, v)}
+        />
+      );
+    case "checkbox":
+      return (
+        <CheckboxField
+          label={spec.label}
+          value={Boolean(values[spec.key])}
           onChange={(v) => set(spec.key, v)}
         />
       );

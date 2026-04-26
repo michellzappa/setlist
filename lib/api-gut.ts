@@ -46,6 +46,7 @@ export type GutHistoryPoint = {
   date: string;
   movements: number;
   avg_bristol: number | null;
+  bristol_counts: Record<string, number>;
   max_blood: number;
   discomfort_h: number;
 };

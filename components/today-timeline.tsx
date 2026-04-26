@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import { useEffect, useState } from "react";
 import { useSectionColor } from "@/hooks/use-sections";
-import { useMacroColors, useFastingTarget } from "@/lib/macro-targets";
+import { useMacroColors } from "@/lib/macro-targets";
 import {
   getNutritionEntries,
   getCannabisDay,
@@ -18,6 +18,7 @@ import { getGutDay } from "@/lib/api-gut";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { relativeDayLabel } from "@/lib/date-utils";
 import { parseHHMM, idealBedtimeFromOura, formatHour } from "@/lib/sleep";
+import { useFastingConfig, computeFastingState } from "@/lib/fasting";
 
 type Dot = { hour: number; color: string; label: string };
 
@@ -39,7 +40,7 @@ export function TodayTimeline({ date: dateProp }: { date?: string } = {}) {
   const choresColor = useSectionColor("chores");
   const gutColor = useSectionColor("gut");
   const fastingColor = useMacroColors().fasting;
-  const fastingTarget = useFastingTarget();
+  const fastingConfig = useFastingConfig();
 
   const { data } = useSWR(
     ["today-timeline", today],
@@ -63,7 +64,7 @@ export function TodayTimeline({ date: dateProp }: { date?: string } = {}) {
       ]);
       return { nutrition, cannabis, caffeine, training, health, habits, chores, supplements, gut };
     },
-    { refreshInterval: 60_000, revalidateOnFocus: false },
+    { refreshInterval: 5_000, revalidateOnFocus: false },
   );
 
   // Re-render every minute so the "now" indicator advances.
@@ -165,18 +166,33 @@ export function TodayTimeline({ date: dateProp }: { date?: string } = {}) {
   // Fasting bands — the gaps between days. From midnight to today's first
   // meal is the tail of yesterday's overnight fast; from today's last meal
   // to midnight is the lead-in to tomorrow's. Tinted in the fasting accent.
-  const todayMealHours = (data?.nutrition ?? [])
+  const todayMeals = (data?.nutrition ?? [])
     .filter((n) => n.date === today)
-    .map((n) => parseHHMM(n.time))
-    .filter((h): h is number => h != null)
-    .sort((a, b) => a - b);
+    .map((n) => ({ hh: n.time as string, hour: parseHHMM(n.time) }))
+    .filter((m): m is { hh: string; hour: number } => m.hour != null)
+    .sort((a, b) => a.hour - b.hour);
+  const todayMealHours = todayMeals.map((m) => m.hour);
   const firstMealHour = todayMealHours[0];
-  // Fast officially starts at firstMeal + (24 - fasting_min_h) — i.e. once
-  // the longest acceptable eating window closes. Using the *min* fasting
-  // target gives the *max* eating window, so the band only appears once
-  // we've clearly crossed into fasting (not just "no recent meal").
-  const fastStartHour =
-    firstMealHour != null ? Math.min(24, firstMealHour + (24 - fastingTarget.min)) : null;
+  const lastMealHHMM = todayMeals[todayMeals.length - 1]?.hh ?? null;
+  // Reuse the live fasting state machine (lib/fasting.ts) so the band
+  // appears under the same conditions the rest of the app uses: post
+  // evening_hour_24h, ≥ post_meal_grace_min minutes since last meal.
+  // For non-today dates, anchor "now" to end-of-day so completed days
+  // still surface their post-dinner fast.
+  const fastingAnchor = isToday ? now : new Date(`${today}T23:59:59`);
+  const fastingState = computeFastingState(
+    {
+      today_latest_meal: lastMealHHMM,
+      today_meal_count: todayMeals.length,
+      yesterday_last_meal: null,
+    },
+    fastingConfig,
+    fastingAnchor,
+  );
+  const fastingFromHour =
+    fastingState.state === "fasting" && fastingState.sinceDay === "today"
+      ? parseHHMM(fastingState.sinceTime)
+      : null;
 
   return (
     <div className="mb-6">
@@ -207,14 +223,16 @@ export function TodayTimeline({ date: dateProp }: { date?: string } = {}) {
           return null;
         })()}
         {(() => {
-          const rightStart = fastStartHour;
-          const rightEnd = Math.min(nowHour, moonInRange && moonHour != null ? moonHour : 24);
+          const rightStart = fastingFromHour;
+          const cap = isToday ? nowHour : 24;
+          const rightEnd = Math.min(cap, moonInRange && moonHour != null ? moonHour : 24);
           if (rightStart != null && rightStart < rightEnd) {
+            const hoursElapsed = (rightEnd - rightStart).toFixed(1);
             return (
               <div
                 className="absolute top-1/2 -translate-y-1/2 h-0.5 rounded-full"
                 style={{ left: `${pct(rightStart)}%`, width: `${pct(rightEnd - rightStart)}%`, backgroundColor: fastingColor }}
-                title={`Fasting from ${formatHour(rightStart)} (${fastingTarget.min}h target)`}
+                title={`Fasting since ${formatHour(rightStart)} · ${hoursElapsed}h`}
               />
             );
           }

@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import {
-  Check,
-  ChevronRight,
-  Circle,
-  Clock3,
-  ListChecks,
-} from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { NextActionIcon } from "@/components/next-action-icon";
 import { QuickLogModal } from "@/components/quick-log-modal";
 import {
@@ -22,8 +16,10 @@ import { RowActionsMenu, TaskRow, type TaskRowAction } from "@/components/tasks"
 import {
   completeChore,
   completeTask,
+  deferChore,
   toggleHabit,
   toggleSupplement,
+  type ChoreDeferMode,
   type SectionMeta,
 } from "@/lib/api";
 import { SECTIONS, type SectionKey } from "@/lib/sections";
@@ -55,6 +51,7 @@ function NextActionRow({
   onOpenModal,
   onNavigate,
   onSkip,
+  onDefer,
 }: {
   action: NextAction;
   color: string;
@@ -64,10 +61,19 @@ function NextActionRow({
   onOpenModal: (key: ModalKey) => void;
   onNavigate: (href: string) => void;
   onSkip?: (action: NextAction) => void;
+  onDefer?: (action: NextAction, mode: ChoreDeferMode) => void;
 }) {
+  const isChore = action.task?.type === "chore";
   const rowActions: TaskRowAction[] | undefined =
-    onSkip && action.bucket !== "done"
-      ? [{ label: "Skip for now", onSelect: () => onSkip(action) }]
+    action.bucket !== "done"
+      ? isChore && onDefer
+        ? [
+            { label: "Defer to tomorrow", onSelect: () => onDefer(action, "day") },
+            { label: "Defer to weekend", onSelect: () => onDefer(action, "weekend") },
+          ]
+        : onSkip
+          ? [{ label: "Skip for now", onSelect: () => onSkip(action) }]
+          : undefined
       : undefined;
 
   if (action.task) {
@@ -159,6 +165,7 @@ function ActionPanel({
   onOpenModal,
   onNavigate,
   onSkip,
+  onDefer,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -170,6 +177,7 @@ function ActionPanel({
   onOpenModal: (key: ModalKey) => void;
   onNavigate: (href: string) => void;
   onSkip?: (action: NextAction) => void;
+  onDefer?: (action: NextAction, mode: ChoreDeferMode) => void;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -196,6 +204,7 @@ function ActionPanel({
               onOpenModal={onOpenModal}
               onNavigate={onNavigate}
               onSkip={onSkip}
+              onDefer={onDefer}
             />
           ))}
         </div>
@@ -221,6 +230,22 @@ export function NextDashboard() {
     return map;
   }, [sections]);
 
+
+  async function deferAction(action: NextAction, mode: ChoreDeferMode) {
+    if (action.task?.type !== "chore" || pending.has(action.id)) return;
+    setPending((prev) => new Set(prev).add(action.id));
+    try {
+      await deferChore(action.task.id, mode);
+      revalidateAfterLog("chores");
+      await mutate();
+    } finally {
+      setPending((prev) => {
+        const next = new Set(prev);
+        next.delete(action.id);
+        return next;
+      });
+    }
+  }
 
   async function completeAction(action: NextAction) {
     if (!action.task || pending.has(action.id)) return;
@@ -255,79 +280,31 @@ export function NextDashboard() {
   return (
     <SectionTheme sectionKey="next" className="space-y-6">
       {isLoading && !data ? (
-        <div className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground shadow-sm">
-          Loading…
-        </div>
-      ) : computed.primary ? (
-        <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <Circle className="h-4 w-4" style={{ color: colorMap.get(computed.primary.section) ?? nextAccent }} />
-              <h2 className="truncate text-sm font-semibold">First</h2>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {computed.remaining > 1 ? `${computed.remaining} open` : "1 open"}
-            </span>
-          </div>
-          <NextActionRow
-            action={computed.primary}
-            color={colorMap.get(computed.primary.section) ?? nextAccent}
-            pending={pending.has(computed.primary.id)}
-            primary
-            onComplete={completeAction}
-            onOpenModal={setOpenModal}
-            onNavigate={(href) => router.push(href)}
-            onSkip={skip}
-          />
-        </section>
+        <div className="text-sm text-muted-foreground">Loading…</div>
       ) : (
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-full text-white"
-              style={{ backgroundColor: nextAccent }}
-            >
-              <Check className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="font-semibold">Clear</h2>
-              <p className="text-sm text-muted-foreground">No current action needs attention.</p>
-            </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-2">
+            {computed.upcoming.length === 0 ? (
+              <p className="text-sm text-muted-foreground">All clear — nothing due.</p>
+            ) : (
+              computed.upcoming.map((action) => (
+                <NextActionRow
+                  key={action.id}
+                  action={action}
+                  color={colorMap.get(action.section) ?? nextAccent}
+                  pending={pending.has(action.id)}
+                  onComplete={completeAction}
+                  onOpenModal={setOpenModal}
+                  onNavigate={(href) => router.push(href)}
+                  onSkip={skip}
+                  onDefer={deferAction}
+                />
+              ))
+            )}
           </div>
-        </section>
-      )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-        <div className="space-y-4">
-          <ActionPanel
-            title="Queue"
-            icon={<ListChecks className="h-4 w-4" style={{ color: nextAccent }} />}
-            actions={computed.queue}
-            colors={colorMap}
-            pending={pending}
-            empty="Nothing else for now."
-            onComplete={completeAction}
-            onOpenModal={setOpenModal}
-            onNavigate={(href) => router.push(href)}
-            onSkip={skip}
-          />
-
-          <ActionPanel
-            title="Later"
-            icon={<Clock3 className="h-4 w-4" style={{ color: nextAccent }} />}
-            actions={computed.later}
-            colors={colorMap}
-            pending={pending}
-            empty="No later items."
-            onComplete={completeAction}
-            onOpenModal={setOpenModal}
-            onNavigate={(href) => router.push(href)}
-            onSkip={skip}
-          />
-        </div>
-
-        <div className="space-y-4">
-          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="space-y-4">
+            <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <Check className="h-4 w-4" style={{ color: nextAccent }} />
@@ -358,24 +335,9 @@ export function NextDashboard() {
             )}
           </section>
 
-          <div className="flex flex-wrap gap-2">
-            {(["habits", "supplements", "chores", "training"] as SectionKey[]).map((key) => {
-              const meta = sectionMeta(sections, key);
-              return (
-                <Link
-                  key={key}
-                  href={meta.path}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-                >
-                  <span aria-hidden>{meta.emoji}</span>
-                  <span>{meta.label}</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              );
-            })}
-          </div>
         </div>
       </div>
+      )}
 
       {OpenForm && openModal && (
         <QuickLogModal

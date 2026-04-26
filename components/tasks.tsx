@@ -60,29 +60,23 @@ export function TaskRow({
   return (
     <div
       className={cn(
-        "relative flex w-full min-w-0 items-stretch overflow-hidden rounded-xl border text-sm transition-colors",
-        done
-          ? "border-transparent text-white"
-          : "border-border bg-card hover:border-[color:var(--task-accent)]",
+        "relative flex w-full min-w-0 items-stretch overflow-hidden rounded-xl border border-border text-sm transition-colors",
+        done ? "bg-[color-mix(in_oklab,var(--task-accent)_10%,transparent)]" : "bg-card hover:border-[color:var(--task-accent)]",
         pending && "opacity-60",
       )}
       style={
         {
-          backgroundColor: done ? accent : undefined,
           ["--task-accent" as string]: accent,
         } as React.CSSProperties
       }
     >
       {/* Section-accent "ear" — same vocabulary as the homepage SectionCard
-          and NextWidget tiles. Hidden on done rows where the accent already
-          floods the entire row. */}
-      {!done && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-1"
-          style={{ backgroundColor: accent }}
-        />
-      )}
+          and NextWidget tiles. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-1"
+        style={{ backgroundColor: accent }}
+      />
 
       <button
         type="button"
@@ -92,10 +86,10 @@ export function TaskRow({
       >
         <span
           className={cn(
-            "flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm font-bold",
-            done ? "border-white bg-white" : "border-border bg-card",
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded border text-sm font-bold text-white",
+            !done && "border-border bg-card",
           )}
-          style={done ? { color: accent } : undefined}
+          style={done ? { backgroundColor: accent, borderColor: accent } : undefined}
         >
           {done ? "✓" : ""}
         </span>
@@ -105,6 +99,7 @@ export function TaskRow({
             <span
               className={cn(
                 "block truncate font-medium",
+                done && "text-muted-foreground line-through",
                 muted && !done && "opacity-70",
               )}
             >
@@ -114,11 +109,9 @@ export function TaskRow({
               <span
                 className={cn(
                   "block text-xs",
-                  done
-                    ? "text-white/80"
-                    : sublabelTone === "warn"
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-muted-foreground",
+                  sublabelTone === "warn" && !done
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-muted-foreground",
                 )}
               >
                 {sublabel}
@@ -131,7 +124,7 @@ export function TaskRow({
       {hasActions && (
         <RowActionsMenu
           actions={actions!}
-          tone={done ? "on-accent" : "default"}
+          tone="default"
           disabled={pending}
         />
       )}

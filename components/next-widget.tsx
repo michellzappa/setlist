@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { mutate as globalMutate } from "swr";
 import { Check } from "lucide-react";
 import { QuickLogModal } from "@/components/quick-log-modal";
 import {
@@ -24,8 +25,10 @@ import {
 import {
   completeChore,
   completeTask,
+  deferChore,
   toggleHabit,
   toggleSupplement,
+  type ChoreDeferMode,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +40,7 @@ function PrimaryButton({
   onOpenModal,
   onNavigate,
   onSkip,
+  onDefer,
 }: {
   action: NextAction;
   color: string;
@@ -45,7 +49,15 @@ function PrimaryButton({
   onOpenModal: (key: ModalKey) => void;
   onNavigate: (href: string) => void;
   onSkip: (action: NextAction) => void;
+  onDefer: (action: NextAction, mode: ChoreDeferMode) => void;
 }) {
+  const isChore = action.task?.type === "chore";
+  const menuActions = isChore
+    ? [
+        { label: "Defer to tomorrow", onSelect: () => onDefer(action, "day") },
+        { label: "Defer to weekend", onSelect: () => onDefer(action, "weekend") },
+      ]
+    : [{ label: "Skip for now", onSelect: () => onSkip(action) }];
   const onClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -56,23 +68,30 @@ function PrimaryButton({
   return (
     <div
       className={cn(
-        "flex min-w-0 items-stretch overflow-hidden rounded-xl text-white transition-transform active:scale-[0.99]",
+        "flex min-w-0 items-stretch overflow-hidden rounded-xl border border-border bg-card text-foreground transition-transform active:scale-[0.99]",
         pending && "opacity-60",
       )}
-      style={{ backgroundColor: color }}
     >
+      <span
+        aria-hidden
+        className="w-1 self-stretch shrink-0"
+        style={{ backgroundColor: color }}
+      />
       <button
         type="button"
         disabled={pending}
         onClick={onClick}
         className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left text-sm"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20 text-lg">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
+          style={{ backgroundColor: `${color}1f`, color }}
+        >
           <NextActionIcon action={action} className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">{action.title}</span>
-          <span className="block truncate text-xs text-white/80">
+          <span className="block truncate text-xs text-muted-foreground">
             {[action.detail, action.reason].filter(Boolean).join(" · ")}
           </span>
         </span>
@@ -85,11 +104,8 @@ function PrimaryButton({
         }}
       >
         <RowActionsMenu
-          tone="on-accent"
           disabled={pending}
-          actions={[
-            { label: "Skip for now", onSelect: () => onSkip(action) },
-          ]}
+          actions={menuActions}
         />
       </div>
     </div>
@@ -119,6 +135,22 @@ export function NextWidget() {
   const totalCount = doneCount + remainingCount;
   const progressPct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
+  async function deferAction(action: NextAction, mode: ChoreDeferMode) {
+    if (action.task?.type !== "chore" || pending.has(action.id)) return;
+    setPending((prev) => new Set(prev).add(action.id));
+    try {
+      await deferChore(action.task.id, mode);
+      revalidateAfterLog("chores");
+      await mutate();
+    } finally {
+      setPending((prev) => {
+        const next = new Set(prev);
+        next.delete(action.id);
+        return next;
+      });
+    }
+  }
+
   async function completeAction(action: NextAction) {
     if (!action.task || pending.has(action.id)) return;
     setPending((prev) => new Set(prev).add(action.id));
@@ -137,6 +169,9 @@ export function NextWidget() {
         revalidateAfterLog("chores");
       }
       await mutate();
+      setTimeout(() => {
+        globalMutate((key) => Array.isArray(key) && key[0] === "today-timeline");
+      }, 400);
     } finally {
       setPending((prev) => {
         const next = new Set(prev);
@@ -205,6 +240,7 @@ export function NextWidget() {
               onOpenModal={setOpenModal}
               onNavigate={(href) => router.push(href)}
               onSkip={skip}
+              onDefer={deferAction}
             />
           ) : (
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm">

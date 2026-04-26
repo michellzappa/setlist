@@ -5,6 +5,8 @@ import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { LogEntryModal, type FieldSpec } from "@/components/log-entry-modal";
+import { QuickLogModal } from "@/components/quick-log-modal";
+import { CaffeineQuickLog } from "@/components/quick-log-forms";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 
 import {
@@ -29,7 +31,7 @@ import {
   HOUR_TICKS_2H,
   formatHourTick,
 } from "@/lib/date-utils";
-import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
+import { CHART_GRID, X_AXIS_DATE, Y_AXIS } from "@/lib/chart-defaults";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 
 // 30-minute buckets → 48 slots covering the full day.
@@ -78,8 +80,8 @@ export function CaffeineDashboard() {
       const [d, c, s, h] = await Promise.all([
         getCaffeineDay(selectedDate),
         getCaffeineConfig(),
-        getCaffeineSessions(7),
-        getCaffeineHistory(7),
+        getCaffeineSessions(90),
+        getCaffeineHistory(30),
       ]);
       return { day: d, beans: c.beans, sessions: s.sessions, history: h.daily };
     },
@@ -231,15 +233,11 @@ export function CaffeineDashboard() {
 
   const hasAnySessions = sessions.length > 0;
 
-  // 7-day daily totals. Backend returns oldest→newest; keep that order so
-  // today sits on the right edge — matches how every other 7d chart reads.
+  // 30-day daily totals. Backend returns oldest→newest; keep that order so
+  // today sits on the right edge.
   const dailyTotals = useMemo(
-    () => history.map((p) => ({ date: p.date, count: p.sessions })),
+    () => history.map((p) => ({ date: p.date.slice(5), count: p.sessions })),
     [history],
-  );
-  const weekTotal = useMemo(
-    () => dailyTotals.reduce((s, p) => s + p.count, 0),
-    [dailyTotals],
   );
 
   return (
@@ -250,10 +248,24 @@ export function CaffeineDashboard() {
         </SectionHeaderActionButton>
       </SectionHeaderAction>
 
+      <QuickLogModal
+        open={editor?.mode === "create"}
+        onClose={() => setEditor(null)}
+        title="Log Caffeine"
+        accent="var(--section-accent)"
+      >
+        <CaffeineQuickLog
+          onDone={() => {
+            setEditor(null);
+            mutate();
+          }}
+        />
+      </QuickLogModal>
+
       <LogEntryModal
-        open={editorOpen}
-        mode={editorMode}
-        title={editorMode === "edit" ? "Edit Caffeine" : "Log Caffeine"}
+        open={editor?.mode === "edit"}
+        mode="edit"
+        title="Edit Caffeine"
         schema={fieldSchema}
         initialValues={editorInitial}
         saving={saving}
@@ -300,13 +312,32 @@ export function CaffeineDashboard() {
             />
           </div>
 
-        {/* 30-day time-of-day distribution */}
+        {/* 30-day daily totals */}
+        {dailyTotals.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Last 30 days</CardTitle>
+            </CardHeader>
+            <CardContent className="min-w-0 overflow-hidden px-4">
+              <ChartContainer config={chartConfig} className="h-[140px] w-full">
+                <BarChart data={dailyTotals} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                  <CartesianGrid {...CHART_GRID} />
+                  <XAxis {...X_AXIS_DATE} interval={3} />
+                  <YAxis {...Y_AXIS} width={32} />
+                  <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} {...barAnim} />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Time-of-day · last 90 days */}
         {hasAnySessions && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle>Time-of-day · last 7 days</CardTitle>
+              <CardTitle>Time-of-day · last 90 days</CardTitle>
               <p className="text-xs text-muted-foreground">
-                30-min buckets across sessions from the last 7 days.
+                30-min buckets across sessions from the last 90 days.
                 {peakBucket && (
                   <>
                     {" "}Peak{" "}
@@ -332,29 +363,6 @@ export function CaffeineDashboard() {
                     axisLine={false}
                     tick={{ fontSize: 10 }}
                   />
-                  <YAxis {...Y_AXIS} width={28} tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Bar dataKey="count" fill="var(--color-count)" radius={[3, 3, 0, 0]} {...barAnim} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 7-day daily totals */}
-        {dailyTotals.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Daily total · last 7 days</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Sessions per day. Weekly total{" "}
-                <span className="font-semibold text-foreground">{weekTotal}</span>.
-              </p>
-            </CardHeader>
-            <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={chartConfig} className="h-[140px] w-full">
-                <BarChart data={dailyTotals} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid {...CHART_GRID} />
-                  <XAxis {...WEEKDAY_X_AXIS} interval={0} />
                   <YAxis {...Y_AXIS} width={28} tick={{ fontSize: 11 }} allowDecimals={false} />
                   <Bar dataKey="count" fill="var(--color-count)" radius={[3, 3, 0, 0]} {...barAnim} />
                 </BarChart>

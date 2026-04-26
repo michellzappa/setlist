@@ -5,6 +5,8 @@ import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { LogEntryModal, type FieldSpec } from "@/components/log-entry-modal";
+import { QuickLogModal } from "@/components/quick-log-modal";
+import { GutQuickLog } from "@/components/quick-log-forms";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 
 import {
@@ -24,7 +26,7 @@ import {
 } from "@/lib/date-utils";
 import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
 import { useSelectedDate } from "@/hooks/use-selected-date";
-import { SECTION_ACCENT_SHADE_2, SECTION_ACCENT_STRONG } from "@/lib/section-colors";
+import { SECTION_ACCENT_STRONG } from "@/lib/section-colors";
 
 const GUT_COLOR = "var(--section-accent)";
 const BRISTOL_IDS = [1, 2, 3, 4, 5, 6, 7];
@@ -69,7 +71,7 @@ export function GutDashboard() {
       const [d, c, h] = await Promise.all([
         getGutDay(selectedDate),
         getGutConfig(),
-        getGutHistory(30),
+        getGutHistory(90),
       ]);
       return { day: d, config: c, history: h.daily };
     },
@@ -208,15 +210,22 @@ export function GutDashboard() {
     };
   }, [editor]);
 
-  // 30-day Bristol distribution
+  // 90-day Bristol distribution. Aggregates bristol_counts across history if
+  // available; falls back to today only when the backend hasn't backfilled
+  // historical bristol_counts yet.
   const bristolHistogram = useMemo(() => {
     const counts = new Map<number, number>();
     for (const id of BRISTOL_IDS) counts.set(id, 0);
-    // Scrape bristol values out of movements across history via today's counts
-    // only — but we want 30d, so recompute from avg_bristol * movements isn't
-    // accurate. Instead, show today's distribution + multi-day averages in
-    // the trend chart below.
-    if (day) {
+    let aggregated = false;
+    for (const p of history) {
+      const bc = p.bristol_counts;
+      if (!bc) continue;
+      aggregated = true;
+      for (const [k, v] of Object.entries(bc)) {
+        counts.set(Number(k), (counts.get(Number(k)) ?? 0) + v);
+      }
+    }
+    if (!aggregated && day) {
       for (const [k, v] of Object.entries(day.bristol_counts)) {
         counts.set(Number(k), v);
       }
@@ -226,7 +235,7 @@ export function GutDashboard() {
       label: `T${id}`,
       count: counts.get(id) ?? 0,
     }));
-  }, [day]);
+  }, [history, day]);
 
   const dailyMovements = useMemo(
     () => history.map((p) => ({ date: p.date, count: p.movements })),
@@ -248,8 +257,6 @@ export function GutDashboard() {
     return last7.reduce((s, p) => s + p.movements, 0);
   }, [history]);
 
-  const openDiscomfort = day?.open_discomfort ?? 0;
-
   return (
     <>
       <SectionHeaderAction>
@@ -258,10 +265,24 @@ export function GutDashboard() {
         </SectionHeaderActionButton>
       </SectionHeaderAction>
 
+      <QuickLogModal
+        open={editor?.mode === "create"}
+        onClose={() => setEditor(null)}
+        title="Log Movement"
+        accent="var(--section-accent)"
+      >
+        <GutQuickLog
+          onDone={() => {
+            setEditor(null);
+            mutate();
+          }}
+        />
+      </QuickLogModal>
+
       <LogEntryModal
-        open={editorOpen}
-        mode={editorMode}
-        title={editorMode === "edit" ? "Edit Movement" : "Log Movement"}
+        open={editor?.mode === "edit"}
+        mode="edit"
+        title="Edit Movement"
         schema={fieldSchema}
         initialValues={editorInitial}
         saving={saving}
@@ -282,7 +303,7 @@ export function GutDashboard() {
       <div className="grid min-w-0 gap-6 lg:grid-cols-[1fr_1fr]">
         <div className="min-w-0 space-y-6">
           {/* Today's summary */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <StatCard
               label="Movements"
               value={day ? day.movement_count : null}
@@ -298,20 +319,14 @@ export function GutDashboard() {
               value={day ? fmtDuration(day.total_discomfort_h || null) : null}
               color={GUT_COLOR}
             />
-            <StatCard
-              label="Open"
-              value={day ? openDiscomfort : null}
-              sublabel={openDiscomfort > 0 ? "Unresolved discomfort" : undefined}
-              color={openDiscomfort > 0 ? SECTION_ACCENT_SHADE_2 : GUT_COLOR}
-            />
           </div>
 
           {/* Bristol distribution (today) */}
           <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Bristol Distribution · Today</CardTitle>
+            <CardTitle>Bristol Distribution · last 90 Days</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Count per Bristol type. Hover on the form buttons for descriptions.
+              Count per Bristol type across the last 90 days.
             </p>
           </CardHeader>
           <CardContent className="min-w-0 overflow-hidden px-4">
@@ -353,7 +368,7 @@ export function GutDashboard() {
         {avgBristolSeries.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle>Average Bristol · last 30 Days</CardTitle>
+              <CardTitle>Average Bristol · last 90 Days</CardTitle>
               <p className="text-xs text-muted-foreground">
                 Daily mean across movements. 4 is the ideal range.
               </p>

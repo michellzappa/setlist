@@ -1,13 +1,16 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+
+const HIDDEN = new Set(["cannabis"]);
 
 const TrainingDashboard    = dynamic(() => import("@/components/training-dashboard").then((m) => m.TrainingDashboard));
 const NutritionDashboard   = dynamic(() => import("@/components/nutrition-dashboard").then((m) => m.NutritionDashboard));
 const HabitsDashboard      = dynamic(() => import("@/components/habits-dashboard").then((m) => m.HabitsDashboard));
 const ChoresDashboard      = dynamic(() => import("@/components/chores-dashboard").then((m) => m.ChoresDashboard));
+const TasksDashboard       = dynamic(() => import("@/components/tasks-dashboard").then((m) => m.TasksDashboard));
 const SupplementsDashboard = dynamic(() => import("@/components/supplements-dashboard").then((m) => m.SupplementsDashboard));
 const CaffeineDashboard    = dynamic(() => import("@/components/caffeine-dashboard").then((m) => m.CaffeineDashboard));
-const CannabisDashboard    = dynamic(() => import("@/components/cannabis-dashboard").then((m) => m.CannabisDashboard));
 const GroceriesDashboard   = dynamic(() => import("@/components/groceries-dashboard").then((m) => m.GroceriesDashboard));
 const GutDashboard         = dynamic(() => import("@/components/gut-dashboard").then((m) => m.GutDashboard));
 const AirDashboard         = dynamic(() => import("@/components/air-dashboard").then((m) => m.AirDashboard));
@@ -25,9 +28,9 @@ const WIRED: Record<string, React.ComponentType> = {
   nutrition:   NutritionDashboard,
   habits:      HabitsDashboard,
   chores:      ChoresDashboard,
+  tasks:       TasksDashboard,
   supplements: SupplementsDashboard,
   caffeine:    CaffeineDashboard,
-  cannabis:    CannabisDashboard,
   groceries:   GroceriesDashboard,
   gut:         GutDashboard,
   air:         AirDashboard,
@@ -46,6 +49,7 @@ export default async function DemoSectionPage({
   params: Promise<{ section: string }>;
 }) {
   const { section } = await params;
+  if (HIDDEN.has(section)) notFound();
   const Wired = WIRED[section];
   if (Wired) return <Wired />;
   return (

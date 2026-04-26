@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { CHART_GRID, X_AXIS_DATE, Y_AXIS } from "@/lib/chart-defaults";
@@ -65,7 +65,6 @@ export function ChoresDashboard() {
   const barAnim = useBarAnimation();
   const { celebrate, node: confettiNode } = useCelebrate();
   const { data: settings } = useSWR("settings", getSettings);
-  const prevDoneRef = useRef<{ done: number; total: number } | null>(null);
 
   const { data, error, isLoading, mutate } = useSWR(
     ["chores"],
@@ -115,22 +114,10 @@ export function ChoresDashboard() {
   const total = chores.length;
   const todoTotal = todoList.length;
 
-  useEffect(() => {
-    if (loading) return;
-    const prev = prevDoneRef.current;
-    prevDoneRef.current = { done: doneTodayCount, total: todoTotal };
-    if (!prev) return;
-    if (todoTotal > 0 && prev.done < prev.total && doneTodayCount === todoTotal) {
-      celebrate({
-        message: "Chores complete",
-        description: `${todoTotal} of ${todoTotal} done for today`,
-        confetti: settings?.animations?.chores_complete ?? true,
-      });
-    }
-  }, [doneTodayCount, todoTotal, loading, settings, celebrate]);
-
   async function onToggle(choreId: string, isDone: boolean) {
     if (pending.has(choreId)) return;
+    const prevDone = doneTodayCount;
+    const total = todoTotal;
     setPending((p) => new Set(p).add(choreId));
     haptic();
     try {
@@ -138,6 +125,13 @@ export function ChoresDashboard() {
         await uncompleteChore(choreId);
       } else {
         await completeChore(choreId);
+        if (total > 0 && prevDone < total && prevDone + 1 === total) {
+          celebrate({
+            message: "Chores complete",
+            description: `${total} of ${total} done for today`,
+            confetti: settings?.animations?.chores_complete ?? true,
+          });
+        }
       }
       haptic();
       mutate();

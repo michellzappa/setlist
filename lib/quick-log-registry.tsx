@@ -10,6 +10,7 @@ import {
   ChoresQuickLog,
   GutQuickLog,
   TasksQuickLog,
+  GroceriesQuickLog,
 } from "@/components/quick-log-forms";
 import type { SectionKey } from "@/lib/sections";
 
@@ -37,4 +38,5 @@ export const QUICK_LOG: Partial<Record<SectionKey, QuickLogEntry>> = {
   chores:      { title: "Chores",         Component: ChoresQuickLog,      icon: "check" },
   tasks:       { title: "New task",       Component: TasksQuickLog,       icon: "plus"  },
   gut:         { title: "Log gut",        Component: GutQuickLog,         icon: "plus"  },
+  groceries:   { title: "Add grocery",    Component: GroceriesQuickLog,   icon: "plus"  },
 };

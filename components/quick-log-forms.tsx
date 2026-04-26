@@ -8,6 +8,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { duplicateNutritionEntry } from "@/lib/nutrition-duplicate";
 import { addGutEntry, getGutConfig } from "@/lib/api-gut";
 import {
+  addGroceryItem,
   addCaffeineEntry,
   addCannabisEntry,
   addHabit,
@@ -27,6 +28,7 @@ import {
   getSettings,
   getSupplementDay,
   getTaskAreas,
+  getTaskProjects,
   startCannabisCapsule,
   toggleHabit,
   toggleSupplement,
@@ -54,6 +56,7 @@ import { cn } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 import { TaskRow } from "@/components/tasks";
 import { haptic } from "@/lib/haptics";
+import { usePending } from "@/hooks/use-pending";
 
 // ── Shared primitives ────────────────────────────────────────────────────────
 
@@ -558,27 +561,20 @@ export function HabitsQuickLog() {
     settings?.day_phase_boundaries ?? DEFAULT_DAY_PHASE_BOUNDARIES,
     settings?.day_end ?? DEFAULT_DAY_END,
   );
-  const [pending, setPending] = useState<Set<string>>(new Set());
+  const { pending, withPending } = usePending<string>();
   const [newBucket, setNewBucket] = useState<string>(activePhaseId(phases) ?? phases[0]?.id ?? "morning");
 
   const onToggle = useCallback(
     async (habit: HabitDayItem) => {
       if (pending.has(habit.id) || !data) return;
-      setPending((p) => new Set(p).add(habit.id));
       haptic();
-      try {
+      await withPending(habit.id, async () => {
         await toggleHabit(selectedDate, habit.id, !habit.done);
         revalidateAfterLog("habits");
         await mutate();
-      } finally {
-        setPending((p) => {
-          const next = new Set(p);
-          next.delete(habit.id);
-          return next;
-        });
-      }
+      });
     },
-    [pending, data, selectedDate, mutate],
+    [pending, withPending, data, selectedDate, mutate],
   );
 
   const newItem = (
@@ -677,26 +673,19 @@ export function SupplementsQuickLog() {
   const { data, mutate, isLoading } = useSWR(["quicklog-supplements", selectedDate], () =>
     getSupplementDay(selectedDate),
   );
-  const [pending, setPending] = useState<Set<string>>(new Set());
+  const { pending, withPending } = usePending<string>();
 
   const onToggle = useCallback(
     async (item: SupplementItem) => {
       if (pending.has(item.id) || !data) return;
-      setPending((p) => new Set(p).add(item.id));
       haptic();
-      try {
+      await withPending(item.id, async () => {
         await toggleSupplement(selectedDate, item.id, !item.done);
         revalidateAfterLog("supplements");
         await mutate();
-      } finally {
-        setPending((p) => {
-          const next = new Set(p);
-          next.delete(item.id);
-          return next;
-        });
-      }
+      });
     },
-    [pending, data, selectedDate, mutate],
+    [pending, withPending, data, selectedDate, mutate],
   );
 
   const newItem = (
@@ -763,27 +752,20 @@ export function ChoresQuickLog() {
   const accent = useSectionColor("chores");
   const { date: selectedDate } = useSelectedDate();
   const { data, mutate, isLoading } = useSWR("quicklog-chores", () => getChores());
-  const [pending, setPending] = useState<Set<string>>(new Set());
+  const { pending, withPending } = usePending<string>();
   const [newCadence, setNewCadence] = useState<"1" | "2" | "7" | "14" | "30">("7");
 
   const onComplete = useCallback(
     async (id: string) => {
       if (pending.has(id)) return;
-      setPending((p) => new Set(p).add(id));
       haptic();
-      try {
+      await withPending(id, async () => {
         await completeChore(id, { date: selectedDate });
         revalidateAfterLog("chores");
         await mutate();
-      } finally {
-        setPending((p) => {
-          const next = new Set(p);
-          next.delete(id);
-          return next;
-        });
-      }
+      });
     },
-    [pending, mutate, selectedDate],
+    [pending, withPending, mutate, selectedDate],
   );
 
   const newItem = (
@@ -948,9 +930,12 @@ export function GutQuickLog({ onDone }: { onDone: () => void }) {
 export function TasksQuickLog({ onDone }: { onDone: () => void }) {
   const accent = useSectionColor("tasks");
   const { data: areas } = useSWR("quicklog-tasks-areas", () => getTaskAreas());
+  const { data: projectsData } = useSWR("quicklog-tasks-projects", () => getTaskProjects());
   const [title, setTitle] = useState("");
   const [area, setArea] = useState<string>("");
-  const [today, setToday] = useState(false);
+  const [project, setProject] = useState<string>("");
+  const [scheduled, setScheduled] = useState<string>("");
+  const [when, setWhen] = useState<"" | "today" | "someday">("");
   const [saving, setSaving] = useState(false);
 
   const handleSave = useCallback(async () => {
@@ -961,7 +946,10 @@ export function TasksQuickLog({ onDone }: { onDone: () => void }) {
       await createTask({
         title: t,
         area: area || null,
-        today,
+        project: project || null,
+        scheduled: scheduled || null,
+        today: when === "today",
+        status: when === "someday" ? "someday" : "open",
       });
       revalidateAfterLog("tasks");
       showToast("Task added", { description: t });
@@ -969,7 +957,7 @@ export function TasksQuickLog({ onDone }: { onDone: () => void }) {
     } finally {
       setSaving(false);
     }
-  }, [title, area, today, saving, onDone]);
+  }, [title, area, project, scheduled, when, saving, onDone]);
 
   return (
     <div className="space-y-3">
@@ -1006,13 +994,115 @@ export function TasksQuickLog({ onDone }: { onDone: () => void }) {
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-2 self-end pb-1.5 text-sm">
-          <input type="checkbox" checked={today} onChange={(e) => setToday(e.target.checked)} />
-          <span>Move to Today</span>
+        <label className="flex flex-col gap-1 text-xs">
+          <span className="text-muted-foreground">Project</span>
+          <select
+            value={project}
+            onChange={(e) => setProject(e.target.value)}
+            className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+          >
+            <option value="">—</option>
+            {(projectsData?.projects ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
+      <label className="flex flex-col gap-1 text-xs">
+        <span className="text-muted-foreground">Scheduled</span>
+        <input
+          type="date"
+          value={scheduled}
+          onChange={(e) => setScheduled(e.target.value)}
+          className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
+        />
+      </label>
+
+      <PillGroup
+        options={[
+          { value: "" as const, label: "Default" },
+          { value: "today" as const, label: "Today" },
+          { value: "someday" as const, label: "Someday" },
+        ]}
+        value={when}
+        onChange={setWhen}
+        accent={accent}
+      />
+
       <SaveBar onCancel={onDone} onSave={handleSave} saving={saving} accent={accent} disabled={!title.trim()} />
+    </div>
+  );
+}
+
+// ── Groceries ────────────────────────────────────────────────────────────────
+
+const GROCERY_CATEGORIES: { value: string; label: string; emoji: string }[] = [
+  { value: "produce", label: "Produce", emoji: "🥬" },
+  { value: "dairy", label: "Dairy", emoji: "🥛" },
+  { value: "grains", label: "Grains", emoji: "🌾" },
+  { value: "meat", label: "Meat", emoji: "🥩" },
+  { value: "frozen", label: "Frozen", emoji: "🧊" },
+  { value: "household", label: "Household", emoji: "🧹" },
+  { value: "other", label: "Other", emoji: "📦" },
+];
+
+export function GroceriesQuickLog({ onDone }: { onDone: () => void }) {
+  const accent = useSectionColor("groceries");
+  const [name, setName] = useState("");
+  const [emoji, setEmoji] = useState("📦");
+  const [category, setCategory] = useState("other");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    const t = name.trim();
+    if (!t || saving) return;
+    setSaving(true);
+    try {
+      await addGroceryItem(t, category, emoji.slice(0, 2) || "📦");
+      revalidateAfterLog("groceries");
+      haptic();
+      onDone();
+    } finally {
+      setSaving(false);
+    }
+  }, [name, emoji, category, saving, onDone]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={emoji}
+          onChange={(e) => setEmoji(e.target.value.slice(0, 2))}
+          className="w-14 rounded-lg border border-input bg-background px-2 py-2 text-center text-lg"
+        />
+        <input
+          autoFocus
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && name.trim()) {
+              e.preventDefault();
+              handleSave();
+            }
+          }}
+          placeholder="e.g. Oats"
+          className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <PillGroup
+        options={GROCERY_CATEGORIES.map((c) => ({ value: c.value, label: `${c.emoji} ${c.label}` }))}
+        value={category}
+        onChange={setCategory}
+        accent={accent}
+      />
+
+      <SaveBar onCancel={onDone} onSave={handleSave} saving={saving} accent={accent} disabled={!name.trim()} label="Add" />
     </div>
   );
 }

@@ -368,7 +368,6 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
         day ? { date: day.date, items: day.items } : null,
       );
       const usual = usualItemTime<SupplementItem>(normalized, item.id, selectedDate);
-      const bucket = timingBucket(usual, nowMinutes, isToday);
       const action: NextAction = {
         id: `supplement:${item.id}`,
         section: "supplements",
@@ -376,7 +375,7 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
         emoji: item.emoji,
         detail: usual != null ? `Usually around ${formatMinutes(usual)}` : "Daily stack",
         score: 75 + timingScore(usual, nowMinutes, isToday),
-        bucket: item.done ? "done" : bucket,
+        bucket: item.done ? "done" : "now",
         task: { type: "supplement", id: item.id, done: item.done },
       };
       if (item.done) done.push({ ...action, detail: item.time ? `Taken ${item.time}` : "Taken today" });
@@ -411,17 +410,6 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
             : "Due today",
           score: chore.days_overdue > 0 ? 140 + Math.min(chore.days_overdue * 8, 40) : 95,
           bucket: "now",
-          task: { type: "chore", id: chore.id },
-        });
-      } else if (chore.days_overdue >= -2) {
-        actions.push({
-          id: `chore:${chore.id}`,
-          section: "chores",
-          title: chore.name,
-          emoji: chore.emoji,
-          detail: `Due in ${Math.abs(chore.days_overdue)}d`,
-          score: 15,
-          bucket: "later",
           task: { type: "chore", id: chore.id },
         });
       }
@@ -539,7 +527,8 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
       .filter((action) => action.bucket === "now" && !skipped.has(action.id))
       .sort((a, b) => b.score - a.score);
     const primary = sortedNow[0] ?? null;
-    const queue = sortedNow.slice(primary ? 1 : 0, (primary ? 1 : 0) + VISIBLE_QUEUE);
+    const queue = sortedNow.slice(primary ? 1 : 0);
+    const upcoming = sortedNow;
     const later = actions
       .filter((action) => action.bucket === "later" && !skipped.has(action.id))
       .sort((a, b) => b.score - a.score)
@@ -548,6 +537,7 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
     return {
       primary,
       queue,
+      upcoming,
       later,
       done: done.slice(0, 8),
       activePhase: activePhaseMeta,

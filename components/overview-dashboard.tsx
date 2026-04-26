@@ -323,6 +323,7 @@ function NutritionMini() {
   const daily = stats?.daily ?? [];
   const todayRow = daily.find((d) => d.date === selectedDate);
   const todayProtein = todayRow?.protein_g ?? 0;
+  const todayKcal = todayRow?.kcal ?? 0;
   const target = useMacroTargets().protein.max;
   const fastingTarget = useFastingTarget();
   const fastingConfig = useFastingConfig();
@@ -369,7 +370,7 @@ function NutritionMini() {
         {fastingState.state === "fasting" ? (
           <MiniStat label="Fasting" value={`${fastingState.hours}h ${fastingState.mins}m`} color={color} />
         ) : (
-          <MiniStat label="Avg fast" value={stats ? `${stats.avg_fast_h}h` : "—"} />
+          <MiniStat label="Kcal" value={Math.round(todayKcal)} color={color} />
         )}
       </div>
 

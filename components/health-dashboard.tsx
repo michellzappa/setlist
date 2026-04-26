@@ -92,6 +92,17 @@ const hrvConfig = {
   resting_heart_rate: { label: "Resting HR", color: SECTION_ACCENT_STRONG },
 } satisfies ChartConfig;
 
+// Returns the date strings (YYYY-MM-DD) in `rows` that fall on a Monday — used
+// to draw subtle weekly gridlines so the eye can read the chart's cadence.
+function weekDividers<T extends { date: string }>(rows: T[]): string[] {
+  return rows
+    .map(r => r.date)
+    .filter(d => {
+      const dt = new Date(`${d}T00:00:00`);
+      return dt.getDay() === 1;
+    });
+}
+
 
 function LoadingSkeleton() {
   return (
@@ -127,7 +138,7 @@ export function HealthDashboard() {
   });
 
   const { date: selectedDate, isToday } = useSelectedDate();
-  const { data, error, isLoading } = useSWR(["health", selectedDate], () => getHealthCombined(7, isToday ? undefined : selectedDate), {
+  const { data, error, isLoading } = useSWR(["health", selectedDate], () => getHealthCombined(90, isToday ? undefined : selectedDate), {
     fallbackData: cached,
     refreshInterval: 60_000,
   });
@@ -158,9 +169,19 @@ export function HealthDashboard() {
   const appleSubtitle = appleDate && appleDate !== today ? formatDate(appleDate) : undefined;
   const ouraSubtitle = ouraDate && ouraDate !== today ? formatDate(ouraDate) : undefined;
 
-  // Slice all data to last 7 entries for charts
+  // Per-chart windows: short window for dense daily-sum bars; longer window
+  // for slow-moving line charts. Apple metrics are upstream-capped to ~21d
+  // by Health Auto Export, so we trim VO2 to the actual non-null range.
   const apple7 = useMemo(() => appleRows.slice(-7), [appleRows]);
-  const oura7 = useMemo(() => ouraRows.slice(-7), [ouraRows]);
+  const vo2Series = useMemo(() => {
+    const first = appleRows.findIndex(r => r.vo2_max != null);
+    return first === -1 ? [] : appleRows.slice(first);
+  }, [appleRows]);
+  const oura90 = useMemo(() => ouraRows.slice(-90), [ouraRows]);
+  const appleTable = useMemo(() => appleRows.filter(r =>
+    r.steps != null || r.active_cal != null || r.vo2_max != null ||
+    r.hrv != null || r.resting_heart_rate != null
+  ).slice(-30), [appleRows]);
 
   if (loading) return <LoadingSkeleton />;
 
@@ -241,43 +262,49 @@ export function HealthDashboard() {
           </Card>
         )}
 
-        {/* VO2 Max */}
-        {apple7.length > 0 && (
+        {/* VO2 Max — full available range (Apple HAE caps at ~21d upstream) */}
+        {vo2Series.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>VO2 Max <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_3 }}>↑ 40+</span></CardTitle>
+              <CardTitle>VO2 Max <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_3 }}>↑ 40+ · {vo2Series.length}d</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 px-4">
               <ChartContainer config={vo2Config} className="h-[160px] w-full overflow-hidden">
-                <LineChart data={apple7} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <LineChart data={vo2Series} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
-                  <XAxis {...WEEKDAY_X_AXIS} interval={0} />
+                  <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS} domain={[30, 45]} width={28} />
+                  {weekDividers(vo2Series).map(d => (
+                    <ReferenceLine key={`wk-${d}`} x={d} stroke="currentColor" strokeOpacity={0.12} />
+                  ))}
                   <ReferenceLine y={40} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="6 3" strokeOpacity={0.5} />
                   <Line type="monotone" dataKey="vo2_max" stroke="var(--color-vo2_max)"
-                    strokeWidth={2} dot={{ r: 3 }} />
+                    strokeWidth={2} dot={{ r: 3 }} connectNulls />
                 </LineChart>
               </ChartContainer>
             </CardContent>
           </Card>
         )}
 
-        {/* HRV + Resting HR */}
-        {oura7.length > 0 && (
+        {/* HRV + Resting HR — 90-day trend (Oura) */}
+        {oura90.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>HRV <span className="text-xs font-normal" style={{ color: SECTION_ACCENT }}>↑</span> & Resting HR <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_STRONG }}>↓</span></CardTitle>
+              <CardTitle>HRV <span className="text-xs font-normal" style={{ color: SECTION_ACCENT }}>↑</span> & Resting HR <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_STRONG }}>↓ · {oura90.length}d</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 px-4">
               <ChartContainer config={hrvConfig} className="h-[160px] w-full overflow-hidden">
-                <LineChart data={oura7} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <LineChart data={oura90} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
-                  <XAxis {...WEEKDAY_X_AXIS} interval={0} />
+                  <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS} domain={["auto", "auto"]} width={28} />
+                  {weekDividers(oura90).map(d => (
+                    <ReferenceLine key={`wk-${d}`} x={d} stroke="currentColor" strokeOpacity={0.12} />
+                  ))}
                   <Line type="monotone" dataKey="hrv" stroke="var(--color-hrv)"
-                    strokeWidth={2} dot={false} />
+                    strokeWidth={2} dot={false} connectNulls />
                   <Line type="monotone" dataKey="resting_hr" stroke="var(--color-resting_heart_rate)"
-                    strokeWidth={2} dot={false} />
+                    strokeWidth={2} dot={false} connectNulls />
                 </LineChart>
               </ChartContainer>
             </CardContent>
@@ -288,7 +315,7 @@ export function HealthDashboard() {
 
 
       {/* All Apple Health metrics table */}
-      {apple7.length > 0 && (
+      {appleTable.length > 0 && (
         <Card className="mb-4 min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle>Apple Health — All Metrics</CardTitle>
@@ -309,7 +336,7 @@ export function HealthDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {[...apple7].reverse().map((row) => (
+                {[...appleTable].reverse().map((row) => (
                   <tr key={row.date} className="border-b border-border/50">
                     <td className="whitespace-nowrap py-2 pr-3">{formatDate(row.date)}</td>
                     <td className="py-2 pr-3">{fmt(row.steps)}</td>

@@ -28,6 +28,7 @@ import { useBarAnimation } from "@/hooks/use-bar-animation";
 import { StatCard } from "@/components/stat-card";
 import { TaskGroup, TaskRow, type TaskRowAction } from "@/components/tasks";
 import { QuickLogModal } from "@/components/quick-log-modal";
+import { TasksQuickLog } from "@/components/quick-log-forms";
 import { SectionHeaderAction, SectionHeaderActionButton } from "@/components/section-header-action";
 import {
   SECTION_ACCENT_SHADE_2,
@@ -493,18 +494,19 @@ export function TasksDashboard() {
         </Card>
       )}
 
-      <CreateTaskModal
+      <QuickLogModal
         open={creating}
         onClose={() => setCreating(false)}
-        accent={ACCENT}
-        defaultView={view}
-        areas={data?.areas ?? []}
-        projects={data?.projects ?? []}
-        onCreated={() => {
-          mutate();
-          setCreating(false);
-        }}
-      />
+        title="New Task"
+        accent="var(--section-accent)"
+      >
+        <TasksQuickLog
+          onDone={() => {
+            mutate();
+            setCreating(false);
+          }}
+        />
+      </QuickLogModal>
     </>
   );
 }
@@ -629,157 +631,3 @@ function SubNav({
   );
 }
 
-function CreateTaskModal({
-  open,
-  onClose,
-  accent,
-  defaultView,
-  areas,
-  projects,
-  onCreated,
-}: {
-  open: boolean;
-  onClose: () => void;
-  accent: string;
-  defaultView: TaskView;
-  areas: { id: string; title: string; emoji: string }[];
-  projects: { id: string; title: string }[];
-  onCreated: () => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [area, setArea] = useState<string>("");
-  const [project, setProject] = useState<string>("");
-  const [scheduled, setScheduled] = useState<string>("");
-  const [today, setToday] = useState<boolean>(defaultView === "today");
-  const [someday, setSomeday] = useState<boolean>(defaultView === "someday");
-  const [submitting, setSubmitting] = useState(false);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const t = title.trim();
-    if (!t || submitting) return;
-    setSubmitting(true);
-    try {
-      await createTask({
-        title: t,
-        area: area || null,
-        project: project || null,
-        scheduled: scheduled || null,
-        today,
-        status: someday ? "someday" : "open",
-      });
-      setTitle("");
-      setArea("");
-      setProject("");
-      setScheduled("");
-      setToday(false);
-      setSomeday(false);
-      onCreated();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <QuickLogModal open={open} onClose={onClose} title="New Task" accent={accent}>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 px-5 py-4">
-        <input
-          autoFocus
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="What needs doing?"
-          className="rounded-lg border border-border bg-background px-3 py-2 text-base outline-none focus:border-[var(--section-accent)]"
-          style={{ ["--section-accent" as string]: accent } as React.CSSProperties}
-        />
-
-        <div className="grid grid-cols-2 gap-2">
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Area</span>
-            <select
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-            >
-              <option value="">—</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.emoji ? `${a.emoji} ` : ""}
-                  {a.title}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Project</span>
-            <select
-              value={project}
-              onChange={(e) => setProject(e.target.value)}
-              className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-            >
-              <option value="">—</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <label className="flex flex-col gap-1 text-xs">
-          <span className="text-muted-foreground">Scheduled</span>
-          <input
-            type="date"
-            value={scheduled}
-            onChange={(e) => setScheduled(e.target.value)}
-            className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
-          />
-        </label>
-
-        <div className="flex items-center gap-4 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={today}
-              onChange={(e) => {
-                setToday(e.target.checked);
-                if (e.target.checked) setSomeday(false);
-              }}
-            />
-            Move to Today
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={someday}
-              onChange={(e) => {
-                setSomeday(e.target.checked);
-                if (e.target.checked) setToday(false);
-              }}
-            />
-            Someday
-          </label>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={!title.trim() || submitting}
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-            style={{ backgroundColor: accent }}
-          >
-            {submitting ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </form>
-    </QuickLogModal>
-  );
-}

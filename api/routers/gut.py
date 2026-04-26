@@ -349,6 +349,7 @@ def gut_history(days: int = 30) -> Dict[str, Any]:
         movements = len(events)
         bristol_sum = 0
         bristol_n = 0
+        bristol_counts: Dict[int, int] = {}
         blood_flag = 0
         discomfort_h = 0.0
         for e in events:
@@ -356,6 +357,7 @@ def gut_history(days: int = 30) -> Dict[str, Any]:
             if b:
                 bristol_sum += b
                 bristol_n += 1
+                bristol_counts[b] = bristol_counts.get(b, 0) + 1
             blood = _coerce_int_in(e.get("blood"), {0, 1, 2}, 0)
             if blood > blood_flag:
                 blood_flag = blood
@@ -365,6 +367,7 @@ def gut_history(days: int = 30) -> Dict[str, Any]:
             "date": d,
             "movements": movements,
             "avg_bristol": round(bristol_sum / bristol_n, 2) if bristol_n else None,
+            "bristol_counts": bristol_counts,
             "max_blood": blood_flag,
             "discomfort_h": round(discomfort_h, 2),
         })

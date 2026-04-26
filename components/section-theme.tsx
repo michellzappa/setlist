@@ -20,15 +20,27 @@ import type { SectionKey } from "@/lib/sections";
  *  On `/` (launcher) no section matches — vars fall back to :root's
  *  `--app-accent` defaults. In e-ink mode, `.eink` rules override the
  *  vars with `!important`, so the inline style here is ignored. */
-export function SectionThemeRoot({ children }: { children: ReactNode }) {
+/** Resolves the section accent color for the current pathname using the same
+ *  longest-prefix-wins rule as SectionHeader. Returns undefined on routes
+ *  that don't belong to any section (e.g. `/`), letting consumers fall back
+ *  to `--app-accent`. */
+export function useCurrentSectionColor(): string | undefined {
   const pathname = usePathname();
   const sections = useSections();
 
-  const match = sections
+  const demoMatch = pathname.startsWith("/demo/")
+    ? sections.find((s) => s.key === pathname.split("/")[2])
+    : undefined;
+
+  const regularMatch = sections
     .filter((s) => s.path && (pathname === s.path || pathname.startsWith(s.path + "/")))
     .sort((a, b) => b.path.length - a.path.length)[0];
 
-  const color = match?.color;
+  return (demoMatch ?? regularMatch)?.color;
+}
+
+export function SectionThemeRoot({ children }: { children: ReactNode }) {
+  const color = useCurrentSectionColor();
   const style: CSSProperties | undefined = color ? sectionAccentVars(color) : undefined;
 
   return (
