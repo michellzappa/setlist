@@ -24,7 +24,7 @@
     "ai-agents"
   ],
   "scripts": {
-    "dev": "next dev --port 7777",
+    "dev": "bash scripts/dev.sh",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
