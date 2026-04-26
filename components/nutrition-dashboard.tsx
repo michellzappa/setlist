@@ -18,6 +18,7 @@ import {
   type NutritionEntry,
   type NutritionPayload,
   type NutritionStats,
+  type ProgressMode,
 } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TimeInput } from "@/components/time-input";
@@ -69,7 +70,7 @@ function NutritionDashboardInner() {
   const firstMealAnimationEnabled = settings?.animations?.first_meal ?? true;
   const progressMode = useProgressMode();
   const toggleProgressMode = () => {
-    const next = progressMode === "used" ? "left" : "used";
+    const next: ProgressMode = progressMode === "used" ? "left" : "used";
     globalMutate(
       "settings",
       (cur: AppSettings | undefined) =>

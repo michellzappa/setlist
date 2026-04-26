@@ -25,8 +25,8 @@ export type TimelineColors = {
 
 export type TimelineDayData = {
   nutritionEvents: SectionEvent[];
-  cannabis: { entries?: { time: string }[] } | null;
-  caffeine: { entries?: { time: string; method?: string }[] } | null;
+  cannabis: { entries?: { time: string; strain?: string | null }[] } | null;
+  caffeine: { entries?: { time: string; method?: string; beans?: string | null }[] } | null;
   training: { date: string; concluded_at?: string | null; exercise?: string }[];
   health: { oura?: OuraRow[] } | null;
   habits: { buckets?: readonly string[]; grouped?: Record<string, { done?: boolean; time?: string; name?: string }[]> } | null;
