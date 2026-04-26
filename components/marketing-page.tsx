@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SeptenaMark } from "@/components/septena-mark";
 import { GitHubStarButton, GITHUB_URL } from "@/components/github-star-button";
 import { MARKETING_SECTIONS, type MarketingSection } from "@/lib/marketing-sections";
+import { sectionAccentVars } from "@/lib/section-colors";
 
 export function MarketingPage() {
   return (
@@ -163,13 +164,21 @@ function Sections() {
 }
 
 function SectionBlockView({ section }: { section: MarketingSection }) {
-  const accentSoft = `color-mix(in oklab, ${section.accent} 12%, transparent)`;
-  const accentBorder = `color-mix(in oklab, ${section.accent} 28%, var(--border))`;
-
+  // Publish the same --section-accent ramp the dashboard uses, so this block
+  // and any descendants can consume `var(--section-accent)` instead of
+  // re-implementing color-mix() per call site.
   return (
-    <article className="grid gap-6 md:grid-cols-2 md:items-center md:gap-10">
+    <article
+      className="relative grid gap-6 md:grid-cols-2 md:items-center md:gap-10"
+      style={sectionAccentVars(section.accent)}
+    >
       <div className="space-y-3">
-        <div>
+        <div className="relative pl-4">
+          <span
+            aria-hidden
+            className="absolute left-0 top-1.5 h-7 w-1 rounded-r-full"
+            style={{ backgroundColor: "var(--section-accent)" }}
+          />
           <h3 className="text-2xl font-semibold tracking-tight">{section.name}</h3>
           <p className="text-sm text-muted-foreground">{section.tagline}</p>
         </div>
@@ -177,11 +186,11 @@ function SectionBlockView({ section }: { section: MarketingSection }) {
         <div className="flex flex-wrap gap-2 pt-1">
           <Link
             href={`/about/${section.slug}`}
-            className="inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
+            className="inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
             style={{
-              color: section.accent,
-              borderColor: accentBorder,
-              backgroundColor: accentSoft,
+              color: "var(--section-accent)",
+              borderColor: "var(--section-accent-soft)",
+              backgroundColor: "var(--section-accent-soft)",
             }}
           >
             Read more →
@@ -195,8 +204,8 @@ function SectionBlockView({ section }: { section: MarketingSection }) {
         </div>
       </div>
       <div
-        className="overflow-hidden rounded-lg border bg-muted/30"
-        style={{ borderColor: accentBorder }}
+        className="overflow-hidden rounded-2xl border bg-muted/30 shadow-sm"
+        style={{ borderColor: "var(--section-accent-soft)" }}
       >
         <Image
           src={section.screenshot}
