@@ -60,7 +60,11 @@ export type ProgressionPoint = {
   level: number | null;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  (typeof window === "undefined"
+    ? (process.env.SEPTENA_BACKEND_URL ?? "http://127.0.0.1:7000")
+    : "");
 
 /** Thrown when the FastAPI backend on :7000 is unreachable, or when the
  *  Next.js proxy returns a 502/503/504 (which usually means the same).
@@ -206,6 +210,30 @@ export async function getSession(date: string) {
   return request<{ date: string; data: ExerciseEntry[] }>(`/api/training/sessions/${date}`);
 }
 
+export type TrainingEntryUpdate = {
+  file: string;
+  weight?: number | null;
+  sets?: number | null;
+  reps?: number | string | null;
+  difficulty?: string | null;
+  duration_min?: number | null;
+  distance_m?: number | null;
+  level?: number | null;
+  note?: string | null;
+};
+
+export async function updateTrainingEntry(payload: TrainingEntryUpdate) {
+  return putJSON<{ ok: boolean; file: string }>(`/api/training/entries`, payload);
+}
+
+export async function deleteTrainingEntry(file: string) {
+  return request<{ ok: boolean }>(`/api/training/entries`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file }),
+  });
+}
+
 // ── Exercise config (types + exercises) ─────────────────────────────────────
 
 export type ExerciseType = {
@@ -246,6 +274,34 @@ export async function updateExercise(
 
 export async function deleteExercise(id: string) {
   return del<{ ok: boolean }>(`/api/training/exercises/${encodeURIComponent(id)}`);
+}
+
+// ── Session types (Upper / Lower / Cardio / Yoga — editable) ────────────────
+
+export type SessionTypeConfig = {
+  id: string;
+  label: string;
+  emoji: string;
+  exercises: string[];
+};
+
+export async function getSessionTypes() {
+  return request<{ session_types: SessionTypeConfig[] }>("/api/training/session-types");
+}
+
+export async function addSessionType(label: string, emoji: string, exercises: string[] = []) {
+  return postJSON<SessionTypeConfig>("/api/training/session-types", { label, emoji, exercises });
+}
+
+export async function updateSessionType(
+  id: string,
+  patch: { label?: string; emoji?: string; exercises?: string[] },
+) {
+  return putJSON<SessionTypeConfig>(`/api/training/session-types/${encodeURIComponent(id)}`, patch);
+}
+
+export async function deleteSessionType(id: string) {
+  return del<{ ok: boolean }>(`/api/training/session-types/${encodeURIComponent(id)}`);
 }
 
 // ── Cardio history ──────────────────────────────────────────────────────────
@@ -955,11 +1011,11 @@ export type WithingsRow = {
   date: string;
   weight_kg: number | null;
   fat_pct: number | null;
-  fat_ratio_pct?: number | null;
-  bone_mineral_kg?: number | null;
-  pulse_wave_mps?: number | null;
-  vascular_age?: number | null;
-  spo2_pct?: number | null;
+  fat_mass_kg?: number | null;
+  fat_free_mass_kg?: number | null;
+  muscle_mass_kg?: number | null;
+  hydration_kg?: number | null;
+  bone_mass_kg?: number | null;
 };
 
 export type HealthSummary = {

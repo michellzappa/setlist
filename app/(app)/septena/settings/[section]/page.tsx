@@ -15,10 +15,12 @@ import { groceriesDef } from "@/lib/settings/sections/groceries";
 import { choresDef } from "@/lib/settings/sections/chores";
 import { makeHabitsDef } from "@/lib/settings/sections/habits";
 import { makeExercisesDef } from "@/lib/settings/sections/exercises";
+import { sessionTypesDef } from "@/lib/settings/sections/session-types";
 import { getExerciseConfig } from "@/lib/api";
 import { useSectionColor } from "@/hooks/use-sections";
 import { useMemo } from "react";
 import { PaletteSwatchGrid } from "@/components/palette-swatch-grid";
+import { EmojiInput } from "@/components/ui/emoji-input";
 import { ManageMacroColorsCard } from "@/components/manage-macro-colors";
 
 // Per-section settings editor. Writes to Bases/Settings/settings.yaml under
@@ -157,12 +159,10 @@ export default function SectionSettingsPage() {
             </Field>
 
             <Field label="Emoji">
-              <input
-                type="text"
+              <EmojiInput
                 value={emoji}
-                onChange={(e) => { markDirty(); setEmoji(e.target.value); }}
-                maxLength={4}
-                className="w-20 rounded-lg border border-input bg-background px-3 py-1.5 text-center text-lg"
+                onChange={(v) => { markDirty(); setEmoji(v); }}
+                className="w-20 px-3 py-1.5 text-lg"
               />
             </Field>
 
@@ -216,6 +216,7 @@ export default function SectionSettingsPage() {
           </CardContent>
         </Card>
 
+        {sectionKey === "training" && <SessionTypesCard />}
         {sectionKey === "training" && <ExercisesCard />}
         {sectionKey === "nutrition" && <ManageMacroColorsCard />}
         {sectionKey === "groceries" && <GroceriesCard />}
@@ -282,6 +283,11 @@ function HabitsCard() {
   );
   const def = useMemo(() => makeHabitsDef(buckets), [buckets]);
   return <SectionConfigEditor def={def} color={color} title="Manage habits" />;
+}
+
+function SessionTypesCard() {
+  const color = useSectionColor("training");
+  return <SectionConfigEditor def={sessionTypesDef} color={color} title="Manage session types" />;
 }
 
 function ExercisesCard() {

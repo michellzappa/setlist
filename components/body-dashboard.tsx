@@ -23,11 +23,25 @@ import {
 import { StatCard } from "@/components/stat-card";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 
+type TrendKey = "weight_kg" | "fat_pct" | "muscle_mass_kg" | "hydration_kg" | "bone_mass_kg";
+
 const fatConfig = {
   fat_pct: { label: "Body Fat (%)", color: SECTION_ACCENT_SHADE_2 },
 } satisfies ChartConfig;
 
-function linearTrend(rows: WithingsRow[], key: "weight_kg" | "fat_pct" | "fat_ratio_pct", projectDays = 7) {
+const muscleConfig = {
+  muscle_mass_kg: { label: "Muscle (kg)", color: SECTION_ACCENT_STRONG },
+} satisfies ChartConfig;
+
+const hydrationConfig = {
+  hydration_kg: { label: "Hydration (kg)", color: SECTION_ACCENT },
+} satisfies ChartConfig;
+
+const boneMassConfig = {
+  bone_mass_kg: { label: "Bone Mass (kg)", color: SECTION_ACCENT_SHADE_3 },
+} satisfies ChartConfig;
+
+function linearTrend(rows: WithingsRow[], key: TrendKey, projectDays = 7) {
   if (rows.length === 0) return null;
   const pts = rows
     .map((r, i) => ({ i, y: r[key] as number | null }))
@@ -52,7 +66,7 @@ function linearTrend(rows: WithingsRow[], key: "weight_kg" | "fat_pct" | "fat_ra
   return { slope, intercept, lastIndex: rows.length - 1, future };
 }
 
-function buildTrendData(rows: WithingsRow[], key: "weight_kg" | "fat_pct" | "fat_ratio_pct", trendKey: string, projectDays = 7) {
+function buildTrendData(rows: WithingsRow[], key: TrendKey, trendKey: string, projectDays = 7) {
   const trend = linearTrend(rows, key, projectDays);
   if (!trend) return { data: rows as Array<Record<string, unknown>>, hasTrend: false, projectedValue: null as number | null, slope: 0, projectDays };
   const actuals = rows.map((r, i) => ({
@@ -80,26 +94,6 @@ function targetEta(current: number | null, slope: number, min: number | undefine
   return `${Math.round(days / 30)}mo to target`;
 }
 
-const boneConfig = {
-  bone_mineral_kg: { label: "Bone (kg)", color: SECTION_ACCENT_SHADE_3 },
-} satisfies ChartConfig;
-
-const vascularConfig = {
-  vascular_age: { label: "Vascular Age", color: SECTION_ACCENT_STRONG },
-} satisfies ChartConfig;
-
-const spo2Config = {
-  spo2_pct: { label: "SpO2 (%)", color: SECTION_ACCENT },
-} satisfies ChartConfig;
-
-const pulseConfig = {
-  pulse_wave_mps: { label: "Pulse Wave (m/s)", color: SECTION_ACCENT_STRONG },
-} satisfies ChartConfig;
-
-const fatRatioConfig = {
-  fat_ratio_pct: { label: "Fat Ratio (%)", color: SECTION_ACCENT_SHADE_2 },
-} satisfies ChartConfig;
-
 export function BodyDashboard() {
   const COLOR = SECTION_ACCENT;
   const weightConfig = {
@@ -124,10 +118,9 @@ export function BodyDashboard() {
 
   const latestWeight: WithingsRow = [...withingsRows].reverse().find(r => r.weight_kg != null) ?? ({} as WithingsRow);
   const latestFat: WithingsRow = [...withingsRows].reverse().find(r => r.fat_pct != null) ?? ({} as WithingsRow);
-  const latestBone: WithingsRow = [...withingsRows].reverse().find(r => r.bone_mineral_kg != null) ?? ({} as WithingsRow);
-  const latestVascular: WithingsRow = [...withingsRows].reverse().find(r => r.vascular_age != null) ?? ({} as WithingsRow);
-  const latestSpo2: WithingsRow = [...withingsRows].reverse().find(r => r.spo2_pct != null) ?? ({} as WithingsRow);
-  const latestPulse: WithingsRow = [...withingsRows].reverse().find(r => r.pulse_wave_mps != null) ?? ({} as WithingsRow);
+  const latestMuscle: WithingsRow = [...withingsRows].reverse().find(r => r.muscle_mass_kg != null) ?? ({} as WithingsRow);
+  const latestHydration: WithingsRow = [...withingsRows].reverse().find(r => r.hydration_kg != null) ?? ({} as WithingsRow);
+  const latestBoneMass: WithingsRow = [...withingsRows].reverse().find(r => r.bone_mass_kg != null) ?? ({} as WithingsRow);
 
   const today = new Date().toISOString().slice(0, 10);
   const weightDate = latestWeight.date ?? null;
@@ -135,14 +128,12 @@ export function BodyDashboard() {
 
   const withingsWithWeight = useMemo(() => withingsRows.filter(r => r.weight_kg != null), [withingsRows]);
   const withingsWithFat = useMemo(() => withingsRows.filter(r => r.fat_pct != null), [withingsRows]);
-  const withingsWithBone = useMemo(() => withingsRows.filter(r => r.bone_mineral_kg != null), [withingsRows]);
-  const withingsWithVascular = useMemo(() => withingsRows.filter(r => r.vascular_age != null), [withingsRows]);
-  const withingsWithSpo2 = useMemo(() => withingsRows.filter(r => r.spo2_pct != null), [withingsRows]);
-  const withingsWithPulse = useMemo(() => withingsRows.filter(r => r.pulse_wave_mps != null), [withingsRows]);
-  const withingsWithFatRatio = useMemo(() => withingsRows.filter(r => r.fat_ratio_pct != null), [withingsRows]);
+  const withingsWithMuscle = useMemo(() => withingsRows.filter(r => r.muscle_mass_kg != null), [withingsRows]);
+  const withingsWithHydration = useMemo(() => withingsRows.filter(r => r.hydration_kg != null), [withingsRows]);
+  const withingsWithBoneMass = useMemo(() => withingsRows.filter(r => r.bone_mass_kg != null), [withingsRows]);
   const weightChart = useMemo(() => buildTrendData(withingsWithWeight, "weight_kg", "weight_kg_trend"), [withingsWithWeight]);
   const fatChart = useMemo(() => buildTrendData(withingsWithFat, "fat_pct", "fat_pct_trend"), [withingsWithFat]);
-  const fatRatioChart = useMemo(() => buildTrendData(withingsWithFatRatio, "fat_ratio_pct", "fat_ratio_pct_trend"), [withingsWithFatRatio]);
+  const muscleChart = useMemo(() => buildTrendData(withingsWithMuscle, "muscle_mass_kg", "muscle_mass_kg_trend"), [withingsWithMuscle]);
   const weekDividers = useMemo(() => {
     const out: string[] = [];
     for (const r of withingsWithWeight) {
@@ -179,11 +170,6 @@ export function BodyDashboard() {
 
   return (
     <>
-
-
-
-
-
       {error && (
         <Card className="mb-4 border-red-500/30 bg-red-500/10">
           <CardContent className="py-3 text-sm text-red-700 dark:text-red-300">{error instanceof Error ? error.message : String(error)}</CardContent>
@@ -202,17 +188,14 @@ export function BodyDashboard() {
           sublabel="7d avg vs prior 7d"
           direction="down"
         />
-        {latestBone.bone_mineral_kg != null && (
-          <StatCard label="Bone" value={latestBone.bone_mineral_kg} unit="kg" color={SECTION_ACCENT_SHADE_3} sublabel={latestBone.date ? formatDate(latestBone.date) : undefined} />
+        {latestMuscle.muscle_mass_kg != null && (
+          <StatCard label="Muscle" value={latestMuscle.muscle_mass_kg} unit="kg" color={SECTION_ACCENT_STRONG} sublabel={latestMuscle.date ? formatDate(latestMuscle.date) : undefined} direction="up" />
         )}
-        {latestVascular.vascular_age != null && (
-          <StatCard label="Vascular Age" value={latestVascular.vascular_age} unit="" color={SECTION_ACCENT_STRONG} sublabel={latestVascular.date ? formatDate(latestVascular.date) : undefined} />
+        {latestHydration.hydration_kg != null && (
+          <StatCard label="Hydration" value={latestHydration.hydration_kg} unit="kg" color={SECTION_ACCENT} sublabel={latestHydration.date ? formatDate(latestHydration.date) : undefined} />
         )}
-        {latestSpo2.spo2_pct != null && (
-          <StatCard label="SpO2" value={latestSpo2.spo2_pct} unit="%" color={SECTION_ACCENT} sublabel={latestSpo2.date ? formatDate(latestSpo2.date) : undefined} />
-        )}
-        {latestPulse.pulse_wave_mps != null && (
-          <StatCard label="Pulse Wave" value={latestPulse.pulse_wave_mps} unit="m/s" color={SECTION_ACCENT_STRONG} sublabel={latestPulse.date ? formatDate(latestPulse.date) : undefined} />
+        {latestBoneMass.bone_mass_kg != null && (
+          <StatCard label="Bone Mass" value={latestBoneMass.bone_mass_kg} unit="kg" color={SECTION_ACCENT_SHADE_3} sublabel={latestBoneMass.date ? formatDate(latestBoneMass.date) : undefined} />
         )}
       </div>
 
@@ -317,38 +300,38 @@ export function BodyDashboard() {
           </Card>
         )}
 
-        {withingsWithFatRatio.length > 0 && (
+        {withingsWithMuscle.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>
-                Fat Ratio
-                {fatRatioChart.hasTrend && fatRatioChart.projectedValue != null && (
+                Muscle <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_STRONG }}>kg</span>
+                {muscleChart.hasTrend && muscleChart.projectedValue != null && (
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    → {fatRatioChart.projectedValue.toFixed(1)}% in {fatRatioChart.projectDays}d
+                    → {muscleChart.projectedValue.toFixed(1)} kg in {muscleChart.projectDays}d
                   </span>
                 )}
               </CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={fatRatioConfig} className="h-[200px] w-full">
-                <LineChart data={fatRatioChart.data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <ChartContainer config={muscleConfig} className="h-[200px] w-full">
+                <LineChart data={muscleChart.data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS} domain={["dataMin - 0.5", "dataMax + 0.5"]}
                     tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="fat_ratio_pct" stroke="var(--color-fat_ratio_pct)"
+                  <Line type="monotone" dataKey="muscle_mass_kg" stroke="var(--color-muscle_mass_kg)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
-                  {fatRatioChart.hasTrend && (
-                    <Line type="linear" dataKey="fat_ratio_pct_trend" stroke="var(--color-fat_ratio_pct)"
+                  {muscleChart.hasTrend && (
+                    <Line type="linear" dataKey="muscle_mass_kg_trend" stroke="var(--color-muscle_mass_kg)"
                       strokeOpacity={0.5} strokeWidth={1.5} strokeDasharray="4 4"
                       dot={false} isAnimationActive={false} />
                   )}
                   {weekDividers.map((iso) => (
                     <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
                   ))}
-                  {fatRatioChart.hasTrend && withingsWithFatRatio.length > 0 && (
+                  {muscleChart.hasTrend && withingsWithMuscle.length > 0 && (
                     <ReferenceLine
-                      x={withingsWithFatRatio[withingsWithFatRatio.length - 1].date}
+                      x={withingsWithMuscle[withingsWithMuscle.length - 1].date}
                       stroke={SECTION_ACCENT_STRONG}
                       strokeOpacity={0.7}
                       strokeDasharray="2 3"
@@ -361,19 +344,19 @@ export function BodyDashboard() {
           </Card>
         )}
 
-        {withingsWithBone.length > 0 && (
+        {withingsWithHydration.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Bone <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_3 }}>mineral kg</span></CardTitle>
+              <CardTitle>Hydration <span className="text-xs font-normal" style={{ color: SECTION_ACCENT }}>kg</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={boneConfig} className="h-[200px] w-full">
-                <LineChart data={withingsWithBone} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <ChartContainer config={hydrationConfig} className="h-[200px] w-full">
+                <LineChart data={withingsWithHydration} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS}
                     tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="bone_mineral_kg" stroke="var(--color-bone_mineral_kg)"
+                  <Line type="monotone" dataKey="hydration_kg" stroke="var(--color-hydration_kg)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
                     <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
@@ -384,65 +367,19 @@ export function BodyDashboard() {
           </Card>
         )}
 
-        {withingsWithVascular.length > 0 && (
+        {withingsWithBoneMass.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Vascular Age</CardTitle>
+              <CardTitle>Bone Mass <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_SHADE_3 }}>kg</span></CardTitle>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={vascularConfig} className="h-[200px] w-full">
-                <LineChart data={withingsWithVascular} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <ChartContainer config={boneMassConfig} className="h-[200px] w-full">
+                <LineChart data={withingsWithBoneMass} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis {...WEEKDAY_X_AXIS} />
                   <YAxis {...Y_AXIS}
                     tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="vascular_age" stroke="var(--color-vascular_age)"
-                    strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
-                  {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
-                  ))}
-                </LineChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {withingsWithSpo2.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>SpO2</CardTitle>
-            </CardHeader>
-            <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={spo2Config} className="h-[200px] w-full">
-                <LineChart data={withingsWithSpo2} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <CartesianGrid {...CHART_GRID} />
-                  <XAxis {...WEEKDAY_X_AXIS} />
-                  <YAxis {...Y_AXIS}
-                    tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="spo2_pct" stroke="var(--color-spo2_pct)"
-                    strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
-                  {weekDividers.map((iso) => (
-                    <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />
-                  ))}
-                </LineChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {withingsWithPulse.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Pulse Wave <span className="text-xs font-normal" style={{ color: SECTION_ACCENT_STRONG }}>m/s</span></CardTitle>
-            </CardHeader>
-            <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={pulseConfig} className="h-[200px] w-full">
-                <LineChart data={withingsWithPulse} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <CartesianGrid {...CHART_GRID} />
-                  <XAxis {...WEEKDAY_X_AXIS} />
-                  <YAxis {...Y_AXIS}
-                    tickFormatter={(v: number) => `${Math.round(v)}`} />
-                  <Line type="monotone" dataKey="pulse_wave_mps" stroke="var(--color-pulse_wave_mps)"
+                  <Line type="monotone" dataKey="bone_mass_kg" stroke="var(--color-bone_mass_kg)"
                     strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} />
                   {weekDividers.map((iso) => (
                     <ReferenceLine key={`w-${iso}`} x={iso} stroke={SECTION_ACCENT_SHADE_3} strokeOpacity={0.45} />

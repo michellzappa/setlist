@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useMemo, useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 
 import {
@@ -12,11 +12,14 @@ import {
   getNextWorkout,
   getSummary,
   getCardioHistory,
+  updateTrainingEntry,
+  deleteTrainingEntry,
   type ExerciseEntry,
   type ExerciseConfig,
   type ProgressionPoint,
   type Stats,
 } from "@/lib/api";
+import { LogEntryModal, type FieldSpec, type LogEntryValues } from "@/components/log-entry-modal";
 import { computePRs } from "@/lib/pr";
 import { cn, titleCase } from "@/lib/utils";
 import { DifficultyGlyph, LevelGlyph } from "@/components/intensity-glyph";
@@ -33,12 +36,15 @@ import {
 import { WeekStreak } from "@/components/week-streak";
 import { SectionHeaderAction, SectionHeaderActionButton } from "@/components/section-header-action";
 import { useExerciseTaxonomy, type ExerciseKind } from "@/hooks/use-exercise-taxonomy";
+import { useSessionTypes } from "@/hooks/use-session-types";
+import { SESSION_META } from "@/lib/session-templates";
 import { formatDateLong as formatDate, addDaysISO } from "@/lib/date-utils";
 import { CHART_GRID, WEEKDAY_X_AXIS, Y_AXIS } from "@/lib/chart-defaults";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { useDemoHref } from "@/hooks/use-demo-href";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
+import { LogRow } from "@/components/tasks";
 import {
   EXERCISE_TONE_COLOR,
   exerciseToneColor,
@@ -167,6 +173,9 @@ function repsAsNumber(reps: number | string | null | undefined): number | null {
 
 export function TrainingDashboard() {
   const { classify } = useExerciseTaxonomy();
+  // Fire-and-forget — overlays user-edited labels/emoji onto SESSION_META
+  // and TEMPLATES so renames + emoji edits in Settings show up here.
+  useSessionTypes();
   const [windowDays, setWindowDays] = useState<WindowDays>(DEFAULT_WINDOW_DAYS);
   const barAnim = useBarAnimation();
   const { date: selectedDate } = useSelectedDate();
@@ -438,7 +447,9 @@ export function TrainingDashboard() {
         </Card>
       )}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2">
+      <div className="xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start">
+        <div className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2">
         <Card className="rounded-2xl">
           <WeekStreak />
         </Card>
@@ -503,7 +514,6 @@ export function TrainingDashboard() {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-4">
               <div>
@@ -749,8 +759,11 @@ export function TrainingDashboard() {
             </CardContent>
           </Card>
 
+        </div>
+        <div className="mt-6 xl:mt-0">
           <RecentTrainingSessions entries={state.allEntries} />
         </div>
+      </div>
       </>
     );
   }
@@ -768,14 +781,19 @@ type SessionGroup = {
   entries: ExerciseEntry[];
 };
 
-const GROUP_TITLE: Record<string, string> = {
-  upper: "Upper",
-  lower: "Lower",
-  cardio: "Cardio",
+// Falls back to a sensible label for exercise-group keys that aren't
+// session types (mobility, core, strength). Session-type keys (upper,
+// lower, cardio, yoga, plus user-added types) read their label from
+// SESSION_META so renames in Settings → Training surface here too.
+const STATIC_GROUP_TITLE: Record<string, string> = {
   mobility: "Mobility",
   core: "Core",
   strength: "Strength",
 };
+
+function groupTitle(key: string): string {
+  return SESSION_META[key]?.label ?? STATIC_GROUP_TITLE[key] ?? key;
+}
 
 function groupByConcluded(entries: ExerciseEntry[]): SessionGroup[] {
   const map = new Map<string, SessionGroup>();
@@ -808,13 +826,18 @@ function inferSessionTitle(entries: ExerciseEntry[], config: ExerciseConfig | un
     counts[group] = (counts[group] ?? 0) + 1;
   }
   const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
-  return dominant ? GROUP_TITLE[dominant] ?? "Training" : "Training";
+  return dominant ? groupTitle(dominant) : "Training";
 }
 
 function RecentTrainingSessions({ entries }: { entries: ExerciseEntry[] }) {
   const { data: config } = useSWR("training-config", getExerciseConfig, {
     revalidateOnFocus: false,
   });
+  const { mutate } = useSWRConfig();
+  const [showAll, setShowAll] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<ExerciseEntry | null>(null);
+  const [editorValues, setEditorValues] = useState<LogEntryValues>({});
+  const [saving, setSaving] = useState(false);
   const sessions = useMemo(() => {
     const all = groupByConcluded(entries);
     const cutoff = new Date();
@@ -823,33 +846,118 @@ function RecentTrainingSessions({ entries }: { entries: ExerciseEntry[] }) {
     return all.filter((s) => s.date >= cutoffStr);
   }, [entries]);
 
+  const editingIsCardio =
+    !!editingEntry && (editingEntry.duration_min != null || editingEntry.distance_m != null);
+  const editorSchema: FieldSpec[] = editingIsCardio
+    ? [
+        {
+          kind: "row",
+          fields: [
+            { kind: "number", key: "duration_min", label: "Duration", unit: "min", step: "1", min: 0 },
+            { kind: "number", key: "distance_m", label: "Distance", unit: "m", step: "10", min: 0 },
+            { kind: "number", key: "level", label: "Level", step: "1", min: 0 },
+          ],
+        },
+      ]
+    : [
+        {
+          kind: "row",
+          fields: [
+            { kind: "number", key: "weight", label: "Weight", unit: "kg", step: "0.5", min: 0 },
+            { kind: "number", key: "sets", label: "Sets", step: "1", min: 0 },
+            { kind: "number", key: "reps", label: "Reps", step: "1", min: 0 },
+          ],
+        },
+        {
+          kind: "chips",
+          key: "difficulty",
+          label: "Difficulty",
+          options: [
+            { value: "", label: "—" },
+            { value: "easy", label: "Easy" },
+            { value: "moderate", label: "Moderate" },
+            { value: "hard", label: "Hard" },
+          ],
+        },
+      ];
+
+  function openEdit(e: ExerciseEntry) {
+    setEditingEntry(e);
+    setEditorValues({
+      weight: e.weight ?? "",
+      sets: e.sets ?? "",
+      reps: e.reps ?? "",
+      difficulty: e.difficulty ?? "",
+      duration_min: e.duration_min ?? "",
+      distance_m: e.distance_m ?? "",
+      level: e.level ?? "",
+    });
+  }
+
+  async function refresh() {
+    await mutate(
+      (key) => Array.isArray(key) && key[0] === "training-dashboard",
+    );
+  }
+
+  async function saveEdit(values: LogEntryValues) {
+    if (!editingEntry) return;
+    setSaving(true);
+    try {
+      const numeric = (k: string) => {
+        const v = values[k];
+        if (v === "" || v == null) return null;
+        const n = typeof v === "number" ? v : Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      await updateTrainingEntry({
+        file: editingEntry.file,
+        weight: numeric("weight"),
+        sets: numeric("sets"),
+        reps: numeric("reps"),
+        difficulty: (values.difficulty as string) || null,
+        duration_min: numeric("duration_min"),
+        distance_m: numeric("distance_m"),
+        level: numeric("level"),
+      });
+      setEditingEntry(null);
+      await refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteCurrent() {
+    if (!editingEntry) return;
+    if (!window.confirm("Delete this entry?")) return;
+    setSaving(true);
+    try {
+      await deleteTrainingEntry(editingEntry.file);
+      setEditingEntry(null);
+      await refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (sessions.length === 0) {
     return null;
   }
 
+  const INITIAL_LIMIT = 6;
+  const visibleSessions = showAll ? sessions : sessions.slice(0, INITIAL_LIMIT);
+  const hiddenCount = sessions.length - visibleSessions.length;
+
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle>Recent sessions</CardTitle>
-        <CardDescription>{sessions.length} sessions · last 2 weeks</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y divide-border">
-          {sessions.reduce<React.ReactNode[]>((rows, s, i) => {
-            const prev = sessions[i - 1];
-            if (i === 0 || (prev && prev.date !== s.date)) {
-              const [y, m, d] = s.date.split("-").map(Number);
-              const dayLabel = new Date(y!, m! - 1, d!).toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              });
-              rows.push(
-                <li key={`sep-${s.date}`} className="flex justify-center py-2">
-                  <span className="text-xs font-medium text-muted-foreground">{dayLabel}</span>
-                </li>,
-              );
-            }
+    <div>
+      <ul className="space-y-2">
+          {visibleSessions.reduce<React.ReactNode[]>((rows, s) => {
+            const [y, m, d] = s.date.split("-").map(Number);
+            const dayLabel = new Date(y!, m! - 1, d!).toLocaleDateString(undefined, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            });
             const title = inferSessionTitle(s.entries, config);
             // Sort sub-items chronologically by logged_at (set when each
             // entry is POSTed individually during the live session). Falls
@@ -895,55 +1003,83 @@ function RecentTrainingSessions({ entries }: { entries: ExerciseEntry[] }) {
             if (volume > 0) totals.push(`${Math.round(volume).toLocaleString()}kg volume`);
             if (cardioMin > 0) totals.push(`${Math.round(cardioMin)}min cardio`);
             if (cardioM > 0) totals.push(`${(cardioM / 1000).toFixed(cardioM >= 10000 ? 0 : 1)}km`);
+            const exerciseCountLabel = `${exerciseGroups.size} ${exerciseGroups.size === 1 ? "exercise" : "exercises"}`;
             rows.push(
-              <li key={s.concludedAt} className="py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">
-                    {title}
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      {s.time ?? "—"} · {exerciseGroups.size} {exerciseGroups.size === 1 ? "exercise" : "exercises"}
-                    </span>
-                  </p>
-                </div>
-                {totals.length > 0 && (
-                  <p className="mt-0.5 text-xs font-medium tabular-nums" style={{ color: "var(--section-accent)" }}>
-                    {totals.join(" · ")}
-                  </p>
-                )}
-                <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                  {[...exerciseGroups.entries()].map(([name, items]) => {
-                    const first = items[0]!;
-                    const isCardio = first.duration_min != null || first.distance_m != null;
-                    return (
-                      <li key={name} className="flex items-center justify-between gap-2">
-                        <span className="truncate">{titleCase(name)}</span>
-                        <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
-                          {isCardio ? (
-                            <>
-                              {first.duration_min != null && <span>{first.duration_min}min</span>}
-                              {first.distance_m != null && <span>{first.distance_m}m</span>}
-                              <LevelGlyph level={first.level} />
-                            </>
-                          ) : (
-                            <>
-                              {first.weight != null && <span>{first.weight}kg</span>}
-                              {first.sets != null && (
-                                <span>{first.sets}×{first.reps ?? "?"}</span>
-                              )}
-                              <DifficultyGlyph difficulty={first.difficulty} />
-                            </>
-                          )}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+              <li key={s.concludedAt}>
+                <LogRow
+                  accent="var(--section-accent)"
+                  title={title}
+                  time={s.time ?? undefined}
+                  details={`${dayLabel} · ${exerciseCountLabel}`}
+                  body={
+                    <>
+                      {totals.length > 0 && (
+                        <p className="mt-0.5 text-xs font-medium tabular-nums" style={{ color: "var(--section-accent)" }}>
+                          {totals.join(" · ")}
+                        </p>
+                      )}
+                      <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                        {[...exerciseGroups.entries()].map(([name, items]) => {
+                          const first = items[0]!;
+                          const isCardio = first.duration_min != null || first.distance_m != null;
+                          return (
+                            <li key={name}>
+                              <button
+                                type="button"
+                                onClick={() => openEdit(first)}
+                                className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-0.5 text-left hover:bg-muted/60"
+                              >
+                                <span className="truncate">{titleCase(name)}</span>
+                                <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
+                                  {isCardio ? (
+                                    <>
+                                      {first.duration_min != null && <span>{first.duration_min}min</span>}
+                                      {first.distance_m != null && <span>{first.distance_m}m</span>}
+                                      <LevelGlyph level={first.level} />
+                                    </>
+                                  ) : (
+                                    <>
+                                      {first.weight != null && <span>{first.weight}kg</span>}
+                                      {first.sets != null && (
+                                        <span>{first.sets}×{first.reps ?? "?"}</span>
+                                      )}
+                                      <DifficultyGlyph difficulty={first.difficulty} />
+                                    </>
+                                  )}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  }
+                />
               </li>,
             );
             return rows;
           }, [])}
-        </ul>
-      </CardContent>
-    </Card>
+      </ul>
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="mt-3 w-full rounded-md py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        >
+          See all ({sessions.length})
+        </button>
+      )}
+      <LogEntryModal
+        open={editingEntry !== null}
+        mode="edit"
+        title={editingEntry ? titleCase(editingEntry.exercise ?? "Entry") : "Edit entry"}
+        schema={editorSchema}
+        initialValues={editorValues}
+        saving={saving}
+        onClose={() => setEditingEntry(null)}
+        onSubmit={saveEdit}
+        onDelete={deleteCurrent}
+      />
+    </div>
   );
 }

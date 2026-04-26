@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { Plus, X } from "lucide-react";
 import type { DayPhase } from "@/lib/api";
 import { hmToMinutes } from "@/lib/day-phases";
+import { EmojiInput } from "@/components/ui/emoji-input";
 
 /**
  * Times-of-day editor.
@@ -155,12 +156,11 @@ function PhaseCard({
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2">
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="text"
+        <EmojiInput
           value={phase.emoji}
-          onChange={(e) => onChange({ emoji: e.target.value })}
+          onChange={(v) => onChange({ emoji: v })}
           aria-label="Emoji"
-          className="w-10 rounded-md border border-input bg-background px-1.5 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          className="w-10 text-sm"
         />
         <input
           type="text"

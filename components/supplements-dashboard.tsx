@@ -116,16 +116,19 @@ export function SupplementsDashboard() {
         </Card>
       )}
 
-      <ChecklistStats
-        day={day}
-        history={history?.daily}
-        streak={streak}
-        color={SUPPLEMENTS_COLOR}
-        avgSublabel="of supplements taken"
-      />
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[1fr_1fr]">
+        <div className="min-w-0 space-y-6">
+          <ChecklistStats
+            day={day}
+            history={history?.daily}
+            streak={streak}
+            color={SUPPLEMENTS_COLOR}
+            avgSublabel="of supplements taken"
+          />
+          <ChecklistChart data={chartData} title="Last 7 days" color={SUPPLEMENTS_COLOR} xAxis="weekday" interval={0} />
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-        <div>
+        <div className="min-w-0">
           {loading && !day ? (
             <p className="text-sm text-muted-foreground">Loading supplements…</p>
           ) : day && day.total === 0 ? (
@@ -159,8 +162,6 @@ export function SupplementsDashboard() {
             </TaskGroup>
           )}
         </div>
-
-        <ChecklistChart data={chartData} title="Last 7 days" color={SUPPLEMENTS_COLOR} xAxis="weekday" interval={0} />
       </div>
     </>
   );

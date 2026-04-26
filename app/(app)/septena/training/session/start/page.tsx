@@ -11,13 +11,12 @@ import {
   SECTION_ACCENT_STRONG,
 } from "@/lib/section-colors";
 import { draft, type ActiveSession } from "@/lib/session-draft";
-import { SESSION_META, TEMPLATES, type SessionType } from "@/lib/session-templates";
+import { SESSION_META, SESSION_TYPE_ORDER, TEMPLATES, type SessionType } from "@/lib/session-templates";
+import { useSessionTypes } from "@/hooks/use-session-types";
 import { cn } from "@/lib/utils";
 
-const ORDER: SessionType[] = ["upper", "lower", "cardio", "yoga"];
-
-function parseRequestedType(raw: string | null): SessionType | null {
-  return raw && ORDER.includes(raw as SessionType) ? (raw as SessionType) : null;
+function parseRequestedType(raw: string | null, order: readonly string[]): SessionType | null {
+  return raw && order.includes(raw) ? raw : null;
 }
 
 function formatDaysAgo(n: number | null): string {
@@ -46,12 +45,14 @@ export default function StartSessionPage() {
   const [error, setError] = useState<string | null>(null);
   const [existingDraft, setExistingDraft] = useState<ActiveSession | null>(null);
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const { order: sessionOrder } = useSessionTypes();
+  const order = sessionOrder.length > 0 ? sessionOrder : SESSION_TYPE_ORDER;
 
   useEffect(() => {
     let cancelled = false;
     const requestedType = typeof window === "undefined"
       ? null
-      : parseRequestedType(new URLSearchParams(window.location.search).get("type"));
+      : parseRequestedType(new URLSearchParams(window.location.search).get("type"), order);
     Promise.all([getNextWorkout(), draft.load()])
       .then(([res, d]) => {
         if (cancelled) return;
@@ -91,7 +92,7 @@ export default function StartSessionPage() {
     setStarting(true);
     setError(null);
     try {
-      const exercises = TEMPLATES[selected].map((t) => t.exercise);
+      const exercises = (TEMPLATES[selected] ?? []).map((t) => t.exercise);
       const lastByExercise = await getLastEntries(exercises);
       await draft.start(selected, lastByExercise);
       router.push("/septena/training/session/active");
@@ -107,7 +108,7 @@ export default function StartSessionPage() {
     setError(null);
     try {
       await draft.clear();
-      const exercises = TEMPLATES[selected].map((t) => t.exercise);
+      const exercises = (TEMPLATES[selected] ?? []).map((t) => t.exercise);
       const lastByExercise = await getLastEntries(exercises);
       await draft.start(selected, lastByExercise);
       router.push("/septena/training/session/active");
@@ -172,9 +173,9 @@ export default function StartSessionPage() {
           )}
 
           <div className="mt-6 flex flex-col gap-3">
-            {ORDER.map((type) => {
-              const meta = SESSION_META[type];
-              const daysAgo = next?.days_ago[type] ?? null;
+            {order.map((type) => {
+              const meta = SESSION_META[type] ?? { emoji: "", label: type };
+              const daysAgo = (next?.days_ago as Record<string, number | null> | undefined)?.[type] ?? null;
               const isSuggested = next?.suggested.type === type;
               const isSelected = selected === type;
               return (

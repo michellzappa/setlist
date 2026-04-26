@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TimeInput } from "@/components/time-input";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Scatter, ScatterChart, ZAxis, ReferenceLine } from "recharts";
+import { LogEntryModal, type FieldSpec } from "@/components/log-entry-modal";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { CHART_GRID, CHART_GRID_FULL, X_AXIS_DATE, Y_AXIS } from "@/lib/chart-defaults";
 import { SECTION_ACCENT_SHADE_3 } from "@/lib/section-colors";
@@ -26,6 +26,7 @@ import { SectionHeaderAction, SectionHeaderActionButton } from "@/components/sec
 import { haptic } from "@/lib/haptics";
 import { StatCard } from "@/components/stat-card";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
+import { LogRow, type TaskRowAction } from "@/components/tasks";
 
 // 30-minute buckets → 48 slots covering the full day (matches caffeine).
 const BUCKET_MIN = 30;
@@ -45,21 +46,66 @@ import {
 } from "@/lib/date-utils";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 
+function CannabisExtras({
+  mode,
+  hasActiveCapsule,
+  activeCapsuleStrain,
+  strains,
+  newCapsuleStrain,
+  onNewCapsuleStrainChange,
+}: {
+  mode: "create" | "edit";
+  hasActiveCapsule: boolean;
+  activeCapsuleStrain: string | null;
+  strains: string[];
+  newCapsuleStrain: string;
+  onNewCapsuleStrainChange: (v: string) => void;
+}) {
+  if (mode === "edit") return null;
+  if (!hasActiveCapsule) {
+    return (
+      <>
+        <input
+          type="text"
+          value={newCapsuleStrain}
+          onChange={(e) => onNewCapsuleStrainChange(e.target.value)}
+          placeholder="Strain (optional) — starts a new capsule on vape"
+          list="cannabis-strain-options"
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+        />
+        {strains.length > 0 && (
+          <datalist id="cannabis-strain-options">
+            {strains.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
+        )}
+      </>
+    );
+  }
+  return (
+    <p className="text-xs text-muted-foreground">
+      Strain: <span className="font-medium text-foreground">{activeCapsuleStrain ?? "None"}</span> · from active capsule
+    </p>
+  );
+}
+
 export function CannabisDashboard() {
   const cannabisColor = "var(--section-accent)";
   const chartConfig = {
     grams: { label: "Grams", color: cannabisColor },
     count: { label: "Sessions", color: cannabisColor },
   } satisfies ChartConfig;
-  const [showForm, setShowForm] = useState(() => {
-    if (typeof window !== "undefined") {
-      return new URLSearchParams(window.location.search).has("log");
+  const [editor, setEditor] = useState<
+    | { mode: "create" }
+    | { mode: "edit"; entry: CannabisEntry }
+    | null
+  >(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("log")) {
+      return { mode: "create" };
     }
-    return false;
+    return null;
   });
-  const [formTime, setFormTime] = useState(currentTime());
-  const [formMethod, setFormMethod] = useState<"vape" | "edible">("vape");
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [newCapsuleStrain, setNewCapsuleStrain] = useState("");
   const barAnim = useBarAnimation();
@@ -104,55 +150,39 @@ export function CannabisDashboard() {
     }
     return "";
   }, [sessions]);
-  const needsNewCapsule = !activeCapsule && formMethod === "vape";
-  useEffect(() => {
-    if (showForm && needsNewCapsule && !newCapsuleStrain && lastStrain) {
-      setNewCapsuleStrain(lastStrain);
-    }
-  }, [showForm, needsNewCapsule, lastStrain, newCapsuleStrain]);
 
-  const handleSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      if (editingId) {
-        await updateCannabisEntry(editingId, selectedDate, {
-          time: formTime,
-          method: formMethod,
-        });
-      } else {
-        if (needsNewCapsule) {
-          await startCannabisCapsule(newCapsuleStrain || null);
+  const handleSave = useCallback(
+    async (values: Record<string, unknown>) => {
+      if (saving) return;
+      const time = String(values.time ?? "");
+      const method = (values.method as "vape" | "edible") ?? "vape";
+      const needsNewCapsule = !activeCapsule && method === "vape";
+      setSaving(true);
+      try {
+        if (editor?.mode === "edit") {
+          await updateCannabisEntry(editor.entry.id, selectedDate, { time, method });
+        } else {
+          if (needsNewCapsule) {
+            await startCannabisCapsule(newCapsuleStrain || lastStrain || null);
+          }
+          await addCannabisEntry({ date: today, time, method });
         }
-        await addCannabisEntry({
-          date: today,
-          time: formTime,
-          method: formMethod,
-        });
+        setEditor(null);
+        setNewCapsuleStrain("");
+        await mutate();
+      } finally {
+        setSaving(false);
       }
-      setShowForm(false);
-      setEditingId(null);
-      setFormTime(currentTime());
-      setFormMethod("vape");
-      setNewCapsuleStrain("");
-      await mutate();
-    } catch (err) {
-      // error is surfaced via SWR
-    } finally {
-      setSaving(false);
-    }
-  }, [today, selectedDate, editingId, formTime, formMethod, saving, needsNewCapsule, newCapsuleStrain, mutate]);
+    },
+    [today, selectedDate, editor, saving, activeCapsule, newCapsuleStrain, lastStrain, mutate],
+  );
 
   const handleEdit = useCallback((entry: CannabisEntry) => {
-    setEditingId(entry.id);
-    setFormTime(entry.time.slice(0, 5));
-    setFormMethod(entry.method);
-    setShowForm(true);
+    setEditor({ mode: "edit", entry });
   }, []);
 
-  const handleCancel = useCallback(() => {
-    setShowForm(false);
-    setEditingId(null);
+  const handleCloseEditor = useCallback(() => {
+    setEditor(null);
     setNewCapsuleStrain("");
   }, []);
 
@@ -171,11 +201,42 @@ export function CannabisDashboard() {
   const handleDelete = useCallback(async (entryId: string) => {
     try {
       await deleteCannabisEntry(entryId, selectedDate);
+      if (editor?.mode === "edit" && editor.entry.id === entryId) setEditor(null);
       await mutate();
     } catch {
       // error surfaced via SWR
     }
-  }, [selectedDate, mutate]);
+  }, [selectedDate, mutate, editor]);
+
+  const fieldSchema: FieldSpec[] = useMemo(
+    () => [
+      {
+        kind: "row",
+        fields: [
+          { kind: "time", key: "time", label: "Time" },
+          {
+            kind: "chips",
+            key: "method",
+            label: "Method",
+            options: [
+              { value: "vape", label: "Vape" },
+              { value: "edible", label: "Edible", emoji: "🍬" },
+            ],
+          },
+        ],
+      },
+    ],
+    [],
+  );
+
+  const editorOpen = editor !== null;
+  const editorMode = editor?.mode ?? "create";
+  const editorInitial = useMemo<Record<string, unknown>>(() => {
+    if (editor?.mode === "edit") {
+      return { time: editor.entry.time.slice(0, 5), method: editor.entry.method };
+    }
+    return { time: currentTime(), method: "vape" };
+  }, [editor]);
 
   const chartData = (history?.daily ?? []).map((p) => ({
     date: p.date.slice(5),
@@ -240,11 +301,33 @@ export function CannabisDashboard() {
       <SectionHeaderAction>
         <SectionHeaderActionButton
           color={cannabisColor}
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => setEditor({ mode: "create" })}
         >
           + Log
         </SectionHeaderActionButton>
       </SectionHeaderAction>
+
+      <LogEntryModal
+        open={editorOpen}
+        mode={editorMode}
+        title={editorMode === "edit" ? "Edit Session" : "Log Session"}
+        schema={fieldSchema}
+        initialValues={editorInitial}
+        saving={saving}
+        onClose={handleCloseEditor}
+        onSubmit={handleSave}
+        onDelete={editor?.mode === "edit" ? () => handleDelete(editor.entry.id) : undefined}
+        extra={
+          <CannabisExtras
+            mode={editorMode}
+            activeCapsuleStrain={activeCapsule?.strain ?? null}
+            hasActiveCapsule={!!activeCapsule}
+            strains={strains.map((s) => s.name)}
+            newCapsuleStrain={newCapsuleStrain || lastStrain}
+            onNewCapsuleStrainChange={setNewCapsuleStrain}
+          />
+        }
+      />
 
       {error && (
         <Card className="mb-4 border-red-500/30 bg-red-500/10">
@@ -252,80 +335,10 @@ export function CannabisDashboard() {
         </Card>
       )}
 
-      {/* Log entry form — also starts a new capsule when logging a vape with no active one */}
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              {editingId
-                ? "Edit Session"
-                : needsNewCapsule
-                  ? "Start Capsule & Log First Use"
-                  : "Log Session"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-2">
-              <TimeInput value={formTime} onChange={(v) => setFormTime(v)} className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
-              <button
-                type="button"
-                onClick={() => setFormMethod((m) => (m === "vape" ? "edible" : "vape"))}
-                className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-              >
-                {formMethod === "vape" ? "Vape" : "🍬 Edible"}
-              </button>
-            </div>
-
-            {needsNewCapsule && !editingId && (
-              <>
-                <input
-                  type="text"
-                  value={newCapsuleStrain}
-                  onChange={(e) => setNewCapsuleStrain(e.target.value)}
-                  placeholder="Strain (optional)"
-                  list="cannabis-strain-options"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-                {strains.length > 0 && (
-                  <datalist id="cannabis-strain-options">
-                    {strains.map((s) => (
-                      <option key={s.id} value={s.name} />
-                    ))}
-                  </datalist>
-                )}
-              </>
-            )}
-
-            {formMethod === "vape" && activeCapsule && (
-              <p className="text-xs text-muted-foreground">
-                Strain: <span className="font-medium text-foreground">{activeCapsule.strain ?? "None"}</span> · from active capsule
-              </p>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="flex-1 rounded-xl border border-border bg-card py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                style={{ backgroundColor: cannabisColor }}
-              >
-                {saving ? "Saving…" : editingId ? "Save changes" : needsNewCapsule ? "Start & log" : "Save"}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Today's summary cards */}
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[1fr_1fr]">
+        <div className="min-w-0 space-y-6">
+          {/* Today's summary cards */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Active capsule</p>
           {activeCapsule ? (
@@ -369,181 +382,178 @@ export function CannabisDashboard() {
             day.methods.edible > 0 ? `🍬 ${day.methods.edible}` : "",
           ].filter(Boolean).join(" ") || "—" : null}
         />
-      </div>
+          </div>
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[1fr_1fr]">
+          {/* 30-day chart */}
+          {chartData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Last 30 days (g)</CardTitle>
+              </CardHeader>
+              <CardContent className="min-w-0 overflow-hidden px-4">
+                <ChartContainer config={chartConfig} className="h-[140px] w-full">
+                  <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <CartesianGrid {...CHART_GRID} />
+                    <XAxis {...X_AXIS_DATE} interval={3} />
+                    <YAxis {...Y_AXIS} width={32} />
+                    <Bar dataKey="grams" fill="var(--color-grams)" radius={[4, 4, 0, 0]} {...barAnim} />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Aggregated time-of-day distribution (vape only, 7 days) */}
+          {vapeSessions.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Vape time-of-day · last 7 days</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  30-min buckets across vape sessions from the last 7 days.
+                  {peakBucket && (
+                    <>
+                      {" "}Peak{" "}
+                      <span className="font-semibold text-foreground">{peakBucket.range}</span>
+                      {" "}
+                      <span className="text-muted-foreground/70">({peakBucket.count})</span>
+                    </>
+                  )}
+                </p>
+              </CardHeader>
+              <CardContent className="min-w-0 overflow-hidden px-4">
+                <ChartContainer config={chartConfig} className="h-[140px] w-full">
+                  <BarChart data={histogram} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid {...CHART_GRID} />
+                    <XAxis
+                      dataKey="hourFrac"
+                      type="number"
+                      domain={[0, 24]}
+                      ticks={HOUR_TICKS_2H}
+                      interval={0}
+                      tickFormatter={formatHourTick}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <YAxis {...Y_AXIS} width={28} tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Bar dataKey="count" fill="var(--color-count)" radius={[3, 3, 0, 0]} {...barAnim} />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Recent scatter (vape only, 7 days) */}
+          {scatterData.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Vape time-of-day · last 7 days</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Each dot is a vape session.
+                  {avgHour !== null && (
+                    <>
+                      {" "}Average time{" "}
+                      <span className="font-semibold text-foreground">
+                        {String(Math.floor(avgHour)).padStart(2, "0")}:
+                        {String(Math.round((avgHour % 1) * 60)).padStart(2, "0")}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </CardHeader>
+              <CardContent className="min-w-0 overflow-hidden px-4">
+                <ChartContainer config={chartConfig} className="h-[140px] w-full">
+                  <ScatterChart margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+                    <CartesianGrid {...CHART_GRID_FULL} />
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      name="Day"
+                      domain={[-6, 0]}
+                      ticks={[-6, -4, -2, 0]}
+                      tickFormatter={(v: number) => (v === 0 ? "today" : `${-v}d`)}
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fontSize: 11 }}
+                    />
+                    <YAxis
+                      type="number"
+                      dataKey="y"
+                      name="Hour"
+                      domain={[0, 24]}
+                      ticks={HOUR_TICKS_2H}
+                      interval={0}
+                      tickFormatter={formatHourTick}
+                      tickLine={false}
+                      axisLine={false}
+                      width={36}
+                      tick={{ fontSize: 10 }}
+                      reversed
+                    />
+                    <ZAxis type="number" range={[80, 80]} />
+                    <ReferenceLine y={6} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
+                    <ReferenceLine y={12} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
+                    <ReferenceLine y={18} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
+                    {avgHour !== null && (
+                      <ReferenceLine
+                        y={avgHour}
+                        stroke={cannabisColor}
+                        strokeDasharray="4 3"
+                        strokeOpacity={0.6}
+                      />
+                    )}
+                    <Scatter
+                      data={scatterData}
+                      fill={cannabisColor}
+                      fillOpacity={0.55}
+                      stroke={cannabisColor}
+                      strokeOpacity={0.9}
+                    />
+                  </ScatterChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
         {/* Session log */}
-        <div>
+        <div className="min-w-0">
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : day && day.entries.length > 0 ? (
             <div className="space-y-2">
-              {day.entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:bg-muted/40"
-                  onClick={() => handleEdit(entry)}
-                >
-                  <div className="flex shrink-0 items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold"
-                    style={{ backgroundColor: cannabisColor, color: "white" }}>
-                    {entry.time.slice(0, 5)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">
-                      {entry.method === "vape" ? "Vape" : "🍬 Edible"}
-                      {entry.strain && entry.strain !== "None" && (
-                        <span className="ml-2 text-muted-foreground">· {entry.strain}</span>
-                      )}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
-                    className="shrink-0 text-xs text-muted-foreground hover:text-red-500"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+              {day.entries.map((entry) => {
+                const actions: TaskRowAction[] = [
+                  { label: "Edit", onSelect: () => handleEdit(entry) },
+                  {
+                    label: "Delete",
+                    tone: "destructive",
+                    confirm: "Delete this session?",
+                    onSelect: () => handleDelete(entry.id),
+                  },
+                ];
+                return (
+                  <LogRow
+                    key={entry.id}
+                    accent={cannabisColor}
+                    time={entry.time.slice(0, 5)}
+                    title={entry.method === "vape" ? "Vape" : "🍬 Edible"}
+                    details={
+                      entry.strain && entry.strain !== "None"
+                        ? `· ${entry.strain}`
+                        : undefined
+                    }
+                    onClick={() => handleEdit(entry)}
+                    actions={actions}
+                  />
+                );
+              })}
             </div>
           ) : (
-            !showForm && (
-              <p className="text-sm text-muted-foreground">No sessions logged today.</p>
-            )
+            <p className="text-sm text-muted-foreground">No sessions logged today.</p>
           )}
         </div>
-
-        {/* 30-day chart */}
-        {chartData.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Last 30 days (g)</CardTitle>
-            </CardHeader>
-            <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={chartConfig} className="h-[200px] w-full">
-                <BarChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                  <CartesianGrid {...CHART_GRID} />
-                  <XAxis {...X_AXIS_DATE} interval={3} />
-                  <YAxis {...Y_AXIS} width={32} />
-                  <Bar dataKey="grams" fill="var(--color-grams)" radius={[4, 4, 0, 0]} {...barAnim} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        )}
       </div>
-
-      {/* Aggregated time-of-day distribution (vape only, 7 days) */}
-      {vapeSessions.length > 0 && (
-        <Card className="mt-6">
-          <CardHeader className="pb-2">
-            <CardTitle>Vape time-of-day · last 7 days</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              30-min buckets across vape sessions from the last 7 days.
-              {peakBucket && (
-                <>
-                  {" "}Peak{" "}
-                  <span className="font-semibold text-foreground">{peakBucket.range}</span>
-                  {" "}
-                  <span className="text-muted-foreground/70">({peakBucket.count})</span>
-                </>
-              )}
-            </p>
-          </CardHeader>
-          <CardContent className="min-w-0 overflow-hidden px-4">
-            <ChartContainer config={chartConfig} className="h-[220px] w-full">
-              <BarChart data={histogram} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid {...CHART_GRID} />
-                <XAxis
-                  dataKey="hourFrac"
-                  type="number"
-                  domain={[0, 24]}
-                  ticks={HOUR_TICKS_2H}
-                  interval={0}
-                  tickFormatter={formatHourTick}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 10 }}
-                />
-                <YAxis {...Y_AXIS} width={28} tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Bar dataKey="count" fill="var(--color-count)" radius={[3, 3, 0, 0]} {...barAnim} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent scatter (vape only, 7 days) */}
-      {scatterData.length > 0 && (
-        <Card className="mt-6">
-          <CardHeader className="pb-2">
-            <CardTitle>Vape time-of-day · last 7 days</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Each dot is a vape session.
-              {avgHour !== null && (
-                <>
-                  {" "}Average time{" "}
-                  <span className="font-semibold text-foreground">
-                    {String(Math.floor(avgHour)).padStart(2, "0")}:
-                    {String(Math.round((avgHour % 1) * 60)).padStart(2, "0")}
-                  </span>
-                </>
-              )}
-            </p>
-          </CardHeader>
-          <CardContent className="min-w-0 overflow-hidden px-4">
-            <ChartContainer config={chartConfig} className="h-[260px] w-full">
-              <ScatterChart margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid {...CHART_GRID_FULL} />
-                <XAxis
-                  type="number"
-                  dataKey="x"
-                  name="Day"
-                  domain={[-6, 0]}
-                  ticks={[-6, -4, -2, 0]}
-                  tickFormatter={(v: number) => (v === 0 ? "today" : `${-v}d`)}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="y"
-                  name="Hour"
-                  domain={[0, 24]}
-                  ticks={HOUR_TICKS_2H}
-                  interval={0}
-                  tickFormatter={formatHourTick}
-                  tickLine={false}
-                  axisLine={false}
-                  width={36}
-                  tick={{ fontSize: 10 }}
-                  reversed
-                />
-                <ZAxis type="number" range={[80, 80]} />
-                {/* Shaded bands for rough daypart context */}
-                <ReferenceLine y={6} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
-                <ReferenceLine y={12} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
-                <ReferenceLine y={18} stroke={SECTION_ACCENT_SHADE_3} strokeDasharray="2 2" strokeOpacity={0.3} />
-                {avgHour !== null && (
-                  <ReferenceLine
-                    y={avgHour}
-                    stroke={cannabisColor}
-                    strokeDasharray="4 3"
-                    strokeOpacity={0.6}
-                  />
-                )}
-                <Scatter
-                  data={scatterData}
-                  fill={cannabisColor}
-                  fillOpacity={0.55}
-                  stroke={cannabisColor}
-                  strokeOpacity={0.9}
-                />
-              </ScatterChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      )}
 
     </>
   );

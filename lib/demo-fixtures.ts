@@ -1010,8 +1010,8 @@ function buildOura(days: number): OuraRowF[] {
 }
 
 type WithingsRowF = {
-  date: string; weight_kg: number | null; fat_pct: number | null; fat_ratio_pct: number | null;
-  bone_mineral_kg: number | null; pulse_wave_mps: number | null; vascular_age: number | null; spo2_pct: number | null;
+  date: string; weight_kg: number | null; fat_pct: number | null; fat_mass_kg: number | null;
+  fat_free_mass_kg: number | null; muscle_mass_kg: number | null; hydration_kg: number | null; bone_mass_kg: number | null;
 };
 
 function buildWithings(days: number): WithingsRowF[] {
@@ -1025,11 +1025,11 @@ function buildWithings(days: number): WithingsRowF[] {
       date,
       weight_kg: Math.round(w * 10) / 10,
       fat_pct: Math.round((18 + ((i * 11) % 5) * 0.1) * 10) / 10,
-      fat_ratio_pct: null,
-      bone_mineral_kg: 3.3,
-      pulse_wave_mps: 6.8,
-      vascular_age: 34,
-      spo2_pct: 97,
+      fat_mass_kg: Math.round(w * 0.18 * 10) / 10,
+      fat_free_mass_kg: Math.round(w * 0.82 * 10) / 10,
+      muscle_mass_kg: Math.round(w * 0.45 * 10) / 10,
+      hydration_kg: Math.round(w * 0.55 * 10) / 10,
+      bone_mass_kg: 3.3,
     });
   }
   return rows;

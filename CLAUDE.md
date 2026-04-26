@@ -4,7 +4,7 @@
 
 Septena is a local-first personal health command center. Multiple areas of life, one app:
 
-- **Exercise** — sessions, progressions & PRs
+- **Training** — sessions, progressions & PRs
 - **Nutrition** — meals, macros & fasting
 - **Habits** — fixed daily checklist bucketed morning / afternoon / evening
 - **Chores** — recurring deferrable tasks
@@ -22,7 +22,7 @@ septena/                              # Next.js frontend :7777
   app/
     page.tsx                          → root launcher (grid of section cards)
     layout.tsx                        → shell: BackendStatusBanner + SectionTabs
-    exercise/                         → dashboard + session/{active,done,new,start,[date]}
+    training/                         → dashboard + session/{active,done,new,start,[date]}
     nutrition/page.tsx                → dashboard + inline entry form
     habits/page.tsx, chores/page.tsx, supplements/page.tsx
     cannabis/page.tsx, caffeine/page.tsx
@@ -33,7 +33,7 @@ septena/                              # Next.js frontend :7777
   components/
     section-tabs.tsx                  → sticky top pill nav (hidden on root launcher)
     coming-soon.tsx                   → placeholder for sections awaiting build
-    {section}-dashboard.tsx           → one per section (exercise uses training-dashboard.tsx)
+    {section}-dashboard.tsx           → one per section
     settings-dashboard.tsx            → global settings UI
     quick-log-forms.tsx               → unified multi-section entry form
     onboarding-gate.tsx, backend-status-banner.tsx, pull-to-refresh.tsx
@@ -78,10 +78,10 @@ Registered keys: `next, training, nutrition, habits, chores, tasks, groceries, s
 
 ## Backend routes
 
-Exercise routes are unprefixed (they predate the prefixed pattern). Every other section uses `APIRouter(prefix="/api/{section}")`.
+Training routes are unprefixed (they predate the prefixed pattern). Every other section uses `APIRouter(prefix="/api/{section}")`.
 
 ```
-# Exercise  (api/routers/exercise/)
+# Training  (api/routers/exercise/)
 GET  /api/exercises
 GET  /api/progression/{exercise}
 GET  /api/summary[?since=YYYY-MM-DD]
@@ -157,7 +157,7 @@ GET  /api/meta                           # per-section file counts / freshness
 POST /api/bootstrap                      # first-install: copy examples/data/{Section}/ into DATA_ROOT
 ```
 
-Only Exercise caches (`_cache`, `fresh_cache` dep); every other router re-reads from disk per request — cheap at current data volumes.
+Only Training caches (`_cache`, `fresh_cache` dep); every other router re-reads from disk per request — cheap at current data volumes.
 
 ### Hardcoded taxonomies
 
@@ -296,7 +296,7 @@ One block per section, all appended to the same file. See the `// ── {Sectio
 
 - **Brand:** Septena has a fixed seven-color mark plus one stable brand accent for marketing, onboarding, and icon fallbacks. Brand colors do not mirror live section settings.
 - **Sections:** Section colors are user-configurable and functional. `SectionThemeRoot` publishes the active section accent and derived ramp into page scope.
-- **Exercise:** strength/cardio/mobility tones derive from the Exercise section accent via `lib/section-colors.ts`; they are not their own hardcoded orange/blue/purple palette.
+- **Training:** strength/cardio/mobility tones derive from the Training section accent via `lib/section-colors.ts`; they are not their own hardcoded orange/blue/purple palette.
 - **Tabs:** sticky top, pill style. Active section tabs use that section's color. The home pill stays neutral and only picks up contextual hover color from the current section.
 - **Cards:** `border-border bg-background` with section-color hover on interactive elements
 - **Charts:** Recharts, section-coloured; see `components/training-dashboard.tsx` for the house style

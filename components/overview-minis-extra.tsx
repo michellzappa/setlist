@@ -4,7 +4,7 @@ import useSWR from "swr";
 import React, { useMemo } from "react";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
-import { SectionCard, ACCENT } from "@/components/overview-dashboard";
+import { SectionCard, ACCENT, ProgressRow } from "@/components/overview-dashboard";
 import { getGutDay, getGutHistory } from "@/lib/api-gut";
 import { formatWeekdayTick } from "@/lib/date-utils";
 
@@ -28,6 +28,7 @@ function GutMini() {
 
   const week = (history?.daily ?? []).slice(-7);
   const weekMovements = week.reduce((s, d) => s + (d.movements ?? 0), 0);
+  const weekAvg = week.length > 0 ? weekMovements / week.length : 0;
   const chartData = useMemo(
     () => week.map((d) => ({ date: formatWeekdayTick(d.date), v: d.movements ?? 0 })),
     [week],
@@ -50,6 +51,14 @@ function GutMini() {
           </p>
         </div>
       </div>
+      {weekAvg > 0 && (
+        <ProgressRow
+          label="Today vs 7d avg"
+          current={movements.toFixed(0)}
+          total={weekAvg.toFixed(1)}
+          color={color}
+        />
+      )}
       <div className="mt-3">
         <p className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
           7-day movements

@@ -24,6 +24,9 @@ export type TaskRowAction = {
   onSelect: () => void;
   tone?: "default" | "destructive";
   disabled?: boolean;
+  /** When set, RowActionsMenu shows window.confirm(confirm) before firing
+   *  onSelect. Use for hard deletes; recoverable status flips can omit this. */
+  confirm?: string;
 };
 
 export function TaskRow({
@@ -136,6 +139,110 @@ export function TaskRow({
   );
 }
 
+// LogRow — sibling of TaskRow for event-style entries (nutrition meals,
+// cannabis/caffeine sessions, gut movements). Same outer chrome and accent
+// "ear" as TaskRow's undone state, minus the toggle checkbox + done state.
+// Tap row → onClick (typically opens an inline edit form). Secondary verbs
+// (Edit, Duplicate, Delete) live in the trailing ⋯ RowActionsMenu.
+export function LogRow({
+  time,
+  emoji,
+  title,
+  details,
+  body,
+  accent,
+  onClick,
+  pending,
+  actions,
+}: {
+  /** "HH:MM" rendered as plain inline text next to the title. */
+  time?: string;
+  emoji?: string;
+  title: React.ReactNode;
+  /** Inline secondary text after the title (· delimited fragments etc). */
+  details?: React.ReactNode;
+  /** Optional richer slot below the title row (macro bar, note, etc). */
+  body?: React.ReactNode;
+  accent: string;
+  onClick?: () => void;
+  pending?: boolean;
+  actions?: TaskRowAction[];
+}) {
+  const hasActions = !!actions && actions.length > 0;
+  const interactive = !!onClick;
+
+  return (
+    <div
+      className={cn(
+        "relative flex w-full min-w-0 items-stretch overflow-hidden rounded-xl border bg-card text-sm transition-colors",
+        interactive
+          ? "border-border hover:border-[color:var(--log-accent)]"
+          : "border-border",
+        pending && "opacity-60",
+      )}
+      style={{ ["--log-accent" as string]: accent } as React.CSSProperties}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-1"
+        style={{ backgroundColor: accent }}
+      />
+
+      {interactive ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onClick}
+          className="flex min-w-0 flex-1 flex-col gap-0.5 px-4 py-3 text-left"
+        >
+          <LogRowMain time={time} emoji={emoji} title={title} details={details} />
+          {body}
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-4 py-3">
+          <LogRowMain time={time} emoji={emoji} title={title} details={details} />
+          {body}
+        </div>
+      )}
+
+      {hasActions && (
+        <RowActionsMenu actions={actions!} disabled={pending} />
+      )}
+    </div>
+  );
+}
+
+function LogRowMain({
+  time,
+  emoji,
+  title,
+  details,
+}: {
+  time?: string;
+  emoji?: string;
+  title: React.ReactNode;
+  details?: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {emoji && <Emoji className="shrink-0">{emoji}</Emoji>}
+      <div className="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden">
+        <span className="truncate font-medium">{title}</span>
+        {details && (
+          <span className="min-w-0 truncate text-xs text-muted-foreground">
+            {details}
+          </span>
+        )}
+      </div>
+      {time && (
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+          {time}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function RowActionsMenu({
   actions,
   tone = "default",
@@ -166,7 +273,10 @@ export function RowActionsMenu({
               <Menu.Item
                 key={i}
                 disabled={action.disabled}
-                onClick={() => action.onSelect()}
+                onClick={() => {
+                  if (action.confirm && !window.confirm(action.confirm)) return;
+                  action.onSelect();
+                }}
                 className={cn(
                   "flex cursor-default select-none items-center rounded-md px-2.5 py-1.5 outline-none transition-colors",
                   "data-highlighted:bg-accent data-highlighted:text-accent-foreground",

@@ -66,7 +66,7 @@ export function ChecklistChart({
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="px-4">
-        <ChartContainer config={config} className="h-[220px] w-full">
+        <ChartContainer config={config} className="h-[140px] w-full">
           <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
             <CartesianGrid {...CHART_GRID} />
             <XAxis {...xProps} interval={interval} />

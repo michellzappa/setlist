@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo } from "react";
 import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TimeInput } from "@/components/time-input";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { LogEntryModal, type FieldSpec } from "@/components/log-entry-modal";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 
 import {
@@ -22,6 +22,7 @@ import {
 import { SectionHeaderAction, SectionHeaderActionButton } from "@/components/section-header-action";
 import { StatCard } from "@/components/stat-card";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
+import { LogRow, type TaskRowAction } from "@/components/tasks";
 import {
   todayLocalISO,
   nowHHMM as currentTime,
@@ -56,17 +57,16 @@ export function CaffeineDashboard() {
   const chartConfig = {
     count: { label: "Sessions", color: caffeineColor },
   } satisfies ChartConfig;
-  const [showForm, setShowForm] = useState(() => {
-    if (typeof window !== "undefined") {
-      return new URLSearchParams(window.location.search).has("log");
+  const [editor, setEditor] = useState<
+    | { mode: "create" }
+    | { mode: "edit"; entry: CaffeineEntry }
+    | null
+  >(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("log")) {
+      return { mode: "create" };
     }
-    return false;
+    return null;
   });
-  const [formTime, setFormTime] = useState(currentTime());
-  const [formMethod, setFormMethod] = useState<CaffeineMethod>("v60");
-  const [formBeans, setFormBeans] = useState("");
-  const [formGrams, setFormGrams] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const barAnim = useBarAnimation();
   const { date: selectedDate } = useSelectedDate();
@@ -95,88 +95,106 @@ export function CaffeineDashboard() {
   // Most recent session (sessions are sorted oldest→newest by the backend).
   const lastSession: CaffeineSession | null = sessions.length > 0 ? sessions[sessions.length - 1] : null;
 
-  // Seed the form from the last coffee — method, beans, grams. Time resets to now.
-  const seedFormFromLast = useCallback((last: CaffeineSession | null) => {
-    setFormTime(currentTime());
-    setFormMethod(last?.method ?? "v60");
-    setFormBeans(last?.beans ?? "");
-    setFormGrams(last?.grams != null ? String(last.grams) : "");
-  }, []);
-
-  // If the page was opened with ?log (quick-log entry), seed once data arrives.
-  const autoSeededRef = useRef(false);
-  useEffect(() => {
-    if (!autoSeededRef.current && showForm && data) {
-      seedFormFromLast(lastSession);
-      autoSeededRef.current = true;
-    }
-  }, [showForm, data, lastSession, seedFormFromLast]);
-
-  const handleToggleForm = useCallback(() => {
-    setShowForm((open) => {
-      if (!open) seedFormFromLast(lastSession);
-      return !open;
-    });
-  }, [lastSession, seedFormFromLast]);
-
-  const handleSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      const gramsNum = formGrams.trim() ? parseFloat(formGrams) : null;
-      const grams = Number.isFinite(gramsNum as number) ? (gramsNum as number) : null;
-      const beans = formBeans.trim() || null;
-      if (editingId) {
-        await updateCaffeineEntry(editingId, selectedDate, {
-          time: formTime,
-          method: formMethod,
-          beans,
-          grams,
-        });
-      } else {
-        await addCaffeineEntry({
-          date: today,
-          time: formTime,
-          method: formMethod,
-          beans,
-          grams,
-        });
+  const handleSave = useCallback(
+    async (values: Record<string, unknown>) => {
+      if (saving) return;
+      setSaving(true);
+      try {
+        const time = String(values.time ?? "");
+        const method = (values.method as CaffeineMethod) ?? "v60";
+        const beansRaw = String(values.beans ?? "").trim();
+        const gramsRaw = String(values.grams ?? "").trim();
+        const gramsNum = gramsRaw ? parseFloat(gramsRaw) : null;
+        const grams = Number.isFinite(gramsNum as number) ? (gramsNum as number) : null;
+        const beans = beansRaw || null;
+        if (editor?.mode === "edit") {
+          await updateCaffeineEntry(editor.entry.id, selectedDate, {
+            time,
+            method,
+            beans,
+            grams,
+          });
+        } else {
+          await addCaffeineEntry({ date: today, time, method, beans, grams });
+        }
+        setEditor(null);
+        await mutate();
+      } finally {
+        setSaving(false);
       }
-      setShowForm(false);
-      setEditingId(null);
-      await mutate();
-    } catch {
-      // surfaced via SWR
-    } finally {
-      setSaving(false);
-    }
-  }, [today, selectedDate, editingId, formTime, formMethod, formBeans, formGrams, saving, mutate]);
+    },
+    [today, selectedDate, editor, saving, mutate],
+  );
 
   const handleEdit = useCallback((entry: CaffeineEntry) => {
-    setEditingId(entry.id);
-    setFormTime(entry.time.slice(0, 5));
-    setFormMethod(entry.method);
-    setFormBeans(entry.beans ?? "");
-    setFormGrams(entry.grams != null ? String(entry.grams) : "");
-    setShowForm(true);
-  }, []);
-
-  const handleCancel = useCallback(() => {
-    setShowForm(false);
-    setEditingId(null);
+    setEditor({ mode: "edit", entry });
   }, []);
 
   const handleDelete = useCallback(
     async (entryId: string) => {
       try {
         await deleteCaffeineEntry(entryId, selectedDate);
+        if (editor?.mode === "edit" && editor.entry.id === entryId) setEditor(null);
         await mutate();
       } catch {
         // surfaced via SWR
       }
     },
-    [selectedDate, mutate],
+    [selectedDate, mutate, editor],
   );
+
+  const fieldSchema: FieldSpec[] = useMemo(
+    () => [
+      { kind: "time", key: "time", label: "Time" },
+      {
+        kind: "chips",
+        key: "method",
+        label: "Method",
+        options: [
+          { value: "v60", label: "V60", emoji: "☕" },
+          { value: "matcha", label: "Matcha", emoji: "🍵" },
+          { value: "other", label: "Other" },
+        ],
+      },
+      {
+        kind: "row",
+        fields: [
+          {
+            kind: "chips",
+            key: "beans",
+            label: "Beans",
+            fill: false,
+            options: [
+              { value: "", label: "None" },
+              ...beans.map((b) => ({ value: b.name, label: b.name })),
+            ],
+          },
+          { kind: "number", key: "grams", label: "Grams", unit: "g", step: "0.1" },
+        ],
+      },
+    ],
+    [beans],
+  );
+
+  const editorOpen = editor !== null;
+  const editorMode = editor?.mode ?? "create";
+  const editorInitial = useMemo<Record<string, unknown>>(() => {
+    if (editor?.mode === "edit") {
+      const e = editor.entry;
+      return {
+        time: e.time.slice(0, 5),
+        method: e.method,
+        beans: e.beans ?? "",
+        grams: e.grams != null ? String(e.grams) : "",
+      };
+    }
+    return {
+      time: currentTime(),
+      method: lastSession?.method ?? "v60",
+      beans: lastSession?.beans ?? "",
+      grams: lastSession?.grams != null ? String(lastSession.grams) : "",
+    };
+  }, [editor, lastSession]);
 
   // 7-day time-of-day distribution, 30-min buckets.
   const histogram = useMemo(() => {
@@ -227,10 +245,22 @@ export function CaffeineDashboard() {
   return (
     <>
       <SectionHeaderAction>
-        <SectionHeaderActionButton color={caffeineColor} onClick={handleToggleForm}>
+        <SectionHeaderActionButton color={caffeineColor} onClick={() => setEditor({ mode: "create" })}>
           + Log
         </SectionHeaderActionButton>
       </SectionHeaderAction>
+
+      <LogEntryModal
+        open={editorOpen}
+        mode={editorMode}
+        title={editorMode === "edit" ? "Edit Caffeine" : "Log Caffeine"}
+        schema={fieldSchema}
+        initialValues={editorInitial}
+        saving={saving}
+        onClose={() => setEditor(null)}
+        onSubmit={handleSave}
+        onDelete={editor?.mode === "edit" ? () => handleDelete(editor.entry.id) : undefined}
+      />
 
       {error && (
         <Card className="mb-4 border-red-500/30 bg-red-500/10">
@@ -240,164 +270,35 @@ export function CaffeineDashboard() {
         </Card>
       )}
 
-      {/* Log entry form */}
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">{editingId ? "Edit Caffeine" : "Log Caffeine"}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-2">
-              <TimeInput value={formTime} onChange={(v) => setFormTime(v)} className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
-              <div className="flex rounded-lg border border-border bg-card p-0.5">
-                {METHOD_ORDER.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setFormMethod(m)}
-                    className="rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors"
-                    style={
-                      formMethod === m
-                        ? { backgroundColor: caffeineColor, color: "white" }
-                        : undefined
-                    }
-                  >
-                    {METHOD_LABEL[m]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {beans.length > 0 ? (
-                <select
-                  value={formBeans}
-                  onChange={(e) => setFormBeans(e.target.value)}
-                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Beans (optional)</option>
-                  {beans.map((b) => (
-                    <option key={b.id} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  placeholder="Beans (optional)"
-                  value={formBeans}
-                  onChange={(e) => setFormBeans(e.target.value)}
-                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                />
-              )}
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                inputMode="decimal"
-                placeholder="Grams"
-                value={formGrams}
-                onChange={(e) => setFormGrams(e.target.value)}
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="flex-1 rounded-xl border border-border bg-card py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                style={{ backgroundColor: caffeineColor }}
-              >
-                {saving ? "Saving…" : editingId ? "Save changes" : "Save"}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Today's summary cards */}
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Sessions"
-          value={day ? day.session_count : null}
-          color={caffeineColor}
-        />
-        <StatCard
-          label="Grams"
-          value={day && day.total_g != null ? `${day.total_g}g` : day ? "—" : null}
-          color={caffeineColor}
-        />
-        <StatCard
-          label="Method"
-          value={
-            day
-              ? METHOD_ORDER.map((m) =>
-                  day.methods[m] > 0 ? `${METHOD_LABEL[m].split(" ")[0]} ${day.methods[m]}` : "",
-                )
-                  .filter(Boolean)
-                  .join(" ") || "—"
-              : null
-          }
-          color={caffeineColor}
-        />
-      </div>
-
-      {/* Two-column: today's log on the left, 7d distribution on the right (max half). */}
+      {/* Two-column: overview (stats + charts) on the left, today's log on the right. */}
       <div className="grid min-w-0 gap-6 lg:grid-cols-[1fr_1fr]">
-        {/* Today's session log */}
-        <div>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : day && day.entries.length > 0 ? (
-            <div className="space-y-2">
-              {day.entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  onClick={() => handleEdit(entry)}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:bg-muted/40"
-                >
-                  <div
-                    className="flex shrink-0 items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold"
-                    style={{ backgroundColor: caffeineColor, color: "white" }}
-                  >
-                    {entry.time.slice(0, 5)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">
-                      {METHOD_LABEL[entry.method]}
-                      {entry.grams != null && (
-                        <span className="ml-2 text-muted-foreground">· {entry.grams}g</span>
-                      )}
-                      {entry.beans && (
-                        <span className="ml-2 text-muted-foreground">· {entry.beans}</span>
-                      )}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
-                    className="shrink-0 text-xs text-muted-foreground hover:text-red-500"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            !showForm && (
-              <p className="text-sm text-muted-foreground">No caffeine logged today.</p>
-            )
-          )}
-        </div>
+        <div className="min-w-0 space-y-6">
+          {/* Today's summary cards */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <StatCard
+              label="Sessions"
+              value={day ? day.session_count : null}
+              color={caffeineColor}
+            />
+            <StatCard
+              label="Grams"
+              value={day && day.total_g != null ? `${day.total_g}g` : day ? "—" : null}
+              color={caffeineColor}
+            />
+            <StatCard
+              label="Method"
+              value={
+                day
+                  ? METHOD_ORDER.map((m) =>
+                      day.methods[m] > 0 ? `${METHOD_LABEL[m].split(" ")[0]} ${day.methods[m]}` : "",
+                    )
+                      .filter(Boolean)
+                      .join(" ") || "—"
+                  : null
+              }
+              color={caffeineColor}
+            />
+          </div>
 
         {/* 30-day time-of-day distribution */}
         {hasAnySessions && (
@@ -417,7 +318,7 @@ export function CaffeineDashboard() {
               </p>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={chartConfig} className="h-[220px] w-full">
+              <ChartContainer config={chartConfig} className="h-[140px] w-full">
                 <BarChart data={histogram} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis
@@ -450,7 +351,7 @@ export function CaffeineDashboard() {
               </p>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={chartConfig} className="h-[200px] w-full">
+              <ChartContainer config={chartConfig} className="h-[140px] w-full">
                 <BarChart data={dailyTotals} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis {...WEEKDAY_X_AXIS} interval={0} />
@@ -461,6 +362,44 @@ export function CaffeineDashboard() {
             </CardContent>
           </Card>
         )}
+        </div>
+
+        {/* Today's session log */}
+        <div className="min-w-0">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : day && day.entries.length > 0 ? (
+            <div className="space-y-2">
+              {day.entries.map((entry) => {
+                const detailParts: string[] = [];
+                if (entry.grams != null) detailParts.push(`${entry.grams}g`);
+                if (entry.beans) detailParts.push(entry.beans);
+                const actions: TaskRowAction[] = [
+                  { label: "Edit", onSelect: () => handleEdit(entry) },
+                  {
+                    label: "Delete",
+                    tone: "destructive",
+                    confirm: "Delete this session?",
+                    onSelect: () => handleDelete(entry.id),
+                  },
+                ];
+                return (
+                  <LogRow
+                    key={entry.id}
+                    accent={caffeineColor}
+                    time={entry.time.slice(0, 5)}
+                    title={METHOD_LABEL[entry.method]}
+                    details={detailParts.length > 0 ? `· ${detailParts.join(" · ")}` : undefined}
+                    onClick={() => handleEdit(entry)}
+                    actions={actions}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No caffeine logged today.</p>
+          )}
+        </div>
       </div>
 
     </>

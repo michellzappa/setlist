@@ -4,7 +4,6 @@ import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { getEntries, type ExerciseEntry } from "@/lib/api";
 import { useExerciseTaxonomy, type ExerciseKind } from "@/hooks/use-exercise-taxonomy";
 import {
-  EXERCISE_TONE_COLOR,
   SECTION_ACCENT,
   SECTION_ACCENT_SHADE_1,
   SECTION_ACCENT_SHADE_2,
@@ -136,16 +135,13 @@ export function WeekStreak() {
   return (
     <>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">This week</CardTitle>
-            <CardDescription>
-              {perfect
-                ? "Perfect week — every day trained."
-                : `${activeCount}/7 days trained in the last week.`}
-            </CardDescription>
-          </div>
-          <Legend />
+        <div>
+          <CardTitle className="text-base">This week</CardTitle>
+          <CardDescription>
+            {perfect
+              ? "Perfect week — every day trained."
+              : `${activeCount}/7 days trained in the last week.`}
+          </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="min-w-0 px-4 flex flex-col flex-1">
@@ -176,7 +172,7 @@ export function WeekStreak() {
                   </span>
                   <div
                     title={`${day.iso} — ${KIND_LABEL[kind]}`}
-                    className={cn("h-9 w-9 rounded-full border-2 transition-all", KIND_DOT_CLASS[kind], day.isToday && "ring-2 ring-foreground/40 ring-offset-2 ring-offset-background")}
+                    className={cn("h-7 w-7 rounded-full border-2 transition-all", KIND_DOT_CLASS[kind], day.isToday && "ring-2 ring-foreground/40 ring-offset-2 ring-offset-background")}
                     style={KIND_DOT_STYLE[kind]}
                   />
                   <span className={cn("text-[10px] tabular-nums", day.isToday ? "font-semibold text-foreground" : "text-muted-foreground")}>
@@ -191,7 +187,6 @@ export function WeekStreak() {
           <div className="flex items-baseline justify-between">
             <div>
               <p className="text-sm font-semibold">Z2 cardio</p>
-              <p className="text-sm text-muted-foreground">Target 150 min/week for mitochondrial biogenesis</p>
             </div>
             <p className="text-sm tabular-nums">
               <span
@@ -215,25 +210,5 @@ export function WeekStreak() {
         </div>
       </CardContent>
     </>
-  );
-}
-
-
-function Legend() {
-  return (
-    <div className="hidden gap-3 text-xs text-muted-foreground sm:flex">
-      <LegendDot shade={EXERCISE_TONE_COLOR.strength} label="Strength" />
-      <LegendDot shade={EXERCISE_TONE_COLOR.cardio} label="Cardio" />
-      <LegendDot shade={EXERCISE_TONE_COLOR.mobility} label="Mobility" />
-    </div>
-  );
-}
-
-function LegendDot({ shade, label }: { shade: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: shade }} />
-      {label}
-    </span>
   );
 }

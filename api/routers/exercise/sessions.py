@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Any, Dict, List
 
 import yaml
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.requests import Request
 
 from api.io import atomic_write_text
@@ -16,7 +16,7 @@ from api.parsing import _slugify
 from api.paths import DATA_DIR
 
 from .cache import _cache, fresh_cache, load_cache
-from .taxonomy import _is_cardio_type, exercise_group
+from .taxonomy import _is_cardio_type, exercise_group, session_type_meta
 
 router = APIRouter(tags=["training"])
 
@@ -97,6 +97,103 @@ async def post_sessions(request: Request) -> Dict[str, Any]:
     return {"written": written, "concluded_at": concluded_at, "session_type": session_type}
 
 
+@router.put("/api/training/entries")
+async def put_entry(request: Request) -> Dict[str, Any]:
+    """Update a single training entry .md by filename. Re-reads existing
+    frontmatter so the original concluded_at/logged_at and any unrelated
+    fields survive; only the user-editable numeric/text fields are
+    overwritten by the payload."""
+    payload = await request.json()
+    file_name = str(payload.get("file") or "").strip()
+    if not file_name:
+        raise HTTPException(status_code=400, detail="file is required")
+    fpath = DATA_DIR / file_name
+    if not fpath.exists():
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    raw = fpath.read_text(encoding="utf-8")
+    fm: Dict[str, Any] = {}
+    body_after = ""
+    if raw.startswith("---\n"):
+        end = raw.find("\n---", 4)
+        if end != -1:
+            try:
+                fm = yaml.safe_load(raw[4:end]) or {}
+            except yaml.YAMLError:
+                fm = {}
+            body_after = raw[end + 4 :].lstrip("\n")
+
+    ex = fm.get("exercise", "")
+    is_cardio = _is_cardio_type(ex)
+
+    def _clear(*keys: str) -> None:
+        for k in keys:
+            if k in fm:
+                del fm[k]
+
+    if is_cardio:
+        _clear("weight", "sets", "reps", "difficulty")
+        if (v := payload.get("duration_min")) not in (None, ""):
+            fm["duration_min"] = float(v)
+        else:
+            _clear("duration_min")
+        if (v := payload.get("distance_m")) not in (None, ""):
+            fm["distance_m"] = int(v)
+        else:
+            _clear("distance_m")
+        if (v := payload.get("level")) not in (None, ""):
+            fm["level"] = int(v)
+        else:
+            _clear("level")
+    else:
+        _clear("duration_min", "distance_m", "level")
+        if (v := payload.get("weight")) not in (None, ""):
+            fm["weight"] = float(v)
+        else:
+            _clear("weight")
+        if (v := payload.get("sets")) not in (None, ""):
+            fm["sets"] = int(v)
+        else:
+            _clear("sets")
+        if (v := payload.get("reps")) not in (None, ""):
+            try:
+                fm["reps"] = int(v)
+            except (TypeError, ValueError):
+                fm["reps"] = str(v)
+        else:
+            _clear("reps")
+        diff = payload.get("difficulty")
+        if diff:
+            fm["difficulty"] = diff
+        else:
+            _clear("difficulty")
+
+    fm_block = yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip()
+    note = payload.get("note")
+    body_text = note if note is not None else body_after
+    content = f"---\n{fm_block}\n---\n"
+    if body_text:
+        content += f"\n{body_text.rstrip()}\n"
+    atomic_write_text(fpath, content)
+    load_cache()
+    return {"ok": True, "file": file_name}
+
+
+@router.delete("/api/training/entries")
+async def delete_entry(request: Request) -> Dict[str, Any]:
+    """Delete a single training entry .md by filename."""
+    payload = await request.json()
+    file_name = str(payload.get("file") or "").strip()
+    if not file_name:
+        raise HTTPException(status_code=400, detail="file is required")
+    fpath = DATA_DIR / file_name
+    if not fpath.exists():
+        raise HTTPException(status_code=404, detail="Entry not found")
+    fpath.unlink()
+    load_cache()
+    return {"ok": True}
+
+
 @router.get("/api/training/sessions/last", dependencies=[Depends(fresh_cache)])
 @router.get("/api/sessions/last", dependencies=[Depends(fresh_cache)])
 def get_last_session(type: str = "") -> Dict[str, Any]:
@@ -157,12 +254,9 @@ def reload_data() -> Dict[str, Any]:
     }
 
 
-SESSION_META = {
-    "upper": {"emoji": "💪", "label": "Upper"},
-    "lower": {"emoji": "🦵", "label": "Lower"},
-    "cardio": {"emoji": "🫁", "label": "Cardio"},
-    "yoga": {"emoji": "🧘", "label": "Yoga"},
-}
+# SESSION_META used to live here as a hardcoded dict — now resolved per-call
+# via taxonomy.session_type_meta() so users can edit labels/emoji from
+# Settings → Training without touching code.
 
 
 @router.get("/api/training/next-workout", dependencies=[Depends(fresh_cache)])
@@ -259,7 +353,7 @@ def get_next_workout() -> Dict[str, Any]:
     else:
         suggested_type = "yoga"
 
-    meta = SESSION_META[suggested_type]
+    meta = session_type_meta(suggested_type)
 
     return {
         "suggested": {

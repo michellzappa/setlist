@@ -147,7 +147,7 @@ function MiniStat({ label, value, color, unit }: {
   );
 }
 
-function ProgressRow({ label, current, total, unit, color, display }: {
+export function ProgressRow({ label, current, total, unit, color, display }: {
   label: string;
   current: string;
   total: string;

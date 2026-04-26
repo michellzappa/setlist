@@ -3,8 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceArea, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
-import { Pencil, Copy } from "lucide-react";
-
 import {
   getNutritionEntries,
   getNutritionStats,
@@ -31,10 +29,11 @@ import { computeFastingState, isBreakingFast, useFastingConfig } from "@/lib/fas
 import { useMacroTargets, useMacroColors, useFastingTarget, useFiberTarget, progressTowardRange, useProgressMode, macroTileNumbers, type MacroKey, type MacroTarget } from "@/lib/macro-targets";
 import { StatCard } from "@/components/stat-card";
 import { useBarAnimation } from "@/hooks/use-bar-animation";
-import { Emoji } from "@/components/ui/emoji";
 import { SectionHeaderAction, SectionHeaderActionButton } from "@/components/section-header-action";
 import { QuickLogModal } from "@/components/quick-log-modal";
 import { NutritionQuickLog } from "@/components/quick-log-forms";
+import { LogRow, type TaskRowAction } from "@/components/tasks";
+import { LogEntryModal, type FieldSpec } from "@/components/log-entry-modal";
 
 const NUTRITION_COLOR = "var(--section-accent)";
 
@@ -133,8 +132,8 @@ function NutritionDashboardInner() {
         </Card>
       )}
 
-      <div className="xl:grid xl:grid-cols-5 xl:gap-6 xl:items-start">
-      <div className="xl:col-span-3">
+      <div className="xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start">
+      <div>
       {!loading && (() => {
         const mode = progressMode;
         const tile = (consumed: number, t: typeof targets.protein) =>
@@ -147,7 +146,7 @@ function NutritionDashboardInner() {
         const round = (v: number | null) => (v == null ? null : Math.round(v));
         return (
         <div
-          className="mb-6 grid grid-cols-3 gap-4 lg:grid-cols-6 cursor-pointer select-none"
+          className="mb-6 grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-3 cursor-pointer select-none"
           onClick={toggleProgressMode}
           title={`Tap to switch to "${mode === "used" ? "left" : "used"}"`}
         >
@@ -203,7 +202,7 @@ function NutritionDashboardInner() {
       )}
       </div>
 
-      <div className="xl:col-span-2">
+      <div>
       <RecentEntriesList
         entries={recentEntries}
         fasting={stats?.fasting ?? []}
@@ -373,47 +372,108 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
   const targets = useMacroTargets();
   const fiberTarget = useFiberTarget();
   const [saving, setSaving] = useState<Set<string>>(new Set());
-  const [editingFile, setEditingFile] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Partial<NutritionEntry>>({});
+  const [showAll, setShowAll] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<NutritionEntry | null>(null);
+  const [modalSaving, setModalSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function startEdit(e: NutritionEntry) {
-    setEditingFile(e.file);
-    setEditValues({ ...e });
-    setDeleteConfirm(null);
+    setEditingEntry(e);
   }
 
   function cancelEdit() {
-    setEditingFile(null);
-    setEditValues({});
-    setDeleteConfirm(null);
+    setEditingEntry(null);
   }
 
-  async function saveEdit() {
-    if (!editingFile) return;
-    setSaving((p) => new Set(p).add(editingFile));
+  const editorSchema: FieldSpec[] = useMemo(
+    () => [
+      {
+        kind: "row",
+        fields: [
+          { kind: "time", key: "time", label: "Time" },
+          { kind: "text", key: "emoji", label: "Emoji" },
+        ],
+      },
+      {
+        kind: "list",
+        key: "foods",
+        label: "Foods",
+        rows: 4,
+        hint: "First line is the title; following lines are ingredients/details.",
+      },
+      {
+        kind: "row",
+        fields: [
+          { kind: "number", key: "protein_g", label: "Protein", unit: "g" },
+          { kind: "number", key: "fat_g", label: "Fat", unit: "g" },
+        ],
+      },
+      {
+        kind: "row",
+        fields: [
+          { kind: "number", key: "carbs_g", label: "Carbs", unit: "g" },
+          { kind: "number", key: "fiber_g", label: "Fiber", unit: "g" },
+        ],
+      },
+      { kind: "number", key: "kcal", label: "Kcal" },
+    ],
+    [],
+  );
+
+  const editorInitial = useMemo<Record<string, unknown>>(() => {
+    const e = editingEntry;
+    if (!e) return {};
+    return {
+      time: e.time,
+      emoji: e.emoji ?? "",
+      foods: e.foods ?? [],
+      protein_g: String(e.protein_g ?? 0),
+      fat_g: String(e.fat_g ?? 0),
+      carbs_g: String(e.carbs_g ?? 0),
+      fiber_g: String(e.fiber_g ?? 0),
+      kcal: String(e.kcal ?? 0),
+    };
+  }, [editingEntry]);
+
+  async function saveEdit(values: Record<string, unknown>) {
+    const e = editingEntry;
+    if (!e) return;
+    const file = e.file;
+    setModalSaving(true);
+    setSaving((p) => new Set(p).add(file));
     setError(null);
     try {
-      await updateNutritionEntry({ ...(editValues as NutritionPayload), file: editingFile });
-      setEditingFile(null);
-      setEditValues({});
+      const foods = (values.foods as string[]).map((s) => s.trim()).filter(Boolean);
+      const num = (k: string) => Number(values[k] ?? 0) || 0;
+      const payload: NutritionPayload & { file: string } = {
+        date: e.date,
+        time: String(values.time ?? ""),
+        emoji: String(values.emoji ?? ""),
+        foods,
+        protein_g: num("protein_g"),
+        fat_g: num("fat_g"),
+        carbs_g: num("carbs_g"),
+        fiber_g: num("fiber_g"),
+        kcal: num("kcal"),
+        file,
+      };
+      await updateNutritionEntry(payload);
+      setEditingEntry(null);
       onDuplicated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
-      setSaving((p) => { const n = new Set(p); n.delete(editingFile); return n; });
+      setModalSaving(false);
+      setSaving((p) => { const n = new Set(p); n.delete(file); return n; });
     }
   }
 
   async function deleteEntry(file: string) {
-    if (deleteConfirm !== file) { setDeleteConfirm(file); return; }
     setSaving((p) => new Set(p).add(file));
     setError(null);
     try {
       await deleteNutritionEntry(file);
-      setDeleteConfirm(null);
-      if (editingFile === file) cancelEdit();
+      if (editingEntry?.file === file) cancelEdit();
       onDuplicated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
@@ -454,174 +514,98 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
     }
   }
 
+  const today = todayLocalISO();
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle>Last 7 days</CardTitle>
-        <CardDescription>
-          {loading ? "Loading…" : `${entries.length} entries · tap to edit · copy to duplicate`}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div>
+        <LogEntryModal
+          open={editingEntry !== null}
+          mode="edit"
+          title="Edit Entry"
+          schema={editorSchema}
+          initialValues={editorInitial}
+          saving={modalSaving}
+          canSubmit={(v) => Array.isArray(v.foods) && (v.foods as string[]).some((s) => s.trim())}
+          onClose={cancelEdit}
+          onSubmit={saveEdit}
+          onDelete={editingEntry ? () => deleteEntry(editingEntry.file) : undefined}
+        />
         {error && <p className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700">{error}</p>}
         {entries.length === 0 ? (
           <p className="text-sm text-muted-foreground">No entries yet — log a meal via chat to get started.</p>
         ) : (
           <>
-          <ul className="divide-y divide-border">
+          <ul className="space-y-2">
             {entries.reduce<React.ReactNode[]>((rows, e, i) => {
               const prev = entries[i - 1];
-              if (i === 0 || (prev && prev.date !== e.date)) {
-                if (prev && prev.date !== e.date) {
-                  const fast = fastingByDate.get(prev.date);
-                  if (fast) rows.push(<FastingGap key={`fast-${prev.date}`} fast={fast} />);
-                }
-                const [y, m, d] = e.date.split("-").map(Number);
-                const dayLabel = new Date(y!, (m! - 1), d!).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-                const t = totalsByDate.get(e.date);
-                rows.push(
-                  <li key={`sep-${e.date}`} className="flex flex-col items-center gap-0.5 py-2">
-                    <span className="text-xs font-medium text-muted-foreground">{dayLabel}</span>
-                    {t && (
-                      <>
-                      <div className="flex items-center gap-1.5">
-
-                        <span className="text-xs font-semibold tabular-nums">
-                        <span style={{ color: targets.protein.color }}>{Math.round(t.protein)}P</span>
-                        <span className="text-muted-foreground/50"> · </span>
-                        <span style={{ color: targets.fat.color }}>{Math.round(t.fat)}F</span>
-                        <span className="text-muted-foreground/50"> · </span>
-                        <span style={{ color: targets.carbs.color }}>{Math.round(t.carbs)}C</span>
-                        <span className="text-muted-foreground/50"> · </span>
-                        <span style={{ color: fiberTarget.color }}>{Math.round(t.fiber)}Fb</span>
-                        <span className="text-muted-foreground/50"> · </span>
-                        <span style={{ color: targets.kcal.color }}>{Math.round(t.kcal)}kcal</span>
-                        </span>
-                        </div>
-                      </>
-                    )}
-                  </li>,
-                );
+              if (prev && prev.date === today && e.date !== today) {
+                const fast = fastingByDate.get(today);
+                if (fast) rows.push(<FastingGap key={`fast-${today}`} fast={fast} />);
               }
-              const isEditing = editingFile === e.file;
+              if (e.date !== today && !showAll) {
+                return rows;
+              }
               const isPending = saving.has(e.file);
-              const showDeleteConfirm = deleteConfirm === e.file;
+
+              const actions: TaskRowAction[] = [
+                { label: "Edit", onSelect: () => startEdit(e) },
+                { label: "Duplicate to today", onSelect: () => duplicate(e) },
+                {
+                  label: "Delete",
+                  tone: "destructive",
+                  confirm: "Delete this entry?",
+                  onSelect: () => deleteEntry(e.file),
+                },
+              ];
 
               rows.push(
                 <li key={e.file} className="py-0">
-                  {isEditing ? (
-                    <div className="-mx-4 mb-2 mt-3 rounded-xl border border-border bg-muted/40 px-4 py-4">
-                      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Edit entry</p>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Time</label>
-                          <TimeInput
-                            value={editValues.time ?? ""}
-                            onChange={(v) => setEditValues((p) => ({ ...p, time: v }))}
-                            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Emoji</label>
-                          <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={editValues.emoji ?? ""} onChange={(v) => setEditValues((p) => ({ ...p, emoji: v.target.value }))} />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="mb-1 block text-xs text-muted-foreground">Foods (first line is the title)</label>
-                          <textarea className="w-full rounded-md border bg-background px-3 py-2 text-sm" rows={3} value={(editValues.foods ?? []).join("\n")} onChange={(v) => setEditValues((p) => ({ ...p, foods: v.target.value.split("\n").filter(Boolean) }))} />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Protein (g)</label>
-                          <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" type="number" min="0" value={editValues.protein_g ?? 0} onChange={(v) => setEditValues((p) => ({ ...p, protein_g: Number(v.target.value) }))} />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Fat (g)</label>
-                          <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" type="number" min="0" value={editValues.fat_g ?? 0} onChange={(v) => setEditValues((p) => ({ ...p, fat_g: Number(v.target.value) }))} />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Carbs (g)</label>
-                          <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" type="number" min="0" value={editValues.carbs_g ?? 0} onChange={(v) => setEditValues((p) => ({ ...p, carbs_g: Number(v.target.value) }))} />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Fiber (g)</label>
-                          <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" type="number" min="0" value={editValues.fiber_g ?? 0} onChange={(v) => setEditValues((p) => ({ ...p, fiber_g: Number(v.target.value) }))} />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs text-muted-foreground">Kcal</label>
-                          <input className="w-full rounded-md border bg-background px-3 py-2 text-sm" type="number" min="0" value={editValues.kcal ?? 0} onChange={(v) => setEditValues((p) => ({ ...p, kcal: Number(v.target.value) }))} />
-                        </div>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between">
-                        <button type="button" onClick={() => deleteEntry(e.file)} disabled={isPending} className="rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50">
-                          {showDeleteConfirm ? "Tap again to confirm delete" : "Delete"}
-                        </button>
-                        <div className="flex gap-2">
-                          <button type="button" onClick={cancelEdit} className="rounded-md border px-4 py-1.5 text-sm hover:bg-muted">Cancel</button>
-                          <button type="button" onClick={saveEdit} disabled={isPending || !(editValues.foods && editValues.foods.length > 0)} className="rounded-md px-4 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: NUTRITION_COLOR }}>
-                            {isPending ? "…" : "Save"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className={["py-3 px-4", isPending ? "opacity-50" : ""].filter(Boolean).join(" ")}
-                    >
-                      {/* Row 1: title (first food) + time + action buttons */}
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                          <Emoji>{e.emoji?.trim()}</Emoji>
-                          <span className="truncate">{e.foods[0]}</span>
-                          <span className="shrink-0 text-xs font-normal text-muted-foreground">{e.time || e.date}</span>
-                        </p>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={(ev) => { ev.stopPropagation(); startEdit(e); }}
-                            disabled={isPending}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 disabled:opacity-40 transition-colors"
-                            title="Edit entry"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(ev) => { ev.stopPropagation(); duplicate(e); }}
-                            disabled={isPending}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70 disabled:opacity-40 transition-colors"
-                            title="Duplicate to today"
-                          >
-                            <Copy size={14} />
-                          </button>
-                        </div>
-                      </div>
-                      {/* Row 2: remaining foods (skip first — it's the title) */}
-                      {e.foods.length > 1 && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{e.foods.slice(1).join(" · ")}</p>
-                      )}
-                      {/* Row 3: macro stats */}
-                      <div className="mt-1 flex items-center gap-2 text-sm font-semibold tabular-nums">
-                        <MiniMacroBar protein={e.protein_g} fat={e.fat_g} carbs={e.carbs_g || 0} fiber={e.fiber_g || 0} kcal={e.kcal} maxKcal={maxMealKcal} />
-                        <span style={{ color: targets.protein.color }}>{Math.round(e.protein_g)}P</span>
-                        <span className="text-muted-foreground/50"> · </span>
-                        <span style={{ color: targets.fat.color }}>{Math.round(e.fat_g)}F</span>
-                        <span className="text-muted-foreground/50"> · </span>
-                        <span style={{ color: targets.carbs.color }}>{Math.round(e.carbs_g || 0)}C</span>
-                        <span className="text-muted-foreground/50"> · </span>
-                        <span style={{ color: fiberTarget.color }}>{Math.round(e.fiber_g || 0)}Fb</span>
-                        <span className="text-muted-foreground/50"> · </span>
-                        <span style={{ color: targets.kcal.color }}>{Math.round(e.kcal)}kcal</span>
-                      </div>
-                    </div>
+                  {(
+                    <LogRow
+                      accent={NUTRITION_COLOR}
+                      emoji={e.emoji?.trim()}
+                      title={e.foods[0]}
+                      time={e.time || e.date}
+                      onClick={() => startEdit(e)}
+                      pending={isPending}
+                      actions={actions}
+                      body={
+                        <>
+                          {e.foods.length > 1 && (
+                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{e.foods.slice(1).join(" · ")}</p>
+                          )}
+                          <div className="mt-1 flex items-center gap-2 text-sm font-semibold tabular-nums">
+                            <MiniMacroBar protein={e.protein_g} fat={e.fat_g} carbs={e.carbs_g || 0} fiber={e.fiber_g || 0} kcal={e.kcal} maxKcal={maxMealKcal} />
+                            <span style={{ color: targets.protein.color }}>{Math.round(e.protein_g)}P</span>
+                            <span className="text-muted-foreground/50"> · </span>
+                            <span style={{ color: targets.fat.color }}>{Math.round(e.fat_g)}F</span>
+                            <span className="text-muted-foreground/50"> · </span>
+                            <span style={{ color: targets.carbs.color }}>{Math.round(e.carbs_g || 0)}C</span>
+                            <span className="text-muted-foreground/50"> · </span>
+                            <span style={{ color: fiberTarget.color }}>{Math.round(e.fiber_g || 0)}Fb</span>
+                            <span className="text-muted-foreground/50"> · </span>
+                            <span style={{ color: targets.kcal.color }}>{Math.round(e.kcal)}kcal</span>
+                          </div>
+                        </>
+                      }
+                    />
                   )}
                 </li>,
               );
               return rows;
             }, [])}
           </ul>
+          {!showAll && entries.some((e) => e.date !== today) && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="mt-3 w-full rounded-md py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            >
+              See all ({entries.length})
+            </button>
+          )}
           </>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 
@@ -631,11 +615,13 @@ function RecentEntriesList({ entries, fasting, loading, todayMealCount, onDuplic
 // same colour thresholds as the Fasting chart so the two agree visually.
 
 function FastingGap({ fast }: { fast: FastingWindow }) {
+  const macroColors = useMacroColors();
+  const accent = macroColors.fasting;
   if (fast.hours == null) {
     if (fast.note === "gap") {
       return (
-        <li className="flex justify-center py-1.5">
-          <span className="text-[11px] text-muted-foreground/70">incomplete logs</span>
+        <li className="py-0">
+          <LogRow accent={accent} emoji="⏳" title={<span style={{ color: accent }}>Incomplete logs</span>} />
         </li>
       );
     }
@@ -644,10 +630,14 @@ function FastingGap({ fast }: { fast: FastingWindow }) {
   const totalMin = Math.round(fast.hours * 60);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  const label = m === 0 ? `${h}h fast` : `${h}h ${m}m fast`;
+  const label = m === 0 ? `${h}h fasted` : `${h}h ${m}m fasted`;
   return (
-    <li className="flex justify-center py-1.5">
-      <span className="text-[11px] tabular-nums text-muted-foreground">{label}</span>
+    <li className="py-0">
+      <LogRow
+        accent={accent}
+        emoji="⏳"
+        title={<span className="tabular-nums" style={{ color: accent }}>{label}</span>}
+      />
     </li>
   );
 }

@@ -107,7 +107,9 @@ export function GroceriesDashboard() {
         </SectionHeaderAction>
       )}
 
-      <div className="mb-6 grid min-w-0 grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="xl:grid xl:grid-cols-2 xl:gap-6 xl:items-start">
+        <div className="space-y-6">
+        <div className="grid min-w-0 grid-cols-2 gap-4 sm:grid-cols-3">
         <StatCard
           label="Need"
           value={lowCount > 0 ? lowCount : null}
@@ -127,8 +129,8 @@ export function GroceriesDashboard() {
       </div>
 
       {totalCount > 0 && (
-        <div className="mb-6">
-          <div className="mb-1 flex items-baseline justify-between">
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="mb-2 flex items-baseline justify-between">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Stocked</p>
             <p className="text-xs tabular-nums text-muted-foreground">
               {stockedCount}/{totalCount}
@@ -143,8 +145,10 @@ export function GroceriesDashboard() {
         </div>
       )}
 
+        </div>
+        <div className="mt-6 xl:mt-0 space-y-4">
       {!shopperMode && showAdd && (
-        <Card className="mb-4">
+        <Card>
           <CardContent className="flex flex-wrap items-end gap-3 p-4">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-muted-foreground">Emoji</label>
@@ -200,17 +204,16 @@ export function GroceriesDashboard() {
             return (
               <TaskGroup key={cat} title={cat.charAt(0).toUpperCase() + cat.slice(1)} emoji={CATEGORY_EMOJI[cat]} accent={GROCERIES_COLOR} doneCount={catItems.filter((i) => i.low).length} totalCount={catItems.length}>
                 {catItems.map((it) => (
-                  <div key={it.id} className="flex items-center gap-2">
-                    <TaskRow
-                      label={it.name}
-                      emoji={it.emoji}
-                      sublabel={relativeDays(it.last_bought)}
-                      done={it.low}
-                      pending={pending.has(it.id)}
-                      accent={GROCERIES_COLOR}
-                      onClick={() => toggleLow(it)}
-                    />
-                  </div>
+                  <TaskRow
+                    key={it.id}
+                    label={it.name}
+                    emoji={it.emoji}
+                    sublabel={relativeDays(it.last_bought)}
+                    done={it.low}
+                    pending={pending.has(it.id)}
+                    accent={GROCERIES_COLOR}
+                    onClick={() => toggleLow(it)}
+                  />
                 ))}
               </TaskGroup>
             );
@@ -218,6 +221,8 @@ export function GroceriesDashboard() {
         </div>
       )}
 
+        </div>
+      </div>
     </>
   );
 }

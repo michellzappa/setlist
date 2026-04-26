@@ -3,8 +3,8 @@
 import { useState, useCallback, useMemo } from "react";
 import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TimeInput } from "@/components/time-input";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import { LogEntryModal, type FieldSpec } from "@/components/log-entry-modal";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 
 import {
@@ -18,6 +18,7 @@ import {
 } from "@/lib/api-gut";
 import { SectionHeaderAction, SectionHeaderActionButton } from "@/components/section-header-action";
 import { StatCard } from "@/components/stat-card";
+import { LogRow, type TaskRowAction } from "@/components/tasks";
 import {
   nowHHMM as currentTime,
 } from "@/lib/date-utils";
@@ -54,14 +55,11 @@ function fmtDuration(h: number | null): string {
 }
 
 export function GutDashboard() {
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formTime, setFormTime] = useState(currentTime());
-  const [formBristol, setFormBristol] = useState<number>(4);
-  const [formBlood, setFormBlood] = useState<number>(0);
-  const [formDiscomfortLevel, setFormDiscomfortLevel] = useState<"low" | "med" | "high" | "">("");
-  const [formDiscomfortHours, setFormDiscomfortHours] = useState<string>("");
-  const [formNote, setFormNote] = useState<string>("");
+  const [editor, setEditor] = useState<
+    | { mode: "create" }
+    | { mode: "edit"; entry: GutEntry }
+    | null
+  >(null);
   const [saving, setSaving] = useState(false);
   const { date: selectedDate } = useSelectedDate();
 
@@ -96,102 +94,119 @@ export function GutDashboard() {
     [config],
   );
 
-  const resetForm = useCallback(() => {
-    setFormTime(currentTime());
-    setFormBristol(4);
-    setFormBlood(0);
-    setFormDiscomfortLevel("");
-    setFormDiscomfortHours("");
-    setFormNote("");
-    setEditingId(null);
-  }, []);
-
-  const handleToggleForm = useCallback(() => {
-    setShowForm((open) => {
-      if (!open) resetForm();
-      return !open;
-    });
-  }, [resetForm]);
-
   const handleEdit = useCallback((entry: GutEntry) => {
-    setEditingId(entry.id);
-    setFormTime(entry.time.slice(0, 5));
-    setFormBristol(entry.bristol);
-    setFormBlood(entry.blood);
-    setFormDiscomfortLevel(entry.discomfort_level ?? "");
-    setFormDiscomfortHours(
-      entry.discomfort_hours != null && entry.discomfort_hours > 0
-        ? String(entry.discomfort_hours)
-        : "",
-    );
-    setFormNote(entry.note ?? "");
-    setShowForm(true);
+    setEditor({ mode: "edit", entry });
   }, []);
 
-  const handleCancel = useCallback(() => {
-    setShowForm(false);
-    resetForm();
-  }, [resetForm]);
-
-  const handleSave = useCallback(async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      const hours =
-        formDiscomfortHours.trim() === "" ? null : Number(formDiscomfortHours);
-      const hoursValid = hours == null || (Number.isFinite(hours) && hours >= 0);
-      const hoursPayload = hoursValid ? hours : null;
-      if (editingId) {
-        await updateGutEntry(editingId, selectedDate, {
-          time: formTime,
-          bristol: formBristol,
-          blood: formBlood,
-          discomfort_level: formDiscomfortLevel || null,
+  const handleSave = useCallback(
+    async (values: Record<string, unknown>) => {
+      if (saving) return;
+      setSaving(true);
+      try {
+        const time = String(values.time ?? "");
+        const bristol = Number(values.bristol ?? 4);
+        const blood = Number(values.blood ?? 0);
+        const levelRaw = values.discomfort_level;
+        const discomfort_level: "low" | "med" | "high" | null =
+          levelRaw === "low" || levelRaw === "med" || levelRaw === "high"
+            ? levelRaw
+            : null;
+        const hoursRaw = String(values.discomfort_hours ?? "").trim();
+        const hours = hoursRaw === "" ? null : Number(hoursRaw);
+        const hoursPayload =
+          hours == null || !Number.isFinite(hours) || hours < 0 ? null : hours;
+        const noteRaw = String(values.note ?? "").trim();
+        const payload = {
+          time,
+          bristol,
+          blood,
+          discomfort_level,
           discomfort_hours: hoursPayload,
-          note: formNote.trim() || null,
-        });
-      } else {
-        await addGutEntry({
-          date: selectedDate,
-          time: formTime,
-          bristol: formBristol,
-          blood: formBlood,
-          discomfort_level: formDiscomfortLevel || null,
-          discomfort_hours: hoursPayload,
-          note: formNote.trim() || null,
-        });
+          note: noteRaw || null,
+        };
+        if (editor?.mode === "edit") {
+          await updateGutEntry(editor.entry.id, selectedDate, payload);
+        } else {
+          await addGutEntry({ date: selectedDate, ...payload });
+        }
+        setEditor(null);
+        await mutate();
+      } finally {
+        setSaving(false);
       }
-      setShowForm(false);
-      resetForm();
-      await mutate();
-    } finally {
-      setSaving(false);
-    }
-  }, [
-    selectedDate,
-    editingId,
-    formTime,
-    formBristol,
-    formBlood,
-    formDiscomfortLevel,
-    formDiscomfortHours,
-    formNote,
-    saving,
-    mutate,
-    resetForm,
-  ]);
+    },
+    [selectedDate, editor, saving, mutate],
+  );
 
   const handleDelete = useCallback(
     async (entryId: string) => {
       await deleteGutEntry(entryId, selectedDate);
-      if (editingId === entryId) {
-        setShowForm(false);
-        resetForm();
-      }
+      if (editor?.mode === "edit" && editor.entry.id === entryId) setEditor(null);
       await mutate();
     },
-    [selectedDate, editingId, mutate, resetForm],
+    [selectedDate, editor, mutate],
   );
+
+  const fieldSchema: FieldSpec[] = useMemo(() => {
+    const bristolOpts = BRISTOL_IDS.map((id) => ({
+      value: id,
+      label: `${id} ${config?.bristol.find((b) => b.id === id)?.label ?? `Type ${id}`}`,
+      title: config?.bristol.find((b) => b.id === id)?.description ?? "",
+    }));
+    const bloodOpts = BLOOD_IDS.map((id) => ({
+      value: id,
+      label: `${id} · ${config?.blood.find((b) => b.id === id)?.label ?? id}`,
+    }));
+    return [
+      { kind: "time", key: "time", label: "Time" },
+      { kind: "chips", key: "bristol", label: "Bristol", options: bristolOpts, fill: false },
+      { kind: "chips", key: "blood", label: "Blood", options: bloodOpts },
+      {
+        kind: "chips",
+        key: "discomfort_level",
+        label: "Discomfort amount",
+        options: [
+          { value: "", label: "None" },
+          ...DISCOMFORT_LEVELS.map((l) => ({ value: l.id, label: l.label })),
+        ],
+      },
+      {
+        kind: "number",
+        key: "discomfort_hours",
+        label: "Discomfort (hours)",
+        unit: "h",
+        step: "0.25",
+      },
+      { kind: "textarea", key: "note", label: "Note", placeholder: "Note (optional)" },
+    ];
+  }, [config]);
+
+  const editorOpen = editor !== null;
+  const editorMode = editor?.mode ?? "create";
+  const editorInitial = useMemo<Record<string, unknown>>(() => {
+    if (editor?.mode === "edit") {
+      const e = editor.entry;
+      return {
+        time: e.time.slice(0, 5),
+        bristol: e.bristol,
+        blood: e.blood,
+        discomfort_level: e.discomfort_level ?? "",
+        discomfort_hours:
+          e.discomfort_hours != null && e.discomfort_hours > 0
+            ? String(e.discomfort_hours)
+            : "",
+        note: e.note ?? "",
+      };
+    }
+    return {
+      time: currentTime(),
+      bristol: 4,
+      blood: 0,
+      discomfort_level: "",
+      discomfort_hours: "",
+      note: "",
+    };
+  }, [editor]);
 
   // 30-day Bristol distribution
   const bristolHistogram = useMemo(() => {
@@ -238,10 +253,22 @@ export function GutDashboard() {
   return (
     <>
       <SectionHeaderAction>
-        <SectionHeaderActionButton color={GUT_COLOR} onClick={handleToggleForm}>
+        <SectionHeaderActionButton color={GUT_COLOR} onClick={() => setEditor({ mode: "create" })}>
           + Log
         </SectionHeaderActionButton>
       </SectionHeaderAction>
+
+      <LogEntryModal
+        open={editorOpen}
+        mode={editorMode}
+        title={editorMode === "edit" ? "Edit Movement" : "Log Movement"}
+        schema={fieldSchema}
+        initialValues={editorInitial}
+        saving={saving}
+        onClose={() => setEditor(null)}
+        onSubmit={handleSave}
+        onDelete={editor?.mode === "edit" ? () => handleDelete(editor.entry.id) : undefined}
+      />
 
       {error && (
         <Card className="mb-4 border-red-500/30 bg-red-500/10">
@@ -251,250 +278,36 @@ export function GutDashboard() {
         </Card>
       )}
 
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">{editingId ? "Edit Movement" : "Log Movement"}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-2">
-              <TimeInput
-                value={formTime}
-                onChange={(v) => setFormTime(v)}
-                className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-
-            <div>
-              <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Bristol
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {BRISTOL_IDS.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setFormBristol(id)}
-                    title={bristolDesc(id)}
-                    className="rounded-md border border-border px-3 py-2 text-xs font-medium transition-colors"
-                    style={
-                      formBristol === id
-                        ? { backgroundColor: GUT_COLOR, color: "white", borderColor: GUT_COLOR }
-                        : undefined
-                    }
-                  >
-                    <span className="mr-1 font-bold">{id}</span>
-                    {bristolLabel(id)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Blood
-              </p>
-              <div className="flex gap-1.5">
-                {BLOOD_IDS.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setFormBlood(id)}
-                    className="flex-1 rounded-md border border-border px-3 py-2 text-xs font-medium transition-colors"
-                    style={
-                      formBlood === id
-                        ? { backgroundColor: GUT_COLOR, color: "white", borderColor: GUT_COLOR }
-                        : undefined
-                    }
-                  >
-                    {id} · {bloodLabel(id)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Discomfort amount
-              </p>
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setFormDiscomfortLevel("")}
-                  className="flex-1 rounded-md border border-border px-3 py-2 text-xs font-medium transition-colors"
-                  style={
-                    formDiscomfortLevel === ""
-                      ? { backgroundColor: GUT_COLOR, color: "white", borderColor: GUT_COLOR }
-                      : undefined
-                  }
-                >
-                  None
-                </button>
-                {DISCOMFORT_LEVELS.map((level) => (
-                  <button
-                    key={level.id}
-                    type="button"
-                    onClick={() => setFormDiscomfortLevel(level.id)}
-                    className="flex-1 rounded-md border border-border px-3 py-2 text-xs font-medium transition-colors"
-                    style={
-                      formDiscomfortLevel === level.id
-                        ? { backgroundColor: GUT_COLOR, color: "white", borderColor: GUT_COLOR }
-                        : undefined
-                    }
-                  >
-                    {level.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Discomfort (hours)
-              </p>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.25"
-                min="0"
-                placeholder="0"
-                value={formDiscomfortHours}
-                onChange={(e) => setFormDiscomfortHours(e.target.value)}
-                className="w-32 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-
-            <textarea
-              placeholder="Note (optional)"
-              value={formNote}
-              onChange={(e) => setFormNote(e.target.value)}
-              rows={2}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-            />
-
-            <div className="flex gap-2">
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={() => handleDelete(editingId)}
-                  className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-500/15 dark:text-red-300"
-                >
-                  Delete
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="flex-1 rounded-xl border border-border bg-card py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                style={{ backgroundColor: GUT_COLOR }}
-              >
-                {saving ? "Saving…" : editingId ? "Save changes" : "Save"}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Today's summary */}
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard
-          label="Movements"
-          value={day ? day.movement_count : null}
-          color={GUT_COLOR}
-        />
-        <StatCard
-          label="Blood"
-          value={day ? bloodLabel(day.max_blood) : null}
-          color={day && day.max_blood > 0 ? SECTION_ACCENT_STRONG : GUT_COLOR}
-        />
-        <StatCard
-          label="Discomfort"
-          value={day ? fmtDuration(day.total_discomfort_h || null) : null}
-          color={GUT_COLOR}
-        />
-        <StatCard
-          label="Open"
-          value={day ? openDiscomfort : null}
-          sublabel={openDiscomfort > 0 ? "Unresolved discomfort" : undefined}
-          color={openDiscomfort > 0 ? SECTION_ACCENT_SHADE_2 : GUT_COLOR}
-        />
-      </div>
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[1fr_1fr]">
-        {/* Today's log */}
-        <div>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : day && day.entries.length > 0 ? (
-            <div className="space-y-2">
-              {day.entries.map((entry) => (
-                <div
-                  key={entry.id}
-                  onClick={() => handleEdit(entry)}
-                  className="cursor-pointer rounded-xl border border-border bg-card px-4 py-3 hover:bg-muted/40"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex shrink-0 items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold"
-                      style={{ backgroundColor: GUT_COLOR, color: "white" }}
-                    >
-                      {entry.time.slice(0, 5)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">
-                        <span>Bristol {entry.bristol}</span>
-                        <span className="ml-2 text-muted-foreground">
-                          · {bristolLabel(entry.bristol)}
-                        </span>
-                        {entry.blood > 0 && (
-                          <span className="ml-2 font-semibold" style={{ color: SECTION_ACCENT_STRONG }}>
-                            · Blood: {bloodLabel(entry.blood)}
-                          </span>
-                        )}
-                        {entry.discomfort_hours != null && entry.discomfort_hours > 0 && (
-                          <span className="ml-2 text-muted-foreground">
-                            · Discomfort {fmtDuration(entry.discomfort_hours)}
-                          </span>
-                        )}
-                        {entry.discomfort_level && (
-                          <span className="ml-2 text-muted-foreground">
-                            · Discomfort level: {discomfortLevelLabel(entry.discomfort_level)}
-                          </span>
-                        )}
-                      </p>
-                      {entry.note && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">{entry.note}</p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      aria-label={`Edit ${entry.time.slice(0, 5)} gut event`}
-                      onClick={(e) => { e.stopPropagation(); handleEdit(entry); }}
-                      className="shrink-0 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                    >
-                      ...
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            !showForm && (
-              <p className="text-sm text-muted-foreground">No movements logged today.</p>
-            )
-          )}
-        </div>
+        <div className="min-w-0 space-y-6">
+          {/* Today's summary */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <StatCard
+              label="Movements"
+              value={day ? day.movement_count : null}
+              color={GUT_COLOR}
+            />
+            <StatCard
+              label="Blood"
+              value={day ? bloodLabel(day.max_blood) : null}
+              color={day && day.max_blood > 0 ? SECTION_ACCENT_STRONG : GUT_COLOR}
+            />
+            <StatCard
+              label="Discomfort"
+              value={day ? fmtDuration(day.total_discomfort_h || null) : null}
+              color={GUT_COLOR}
+            />
+            <StatCard
+              label="Open"
+              value={day ? openDiscomfort : null}
+              sublabel={openDiscomfort > 0 ? "Unresolved discomfort" : undefined}
+              color={openDiscomfort > 0 ? SECTION_ACCENT_SHADE_2 : GUT_COLOR}
+            />
+          </div>
 
-        {/* Bristol distribution (today) */}
-        <Card>
+          {/* Bristol distribution (today) */}
+          <Card>
           <CardHeader className="pb-2">
             <CardTitle>Bristol Distribution · Today</CardTitle>
             <p className="text-xs text-muted-foreground">
@@ -502,7 +315,7 @@ export function GutDashboard() {
             </p>
           </CardHeader>
           <CardContent className="min-w-0 overflow-hidden px-4">
-            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+            <ChartContainer config={chartConfig} className="h-[140px] w-full">
               <BarChart data={bristolHistogram} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid {...CHART_GRID} />
                 <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
@@ -524,7 +337,7 @@ export function GutDashboard() {
               </p>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={chartConfig} className="h-[200px] w-full">
+              <ChartContainer config={chartConfig} className="h-[140px] w-full">
                 <BarChart data={dailyMovements} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis {...WEEKDAY_X_AXIS} interval={"preserveStartEnd" as const} />
@@ -546,7 +359,7 @@ export function GutDashboard() {
               </p>
             </CardHeader>
             <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={chartConfig} className="h-[200px] w-full">
+              <ChartContainer config={chartConfig} className="h-[140px] w-full">
                 <LineChart data={avgBristolSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid {...CHART_GRID} />
                   <XAxis {...WEEKDAY_X_AXIS} interval={"preserveStartEnd" as const} />
@@ -564,29 +377,89 @@ export function GutDashboard() {
           </Card>
         )}
 
-        {/* Discomfort hours over time */}
-        {discomfortSeries.some((p) => p.discomfort > 0) && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Discomfort · last 30 Days</CardTitle>
-              <p className="text-xs text-muted-foreground">Daily discomfort hours.</p>
-            </CardHeader>
-            <CardContent className="min-w-0 overflow-hidden px-4">
-              <ChartContainer config={chartConfig} className="h-[200px] w-full">
-                <BarChart data={discomfortSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid {...CHART_GRID} />
-                  <XAxis {...WEEKDAY_X_AXIS} interval={"preserveStartEnd" as const} />
-                  <YAxis {...Y_AXIS} width={28} tick={{ fontSize: 11 }} />
-                  <Bar
-                    dataKey="discomfort"
-                    fill="var(--color-discomfort)"
-                    radius={[3, 3, 0, 0]}
+          {/* Discomfort hours over time */}
+          {discomfortSeries.some((p) => p.discomfort > 0) && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Discomfort · last 30 Days</CardTitle>
+                <p className="text-xs text-muted-foreground">Daily discomfort hours.</p>
+              </CardHeader>
+              <CardContent className="min-w-0 overflow-hidden px-4">
+                <ChartContainer config={chartConfig} className="h-[140px] w-full">
+                  <BarChart data={discomfortSeries} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid {...CHART_GRID} />
+                    <XAxis {...WEEKDAY_X_AXIS} interval={"preserveStartEnd" as const} />
+                    <YAxis {...Y_AXIS} width={28} tick={{ fontSize: 11 }} />
+                    <Bar
+                      dataKey="discomfort"
+                      fill="var(--color-discomfort)"
+                      radius={[3, 3, 0, 0]}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Today's log */}
+        <div className="min-w-0">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : day && day.entries.length > 0 ? (
+            <div className="space-y-2">
+              {day.entries.map((entry) => {
+                const actions: TaskRowAction[] = [
+                  { label: "Edit", onSelect: () => handleEdit(entry) },
+                  {
+                    label: "Delete",
+                    tone: "destructive",
+                    confirm: "Delete this entry?",
+                    onSelect: () => handleDelete(entry.id),
+                  },
+                ];
+                const title = (
+                  <span>
+                    Bristol {entry.bristol}
+                    <span className="ml-2 font-normal text-muted-foreground">
+                      · {bristolLabel(entry.bristol)}
+                    </span>
+                    {entry.blood > 0 && (
+                      <span className="ml-2 font-semibold" style={{ color: SECTION_ACCENT_STRONG }}>
+                        · Blood: {bloodLabel(entry.blood)}
+                      </span>
+                    )}
+                  </span>
+                );
+                const detailParts: string[] = [];
+                if (entry.discomfort_hours != null && entry.discomfort_hours > 0) {
+                  detailParts.push(`Discomfort ${fmtDuration(entry.discomfort_hours)}`);
+                }
+                if (entry.discomfort_level) {
+                  detailParts.push(`Discomfort level: ${discomfortLevelLabel(entry.discomfort_level)}`);
+                }
+                return (
+                  <LogRow
+                    key={entry.id}
+                    accent={GUT_COLOR}
+                    time={entry.time.slice(0, 5)}
+                    title={title}
+                    details={detailParts.length > 0 ? `· ${detailParts.join(" · ")}` : undefined}
+                    body={
+                      entry.note ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{entry.note}</p>
+                      ) : undefined
+                    }
+                    onClick={() => handleEdit(entry)}
+                    actions={actions}
                   />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        )}
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No movements logged today.</p>
+          )}
+        </div>
       </div>
     </>
   );
