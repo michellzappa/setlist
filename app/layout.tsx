@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: "Septena — local-first personal health command center",
-    template: "%s · Septena",
+    template: "%s – Septena",
   },
   description: DESCRIPTION,
   keywords: [

@@ -151,6 +151,11 @@ export const einkSchema = toggle({
 /* ── Animations ────────────────────────────────────────────────────────── */
 
 export const animationsSchema = group("Animations", {
+  histograms_raise: toggle({
+    label: "Raise histograms",
+    description: "Quick raise-from-baseline on chart bars when a card loads.",
+    default: true,
+  }),
   training_complete: toggle({
     label: "Training complete",
     description: "Confetti when a workout wraps.",
@@ -159,11 +164,6 @@ export const animationsSchema = group("Animations", {
   first_meal: toggle({
     label: "First meal",
     description: "Break-fast burst on today's first nutrition entry.",
-    default: true,
-  }),
-  histograms_raise: toggle({
-    label: "Raise histograms",
-    description: "Quick raise-from-baseline on chart bars when a card loads.",
     default: true,
   }),
   habits_complete: toggle({

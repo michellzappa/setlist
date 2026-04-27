@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Groceries" };
+
 import dynamic from "next/dynamic";
 
 const GroceriesDashboard = dynamic(() => import("@/components/groceries-dashboard").then(m => m.GroceriesDashboard));

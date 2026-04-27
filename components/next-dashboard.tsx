@@ -96,7 +96,7 @@ function NextActionRow({
   return (
     <div
       className={cn(
-        "flex min-w-0 items-stretch overflow-hidden rounded-xl border transition-colors",
+        "relative flex min-w-0 items-stretch overflow-hidden rounded-xl border transition-colors",
         primary
           ? "border-transparent text-white"
           : "border-border bg-card hover:border-[color:var(--action-accent)]",
@@ -109,6 +109,13 @@ function NextActionRow({
         } as React.CSSProperties
       }
     >
+      {!primary && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-1"
+          style={{ backgroundColor: color }}
+        />
+      )}
       <button
         type="button"
         disabled={pending}

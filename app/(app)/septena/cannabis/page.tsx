@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Cannabis" };
+
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 

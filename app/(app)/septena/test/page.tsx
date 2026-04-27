@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Test" };
+
 import { getStats, getExercises, getProgression } from "@/lib/api";
 
 // Debug-only page — fetches at request time so build doesn't try to

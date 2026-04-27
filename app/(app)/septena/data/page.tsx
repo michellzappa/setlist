@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Data" };
+
 import { DataMeta } from "@/components/data-meta";
 import { PageHeader } from "@/components/page-header";
 

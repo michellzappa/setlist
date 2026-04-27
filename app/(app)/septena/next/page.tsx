@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Next" };
+
 import dynamic from "next/dynamic";
 
 const NextDashboard = dynamic(() =>

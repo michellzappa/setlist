@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Clock, GripVertical, LayoutGrid, PanelTop } from "lucide-react";
+import { Clock, Globe, GripVertical, LayoutGrid, PanelTop } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import useSWR, { mutate as globalMutate } from "swr";
 import { useSections, useSectionColor } from "@/hooks/use-sections";
@@ -41,7 +41,10 @@ import {
   DEFAULT_DAY_END,
 } from "@/lib/day-phases";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { SeptenaMark } from "@/components/septena-mark";
+import { GitHubStarButton } from "@/components/github-star-button";
 import { cn } from "@/lib/utils";
 
 export function SettingsDashboard() {
@@ -50,8 +53,6 @@ export function SettingsDashboard() {
   // Live color from /api/sections, not the static SECTIONS fallback —
   // honors user customisation in settings.yaml.
   const correlationsColor = useSectionColor("correlations");
-  const trainingColor = useSectionColor("training");
-  const nutritionColor = useSectionColor("nutrition");
   const { data, isLoading, mutate } = useSWR("settings", getSettings);
   const { data: habitsCfg } = useSWR("habits-config", getHabitConfig);
   const { data: supplCfg } = useSWR("supplements-config", getSupplementConfig);
@@ -491,13 +492,17 @@ export function SettingsDashboard() {
             <div className="divide-y divide-border/60">
               {Object.entries(animationsSchema.children).map(([key, child]) => {
                 // Each row picks up its owning section's accent so toggle
-                // colour matches the surface it celebrates.
+                // colour matches the surface it celebrates. Section is derived
+                // from the animation key's prefix (e.g. `habits_complete` →
+                // `habits`) and resolved via live section metadata — never
+                // hardcoded.
+                const ANIMATION_SECTION_OVERRIDES: Record<string, SectionKey> = {
+                  first_meal: "nutrition",
+                };
+                const sectionKey =
+                  ANIMATION_SECTION_OVERRIDES[key] ?? (key.split("_")[0] as SectionKey);
                 const rowColor =
-                  key === "training_complete"
-                    ? trainingColor
-                    : key === "first_meal"
-                      ? nutritionColor
-                      : accent;
+                  sectionsMeta.find((s) => s.key === sectionKey)?.color ?? accent;
                 const view = toAnimationsView(draft.animations);
                 return (
                   <SettingsRenderer
@@ -514,16 +519,31 @@ export function SettingsDashboard() {
           </CardContent>
         </Card>
 
-        <footer className="pt-6 pb-2 text-center text-xs text-muted-foreground">
-          <a
-            href="https://www.septena.app"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-foreground transition-colors"
-          >
-            Septena · www.septena.app
-          </a>
-        </footer>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">About</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-3 py-4 text-center">
+            <SeptenaMark className="h-10 w-10" />
+            <div className="font-heading text-lg">Septena</div>
+            <p className="max-w-xs text-xs text-muted-foreground">
+              A local-first personal health command center. Training, nutrition, habits, sleep,
+              and vitals — stored as plain YAML on your disk, ready for any AI agent you trust.
+            </p>
+            <div className="flex flex-col items-center gap-2 pt-1">
+              <a
+                href="https://www.septena.app"
+                target="_blank"
+                rel="noreferrer"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              >
+                <Globe />
+                septena.app
+              </a>
+              <GitHubStarButton />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </>
   );

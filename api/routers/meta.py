@@ -15,31 +15,25 @@ from fastapi import APIRouter
 from api.paths import (
     APPLE_HEALTH_PATH,
     CACHE_DIR,
-    CAFFEINE_DIR,
-    CANNABIS_DIR,
-    CHORES_LOG_DIR,
-    DATA_DIR,
     DATA_ROOT,
-    HABITS_DIR,
     HEALTH_CACHE_PATH,
     HEALTH_ROOT,
     INTEGRATIONS_DIR,
-    NUTRITION_DIR,
     OURA_TOKEN_PATH,
-    SUPPL_DIR,
     WITHINGS_CREDS_PATH,
     WITHINGS_TOKEN_PATH,
     available_sections,
 )
+from api.section_manifest import load_section_manifest
 
 router = APIRouter(tags=["meta"])
 
 
-def _dir_meta(directory: Path, pattern: str = "*.md") -> Dict[str, Any]:
+def _dir_meta(directory: Path, pattern: str = "*.md", recursive: bool = False) -> Dict[str, Any]:
     """Return file count, newest and oldest file dates for a data directory."""
     if not directory.exists():
         return {"files": 0, "newest": None, "oldest": None, "dir": str(directory)}
-    files = sorted(directory.glob(pattern))
+    files = sorted(directory.rglob(pattern) if recursive else directory.glob(pattern))
     if not files:
         return {"files": 0, "newest": None, "oldest": None, "dir": str(directory)}
     # Extract dates from filenames (YYYY-MM-DD prefix) or fall back to mtime
@@ -50,6 +44,10 @@ def _dir_meta(directory: Path, pattern: str = "*.md") -> Dict[str, Any]:
         part = name[:10]
         if len(part) == 10 and part[4] == "-" and part[7] == "-":
             dates.append(part)
+        else:
+            compact = name[:8]
+            if len(compact) == 8 and compact.isdigit():
+                dates.append(f"{compact[:4]}-{compact[4:6]}-{compact[6:8]}")
         mtimes.append(f.stat().st_mtime)
     newest_date = max(dates) if dates else None
     oldest_date = min(dates) if dates else None
@@ -100,20 +98,14 @@ def get_meta() -> Dict[str, Any]:
     """Data quality and recency overview for all sections."""
     sources: Dict[str, Any] = {}
 
-    # Training
-    sources["training"] = {"label": "Training", **_dir_meta(DATA_DIR)}
-    # Nutrition
-    sources["nutrition"] = {"label": "Nutrition", **_dir_meta(NUTRITION_DIR)}
-    # Habits
-    sources["habits"] = {"label": "Habits", **_dir_meta(HABITS_DIR)}
-    # Chores
-    sources["chores"] = {"label": "Chores", **_dir_meta(CHORES_LOG_DIR)}
-    # Supplements
-    sources["supplements"] = {"label": "Supplements", **_dir_meta(SUPPL_DIR)}
-    # Cannabis
-    sources["cannabis"] = {"label": "Cannabis", **_dir_meta(CANNABIS_DIR)}
-    # Caffeine
-    sources["caffeine"] = {"label": "Caffeine", **_dir_meta(CAFFEINE_DIR)}
+    # Every manifest entry with a non-empty dataDir gets a row automatically.
+    # Health is special-cased below (external integrations, no data folder).
+    for key, entry in load_section_manifest().items():
+        data_dir = str(entry.get("dataDir") or "")
+        if not data_dir or key == "health":
+            continue
+        label = str(entry.get("label") or key.capitalize())
+        sources[key] = {"label": label, **_dir_meta(DATA_ROOT / data_dir, recursive=True)}
 
     # Health — external sources
     health_sub: Dict[str, Any] = {}

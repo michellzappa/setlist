@@ -28,6 +28,7 @@ import {
   DEFAULT_DAY_END,
   activePhaseId,
   isPastPhase,
+  phaseStartMinutes,
   resolvePhases,
   timeLeftInPhase,
 } from "@/lib/day-phases";
@@ -76,6 +77,7 @@ export type NextAction = {
   href?: string;
   buttonLabel?: string;
   muted?: boolean;
+  proposedMinutes?: number;
 };
 
 export type NextData = {
@@ -191,6 +193,7 @@ function firstDailyTimes<T extends { date: string; time: string }>(items: T[], b
 export type ComputedNext = {
   primary: NextAction | null;
   queue: NextAction[];
+  upcoming: NextAction[];
   later: NextAction[];
   done: NextAction[];
   activePhase: ReturnType<typeof DEFAULT_DAY_PHASES.find> | undefined;
@@ -358,6 +361,7 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
         bucket: habit.done ? "done" : currentPhase || past ? "now" : "later",
         task: { type: "habit", id: habit.id, done: habit.done },
         muted: past && !habit.done,
+        proposedMinutes: usual ?? (phase ? phaseStartMinutes(phase) : undefined),
       };
       if (habit.done) done.push({ ...action, detail: habit.time ? `Done ${habit.time}` : "Done today" });
       else actions.push(action);
@@ -377,6 +381,7 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
         score: 75 + timingScore(usual, nowMinutes, isToday),
         bucket: item.done ? "done" : "now",
         task: { type: "supplement", id: item.id, done: item.done },
+        proposedMinutes: usual ?? undefined,
       };
       if (item.done) done.push({ ...action, detail: item.time ? `Taken ${item.time}` : "Taken today" });
       else actions.push(action);
@@ -438,6 +443,7 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
         bucket,
         href: `/septena/training/session/start?type=${type}`,
         buttonLabel: "Start",
+        proposedMinutes: usualTraining ?? undefined,
       });
     } else if (trainedToday) {
       done.push({
@@ -503,6 +509,7 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
         bucket: "now",
         modal: "nutrition",
         buttonLabel: "Log",
+        proposedMinutes: firstMealUsual,
       });
     }
 
@@ -520,12 +527,20 @@ export function useNextActions(selectedDate: string, isToday: boolean) {
         bucket: "now",
         modal: "caffeine",
         buttonLabel: "Log",
+        proposedMinutes: firstCaffeineUsual,
       });
     }
 
     const sortedNow = actions
       .filter((action) => action.bucket === "now" && !skipped.has(action.id))
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => {
+        const at = a.proposedMinutes;
+        const bt = b.proposedMinutes;
+        if (at != null && bt != null) return at - bt;
+        if (at != null) return -1;
+        if (bt != null) return 1;
+        return b.score - a.score;
+      });
     const primary = sortedNow[0] ?? null;
     const queue = sortedNow.slice(primary ? 1 : 0);
     const upcoming = sortedNow;

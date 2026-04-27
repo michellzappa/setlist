@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { getGutHistory } from "@/lib/api-gut";
 import type { SectionMeta } from "@/lib/api";
+import type { SectionKey } from "@/lib/sections";
 
 type StripRow = {
   headline: string;
@@ -24,6 +25,20 @@ type StripRow = {
 };
 
 type Adapter = () => Promise<StripRow>;
+type StripSectionKey = Extract<
+  SectionKey,
+  | "training"
+  | "nutrition"
+  | "habits"
+  | "supplements"
+  | "cannabis"
+  | "caffeine"
+  | "chores"
+  | "tasks"
+  | "groceries"
+  | "gut"
+  | "air"
+>;
 
 function tail7<T>(arr: T[] | undefined): T[] {
   return (arr ?? []).slice(-7);
@@ -34,7 +49,7 @@ function pad7(values: number[]): number[] {
   return [...Array(7 - values.length).fill(0), ...values];
 }
 
-const ADAPTERS: Record<string, Adapter> = {
+const ADAPTERS: Partial<Record<StripSectionKey, Adapter>> = {
   training: async () => {
     const r = await getCardioHistory(7);
     const daily = tail7(r.daily);
@@ -109,6 +124,10 @@ const ADAPTERS: Record<string, Adapter> = {
   },
 };
 
+function isStripSectionKey(key: string): key is StripSectionKey {
+  return key in ADAPTERS;
+}
+
 function Sparkline({ bars, color }: { bars: number[]; color: string }) {
   const max = Math.max(1, ...bars);
   const w = 96;
@@ -139,7 +158,7 @@ function Sparkline({ bars, color }: { bars: number[]; color: string }) {
 }
 
 function StripRowView({ section }: { section: SectionMeta }) {
-  const adapter = ADAPTERS[section.key];
+  const adapter = isStripSectionKey(section.key) ? ADAPTERS[section.key] : undefined;
   const { data, error } = useSWR(
     adapter ? ["week-strip", section.key] : null,
     () => adapter!(),
@@ -168,7 +187,7 @@ function StripRowView({ section }: { section: SectionMeta }) {
 }
 
 export function WeekStrip() {
-  const sections = useSections().filter((s) => s.enabled && ADAPTERS[s.key]);
+  const sections = useSections().filter((s) => s.enabled && isStripSectionKey(s.key));
   if (sections.length === 0) return null;
   return (
     <div className="mb-6 flex flex-col gap-0.5 border border-border rounded-lg p-2 bg-card">
